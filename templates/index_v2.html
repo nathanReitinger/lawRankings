@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Filter Highlight Toggle</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@600&family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  
+
+  
+  <style>
+
+    /* Left pane (starts at 25% of screen width) */
+    .left-pane {
+        /* width: 25%; */
+        width: var(--left-pane-width, 250px); /* Default width if none saved */
+        background-color: rgba(0, 0, 0, 0.1); /* Light background for left pane */
+        padding: 15px; /* Padding inside the left pane */
+        box-sizing: border-box; /* Ensure padding is inside the width */
+    }
+    /* Right pane (takes up the remaining space) */
+    .right-pane {
+        width: 75%;
+        padding: 15px; /* Padding inside the right pane */
+        box-sizing: border-box; /* Ensure padding is inside the width */
+    }
+
+
+    .font-garamond {
+      font-family: 'EB Garamond', serif;
+    }
+    .font-crimson {
+      font-family: 'Crimson Text', serif;
+    }
+    .boxed-title {
+      border: 1px solid black;
+      padding: 0.5rem 1rem;
+      display: inline-block;
+      letter-spacing: 0.25rem;
+      font-size: 1.5rem;
+    }
+
+    .table-container {
+        display: block;
+        width: 100%; /* Full width of the container */
+        margin: 5px auto;
+        padding: 3px;
+        max-height: 80vh; /* Full screen height for large screens */
+        overflow-y: auto; /* Enable vertical scrolling if content exceeds the container's height */
+        backdrop-filter: blur(2px); /* Frosted glass effect */
+        border-radius: 15px; /* Rounded corners */
+        border: 2px solid rgba(0, 0, 0, 0.2); /* Light border for subtle separation */
+        box-sizing: border-box; /* Ensure padding and border are included in the height calculation */
+    }
+
+    /* Make adjustments for smaller screens */
+    @media (max-width: 1000px) {
+        .table-container {
+            max-height: 60vh; /* Reduce height on smaller screens to fit the content */
+            padding: 5px; /* Adjust padding for smaller screens */
+        }
+
+        /* Optionally, reduce font size for better readability */
+        .table-container table {
+            font-size: 14px; /* Smaller font size for mobile/tablet screens */
+        }
+    }
+
+    /* Ensure there's a border at the bottom even when content is cut off */
+    .table-container::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .table-container::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-radius: 5px;
+    }
+
+    /* For any screen size, the bottom border is always visible */
+    .table-container::after {
+        content: '';
+        display: block;
+        height: 2px;
+        background-color: rgba(0, 0, 0, 0.2);
+        margin-top: 5px;
+    }
+
+    /* Customized School Table Styling */
+    .school-table {
+        /* width: 100%;  */
+        border-collapse: collapse;
+        background-color: transparent; /* Transparent background */
+        color: #333; /* Dark text for better readability */
+        font-family: 'Crimson Text', serif; /* Use Old Style 7 Std font */
+        table-layout: auto; /* Let columns size based on content */
+    }
+
+    /* Reduced padding for rows */
+    .school-table th, .school-table td {
+        padding: 6px 10px; /* Reduced vertical padding to bring rows closer together */
+        text-align: left;
+        font-size: 16px;
+    }
+
+    .school-table th {
+        background-color: rgba(255, 255, 255, 0.1); /* Slightly darker background for headers */
+        font-weight: bold;
+    }
+
+    /* Alternating row colors */
+    /* .school-table tr:nth-child(even) { */
+        /* background-color: rgba(240, 240, 240, 0.7); */
+    /* } */
+    /* .school-table tr:nth-child(odd) { */
+        /* background-color: rgba(255, 255, 255, 0.7);  */
+    /* } */
+
+    /* first column right align */
+    .school-table th:first-child,
+    .school-table td:first-child {
+        text-align: right;
+    }​
+
+    /* Hover effect to highlight row */
+    .school-table tr:hover {
+        background-color: rgba(255, 255, 255, 0.9); /* Light highlight on hover */
+    }
+
+    .school-table td, .school-table th {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Subtle bottom border between rows */
+    }
+
+    /* Responsive Table */
+    @media (max-width: 768px) {
+        .school-table th, .school-table td {
+            font-size: 14px;
+            padding: 8px 10px; /* Slightly adjusted padding for smaller screens */
+        }
+    }
+
+    .faculty-popup {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        /* width: 80vw; */
+        max-height: 90vh; /* 90% of the viewport height */
+        overflow-y: auto;
+        background: rgba(255, 255, 255, 0.1); /* Semi-transparent background */
+        border-radius: 15px;
+        backdrop-filter: blur(15px); /* Glassmorphism blur effect */
+        border: 2px solid rgba(255, 255, 255, 0.3); /* Subtle border */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Soft shadow */
+        z-index: 1050;
+        padding: 20px; /* Reduced padding around the popup */
+        font-family: 'Arial', sans-serif;
+        color: #fff; /* White text for contrast */
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
+
+    /* Faculty Popup Header Styling */
+    .faculty-popup h3 {
+        margin-top: 0;
+        font-size: 1em; /* Slightly smaller header size */
+        color: #020000;
+        font-weight: bold;
+        text-align: center;
+        font-variant: small-caps; /* Makes the text appear in small caps */
+        font-family: 'EB Garamond', serif; /* Elegant font good for small caps */
+    }
+
+    .faculty-popup table {
+        width: 100%;
+        margin-top: 10px; /* Reduced margin to minimize empty space */
+        border-collapse: collapse; /* Removes spacing between cells */
+        border-spacing: 0; /* Ensures there's no space between columns */
+    }
+
+    .faculty-popup table th, .faculty-popup table td {
+        padding: 5px 8px; /* Further reduced padding to minimize space */
+        border: 1px solid rgba(255, 255, 255, 0.3); /* Transparent borders */
+        text-align: left;
+        font-size: 0.9em; /* Smaller text for a more compact layout */
+    }
+
+    .faculty-popup table th {
+        background-color: rgba(255, 255, 255, 0.2); /* Semi-transparent header background */
+        font-weight: bold;
+    }
+
+    .faculty-popup .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 24px;
+        font-weight: bold;
+        cursor: pointer;
+        color: #2e2a2a;
+        background-color: transparent;
+        border: none;
+        transition: color 0.3s ease;
+    }
+
+    .faculty-popup .close-btn:hover {
+        color: #e74c3c; /* Red on hover */
+    }
+    
+    .faculty-table {
+        display: none;
+    }
+  </style>
+
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans">
+
+  <div class="flex h-screen overflow-hidden">
+    <!-- Left Pane -->
+    <div id="leftPane" class="flex flex-col justify-between bg-white border-r p-4 shadow-md" style="width: 250px; min-width: 180px; overflow-y: auto;">
+      <form id="filterForm" method="POST" action="/">
+
+        <!-- Year Selector Section -->
+        <div class="space-y-6 mb-6">
+          <h2 class="text-lg font-semibold mb-3 text-gray-700">Years</h2>
+          <div class="flex gap-4">
+            <div class="flex-1">
+              <label for="fromYear" class="block text-sm font-medium text-gray-600">From</label>
+              <input type="number" id="fromYear" name="from_year" min="1900" max="2100" placeholder="Enter year" class="mt-1 p-2 w-full border rounded-md text-sm text-gray-700 focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex-1">
+              <label for="toYear" class="block text-sm font-medium text-gray-600">To</label>
+              <input type="number" id="toYear" name="to_year" min="1900" max="2100" placeholder="Enter year" class="mt-1 p-2 w-full border rounded-md text-sm text-gray-700 focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- General -->
+        <div class="space-y-6 mb-6">
+          <h2 class="text-lg font-semibold mb-3 text-gray-700">General</h2>
+          <div id="generalButtons" class="flex flex-col gap-2 text-sm"></div>
+        </div>
+
+        <!-- Specialty -->
+        <div class="space-y-6 mb-6">
+          <div class="flex justify-between items-center mb-3">
+            <h2 class="text-lg font-semibold text-gray-700">Specialty</h2>
+            <div class="flex gap-2">
+              <button id="selectAllSpecialty" type="button" class="text-xs text-blue-600 hover:underline">Select All</button>
+              <button id="clearFilters" type="button" class="text-xs text-blue-600 hover:underline">Clear All</button>
+            </div>
+          </div>
+
+            <!-- New Box with Click-on Button Selectors -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <div class="flex gap-2">
+                    <button class="text-xs text-blue-600 hover:underline" id="top1Button">Top 1</button>
+                    <button class="text-xs text-blue-600 hover:underline" id="top5Button">Top 5</button>
+                    <button class="text-xs text-blue-600 hover:underline" id="top10Button">Top 10</button>
+                    <button class="text-xs text-blue-600 hover:underline" id="top25Button">Top 25</button>
+                    <button class="text-xs text-blue-600 hover:underline" id="topallButton">All</button>
+                </div>
+            </div>
+
+          <div id="filterButtons" class="flex flex-col gap-2 text-sm"></div>
+        </div>
+
+        <!-- Active Filters Box -->
+        <div class="mt-auto">
+          <!-- <h2 class="text-sm font-semibold text-gray-600 mb-2">Selected Filters</h2> -->
+          <div id="activeFilters" class="flex flex-col gap-2 text-sm"></div>
+        </div>
+
+        <!-- <input type="hidden" id="journalSelection" name="journal_selection" value=""> -->
+        <div id="hiddenInputsContainer"></div>
+
+        <!-- <div class="flex justify-center mt-6">
+          <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md">Submit Filters</button>
+        </div> -->
+      </form>
+    </div>
+
+    <!-- Drag Handle -->
+    <div id="dragHandle" class="w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 transition"></div>
+
+    <!-- Right Pane -->
+
+    <div id="rightPane" class="flex-1 p-6 bg-gray-50 transition-colors duration-300 relative">
+
+        
+      
+      <!-- New Title Box mimicking HLR -->
+      <div class="bg-white rounded-xl mb-4 px-6 py-3 flex flex-col items-center justify-center shadow-lg">
+        <!-- Top Line -->
+        <div class="w-full flex justify-between items-center mb-2 font-bold font-crimson text-lg">
+          <span>VERSION 1</span>
+          <!-- <span>APRIL 2025</span> -->
+          <span>SUBVERSION 0</span>
+        </div>
+        <!-- Boxed Title -->
+        <div class="my-2">
+          <div class="boxed-title font-garamond text-2xl">
+            Law School Rankings
+          </div>
+        </div>
+        <!-- <div class="text-sm italic font-crimson text-gray-700 mt-1">
+            ~Click schools for per-faculty scores!
+        </div> -->
+
+      </div>
+
+
+
+      <div class="bg-white shadow-md rounded-lg p-4 h-full overflow-y-auto relative">
+        <div id="loadingSpinner" class="hidden absolute inset-0 flex justify-center items-center bg-white bg-opacity-75 z-50">
+          <!-- Animated SVG spinner -->
+          <svg class="w-12 h-12 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle class="opacity-25" cx="12" cy="12" r="10"></circle>
+            <path class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+        </div>
+        <!-- ////////////////////////////////////// v1 -->
+        <!-- {{ var | safe }} -->
+
+        <!-- ////////////////////////////////////// v2 -->
+        <!-- <div class="container mt-5"> -->
+    
+            <div id="school-table" class="table-container">
+                {{ school_table_html | safe }}
+            </div>
+
+            <div id="faculty-popup" class="faculty-popup">
+                <span class="close-btn" onclick="closePopup()">&times;</span>
+                <div id="faculty-table-content_to_display"></div>
+            </div>
+
+            <div id="faculty-table-container" class="faculty-table">
+                <h3>Faculty Members</h3>
+                <div id="faculty-table-content">{{ faculty_table_html | safe }}</div>
+            </div>
+
+            <script>
+                // v1. this is a popup that happens 
+                // // Show the filtered faculty information in a popup when a school row is clicked
+                // document.addEventListener('DOMContentLoaded', function() {
+                //     const schoolRows = document.querySelectorAll('#school-table table tbody tr td:nth-child(2)');
+            
+                //     schoolRows.forEach(row => {
+                //         row.addEventListener('click', function() {
+                //             const schoolName = this.textContent.trim();
+                //             // alert(schoolName);  // This will show the school name clicked
+            
+                //             // Open the popup to show filtered faculty data
+                //             openPopup();
+            
+                //             // Get the full faculty data (you can refine this if needed)
+                //             const facultyTableContent = document.getElementById('faculty-table-content');
+                //             const facultyDataHtml = facultyTableContent.innerHTML;
+                //             const facultyRows = facultyDataHtml.split('<tr>');
+            
+                //             let filteredFaculty = '';
+                            
+                //             // Filter faculty by school name (in this example, it checks if the school name is mentioned in the row)
+                //             facultyRows.forEach(row => {
+                //                 if (row.includes(schoolName)) {
+                //                     filteredFaculty += `<tr>${row}`;
+                //                 }
+                //             });
+            
+                //             // Build the new table with filtered faculty rows
+                //             let facultyTable = '<h3>'+schoolName +'</h3>' + '<table class="table table-bordered table-hover">';
+                //             facultyTable += '<thead><tr><th>Faculty Member</th><th>Publications</th><th>Adjusted Count</th></tr></thead><tbody>';
+            
+                //             // Populate the table with filtered rows
+                //             filteredFaculty.split('</tr>').forEach(row => {
+                //                 if (row.trim() !== '') {
+                //                     // console.log(row)
+                //                     let modded_string = '      <td>' + schoolName + '</td>'
+                //                     without_first_option = row.replace(modded_string, "");
+                //                     facultyTable += `<tr>${without_first_option}</tr>`;
+                //                 }
+                //             });
+            
+                //             facultyTable += '</tbody></table>';
+            
+                //             // Insert the filtered table into the popup content area
+                //             document.getElementById('faculty-table-content_to_display').innerHTML = facultyTable;
+                //         });
+                //     });
+                // });
+            
+                // // Open the popup
+                // function openPopup() {
+                //     document.getElementById('faculty-popup').style.display = 'block';
+                //     document.addEventListener('mousedown', handleOutsideClick);
+                // }
+            
+                // // Close the popup
+                // function closePopup() {
+                //     document.getElementById('faculty-popup').style.display = 'none';
+                //     document.removeEventListener('mousedown', handleOutsideClick);
+                // }
+
+                // // Handle outside click
+                // function handleOutsideClick(event) {
+                //     const popup = document.getElementById('faculty-popup');
+                //     if (popup.style.display === 'block' && !popup.contains(event.target)) {
+                //         closePopup();
+                //     }
+                // }
+
+
+                // v2 a drop-down arrow accordian 
+                document.addEventListener('DOMContentLoaded', function() {
+                const schoolRows = document.querySelectorAll('#school-table table tbody tr');
+
+                schoolRows.forEach(row => {
+                    const schoolCell = row.querySelector('td:nth-child(2)'); // 2nd column is School
+                    const schoolName = schoolCell.textContent.trim();
+
+                    // Insert an arrow span
+                    const arrow = document.createElement('span');
+                    arrow.classList.add('arrow');
+                    arrow.innerHTML = ' &#9654;'; // Right-pointing arrow ▶️
+                    arrow.style.cursor = 'pointer';
+                    arrow.style.marginRight = '8px';
+                    
+                    schoolCell.prepend(arrow);
+
+                    // Save the school name as a data attribute
+                    row.setAttribute('data-school', schoolName);
+
+                    // Click event to toggle accordion
+                    row.addEventListener('click', function() {
+                        const facultyRow = this.nextElementSibling;
+                        const isOpen = facultyRow && facultyRow.style.display === 'table-row';
+
+                        // Close any open accordion row first
+                        if (facultyRow && isOpen) {
+                            facultyRow.style.display = 'none';
+                            arrow.innerHTML = '&#9654;'; // Change to right arrow ▶️
+                            arrow.classList.remove('open'); // Remove rotation
+                        } else {
+                            // Create and insert accordion if not already present
+                            if (!facultyRow || !facultyRow.classList.contains('faculty-accordion')) {
+                                const newRow = document.createElement('tr');
+                                newRow.classList.add('faculty-accordion');
+                                newRow.innerHTML = `<td colspan="100%"><div class="faculty-content"></div></td>`;
+                                this.parentNode.insertBefore(newRow, this.nextSibling);
+                            }
+
+                            const newFacultyRow = this.nextElementSibling;
+                            loadFacultyData(this, newFacultyRow);
+                            newFacultyRow.style.display = 'table-row';
+                            arrow.innerHTML = '&#9660;'; // Change to down arrow 🔽
+                            arrow.classList.add('open'); // Apply rotation
+                        }
+                    });
+                });
+
+                function loadFacultyData(row, accordionRow) {
+                    const schoolName = row.getAttribute('data-school');
+                    const facultyTableContent = document.getElementById('faculty-table-content').innerHTML;
+                    const facultyRows = facultyTableContent.split('<tr>');
+
+                    let filteredFaculty = '';
+
+                    facultyRows.forEach(facultyRowHtml => {
+                        // console.log(facultyRowHtml)
+                        // console.log(schoolName)
+                        facultyRowHtml = facultyRowHtml.replace(/&amp;/g, "&");
+                        if (facultyRowHtml.includes(schoolName)) {
+                            filteredFaculty += `<tr>${facultyRowHtml}`;
+                        }
+                    });
+
+                    const facultyContentDiv = accordionRow.querySelector('.faculty-content');
+
+                    if (filteredFaculty.trim() === '') {
+                        facultyContentDiv.innerHTML = `<em>No faculty listed for ${schoolName}</em>`;
+                    } else {
+                        let facultyTable = '<table class="table table-bordered table-hover">';
+                        facultyTable += '<thead><tr><th>Faculty Member</th><th>Publications</th><th>Adjusted Count</th></thead><tbody>';
+
+                        filteredFaculty.split('</tr>').forEach(rowHtml => {
+                            if (rowHtml.trim() !== '') {
+                                let moddedString = '      <td>' + schoolName + '</td>';
+                                let withoutFirstOption = rowHtml.replace(moddedString, "");
+                                facultyTable += `<tr>${withoutFirstOption}</tr>`;
+                            }
+                        });
+
+                        facultyTable += '</tbody></table>';
+
+                        facultyContentDiv.innerHTML = facultyTable;
+                    }
+                }
+            });
+            </script>
+            
+
+        <!-- </div> -->
+        <!-- ////////////////////////////////////// v2 -->
+
+      </div>
+
+
+
+    </div>
+    
+  </div>
+
+  <script>
+    const deselectAll = document.getElementById('clearFilters')
+    const selectAll = document.getElementById('selectAllSpecialty')
+    const top1 = document.getElementById('top1Button')
+    const top5 = document.getElementById('top5Button')
+    const top10 = document.getElementById('top10Button')
+    const top25 = document.getElementById('top25Button')
+    const topall = document.getElementById('topallButton')
+    const dragHandle = document.getElementById('dragHandle');
+    const leftPane = document.getElementById('leftPane');
+    const rightPane = document.getElementById('rightPane');
+    const filterForm = document.getElementById('filterForm');
+    const journalSelectionInput = document.getElementById('journalSelection');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+
+    const savedWidth = localStorage.getItem('leftPaneWidth');
+    if (savedWidth) {
+        leftPane.style.width = `${savedWidth}px`;
+    }
+    
+    deselectAll.addEventListener('click', () => {
+        // Clear specialty buttons visually
+        document.querySelectorAll('[data-category="specialty"]').forEach(btn => {
+            btn.classList.remove("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+            btn.classList.add("bg-gray-100", "text-gray-700");
+
+            const label = btn.textContent;
+            selectedButtons = selectedButtons.filter(item => item !== label);
+            removeJournalSelection(label);
+        });
+
+        // Save updated selections to localStorage
+        localStorage.setItem("selectedFilters", JSON.stringify(selectedButtons));
+
+        showLoadingSpinner();
+        filterForm.submit();
+    });
+
+    selectAll.addEventListener('click', () => {
+        document.querySelectorAll('[data-category="specialty"]').forEach(btn => {
+            const label = btn.textContent;
+
+            btn.classList.remove("bg-gray-100", "text-gray-700");
+            btn.classList.add("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+
+            if (!selectedButtons.includes(label)) {
+            selectedButtons.push(label);
+            updateJournalSelection(label);
+            }
+        });
+
+        localStorage.setItem("selectedFilters", JSON.stringify(selectedButtons));
+
+        showLoadingSpinner();
+        filterForm.submit();
+    });
+
+
+
+
+    // v1 loses memory when user refreshes page
+    dragHandle.addEventListener('mousedown', function(e) {
+      document.body.style.cursor = 'col-resize';
+      const startX = e.clientX;
+      const startWidth = leftPane.offsetWidth;
+
+      function onMouseMove(e) {
+        const newWidth = Math.max(200, startWidth + (e.clientX - startX));
+        leftPane.style.width = `${newWidth}px`;
+        localStorage.setItem('leftPaneWidth', newWidth);
+      }
+
+      function onMouseUp() {
+        document.body.style.cursor = '';
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      }
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    });
+
+    // Set default years
+    const currentYear = new Date().getFullYear();
+    const fiveYearsAgo = currentYear - 5;
+    document.getElementById('fromYear').value = fiveYearsAgo;
+    document.getElementById('toYear').value = currentYear;
+
+    const filterData = [
+      { label: "General - All", category: "general" },
+      { label: "General - Top 1", category: "general" },
+      { label: "General - Top 3", category: "general" },
+      { label: "General - Top 10", category: "general" },
+      { label: "General - Top 25", category: "general" },
+      { label: "General - Top 50", category: "general" },
+      { label: "General - Top 100", category: "general" },
+      { label: "Arts, Entertainment and Sports Law", category: "specialty" },
+      { label: "Bankruptcy", category: "specialty" },
+      { label: "Civil Litigation and Dispute Resolution", category: "specialty" },
+      { label: "Civil Rights and Social Justice", category: "specialty" },
+      { label: "Comparative Law", category: "specialty" },
+      { label: "Criminology and Law Enforcement", category: "specialty" },
+      { label: "Employment Law", category: "specialty" },
+      { label: "Energy and Natural Resources Law", category: "specialty" },
+      { label: "Environmental and Land Use Law", category: "specialty" },
+      { label: "Family and Juvenile Law", category: "specialty" },
+      { label: "Gender, Women and Sexuality and Law", category: "specialty" },
+      { label: "Governmental Law", category: "specialty" },
+      { label: "Human Rights and Immigration Law", category: "specialty" },
+      { label: "Intellectual Property", category: "specialty" },
+      { label: "International Law", category: "specialty" },
+      { label: "International Trade", category: "specialty" },
+      { label: "Jurisprudence and Legal Theory", category: "specialty" },
+      { label: "Legal Profession and Legal Education", category: "specialty" },
+      { label: "Legal Research, Writing and Librarianship", category: "specialty" },
+      { label: "Maritime and Transportation Law", category: "specialty" },
+      { label: "Property, Real Estate and Construction Law", category: "specialty" },
+      { label: "Public Policy, Politics and the Law", category: "specialty" },
+      { label: "Science, Technology and Computing Law", category: "specialty" },
+      { label: "Social Sciences and Law", category: "specialty" },
+      { label: "Taxation", category: "specialty" },
+      { label: "Torts", category: "specialty" },
+      { label: "Health, Medicine, Psychology and Psychiatry Law", category: "specialty" },
+      { label: "Business, Corporations and Securities Law", category: "specialty" },
+      { label: "Administrative Law", category: "specialty" },
+      { label: "Criminal Law", category: "specialty" },
+      { label: "Education Law", category: "specialty" },
+      { label: "Estates and Trusts", category: "specialty" },
+      { label: "Law and Economics", category: "specialty" },
+      { label: "Minority, Race and Ethnic Issues and Law", category: "specialty" },
+      { label: "Law and Ethics", category: "specialty" },
+      { label: "Banking, Finance and Insurance Law", category: "specialty" },
+      { label: "Commercial and Competition Law", category: "specialty" },
+      { label: "Constitutional Law", category: "specialty" }
+    ];
+
+    const filterButtonsContainer = document.getElementById("filterButtons");
+    // Get previously selected buttons from localStorage
+    let selectedButtons = JSON.parse(localStorage.getItem("selectedFilters") || "[]");
+    const generalButtonsContainer = document.getElementById("generalButtons");
+
+
+    // v1
+    // filterData.forEach(({ label, category }) => {
+    //   const btn = document.createElement("button");
+    //   btn.textContent = label;
+    //   btn.dataset.category = category;
+    //   btn.type = "button";
+    //   btn.className = "px-2 py-1 rounded-md border text-sm transition-colors duration-200 bg-gray-100 text-gray-700 hover:bg-gray-200 text-left inline-block";
+
+    //   btn.addEventListener("click", () => {
+        
+    //     const isActive = btn.classList.contains("bg-green-200");
+    //     console.log(category)
+    //     console.log(isActive)
+
+
+    //     if (category === "general") {
+    //       document.querySelectorAll('[data-category="general"]').forEach(b => {
+    //         b.classList.remove("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+    //         b.classList.add("bg-gray-100", "text-gray-700");
+    //       });
+    //     }
+
+    //     if (!isActive) {
+    //       btn.classList.remove("bg-gray-100", "text-gray-700");
+    //       btn.classList.add("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+    //       updateJournalSelection(btn.textContent);
+    //     } else {
+    //       btn.classList.remove("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+    //       btn.classList.add("bg-gray-100", "text-gray-700");
+    //       removeJournalSelection(btn.textContent);
+    //     }
+
+    //     showLoadingSpinner();
+    //     filterForm.submit();
+    //   });
+
+    //   if (category === "general") {
+    //     generalButtonsContainer.appendChild(btn);
+    //   } else {
+    //     filterButtonsContainer.appendChild(btn);
+    //   }
+    // });
+
+    // v2
+    filterData.forEach(({ label, category }) => {
+        const btn = document.createElement("button");
+        btn.textContent = label;
+        btn.dataset.category = category;
+        btn.type = "button";
+        btn.className = "px-2 py-1 rounded-md border text-sm transition-colors duration-200 text-left inline-block";
+
+        const isSaved = selectedButtons.includes(label);
+
+        if (isSaved) {
+            btn.classList.add("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+        } else {
+            btn.classList.add("bg-gray-100", "text-gray-700", "hover:bg-gray-200");
+        }
+
+        btn.addEventListener("click", () => {
+            const isActive = btn.classList.contains("bg-green-200");
+
+            if (category === "general") {
+                document.querySelectorAll('[data-category="general"]').forEach(b => {
+                    b.classList.remove("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+                    b.classList.add("bg-gray-100", "text-gray-700");
+
+                    const text = b.textContent;
+                    selectedButtons = selectedButtons.filter(item => item !== text);
+                });
+            }
+
+            if (!isActive) {
+                btn.classList.remove("bg-gray-100", "text-gray-700");
+                btn.classList.add("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+
+                if (!selectedButtons.includes(label)) {
+                    selectedButtons.push(label);
+                }
+
+                updateJournalSelection(label);
+            } else {
+                btn.classList.remove("bg-green-200", "text-green-900", "border-green-300", "shadow-md");
+                btn.classList.add("bg-gray-100", "text-gray-700");
+
+                selectedButtons = selectedButtons.filter(item => item !== label);
+                removeJournalSelection(label);
+            }
+
+            // Save current selections to localStorage
+            localStorage.setItem("selectedFilters", JSON.stringify(selectedButtons));
+
+            showLoadingSpinner();
+            filterForm.submit();
+        });
+
+        if (category === "general") {
+            generalButtonsContainer.appendChild(btn);
+        } else {
+            filterButtonsContainer.appendChild(btn);
+        }
+    });
+
+    // v1
+    // function updateJournalSelection(label) {
+    //   let currentSelection = journalSelectionInput.value ? journalSelectionInput.value.split(',') : [];
+    //   if (!currentSelection.includes(label)) {
+    //     currentSelection.push(label);
+    //   }
+    //   journalSelectionInput.value = currentSelection.join(',');
+    // }
+
+    // function removeJournalSelection(label) {
+    //   let currentSelection = journalSelectionInput.value ? journalSelectionInput.value.split(',') : [];
+    //   currentSelection = currentSelection.filter(item => item !== label);
+    //   journalSelectionInput.value = currentSelection.join(',');
+    // }
+
+    // v2
+    function updateJournalSelection(label) {
+        // Clear previous
+        document.querySelectorAll('input[name="journal_selection"]').forEach(input => input.remove());
+
+        // Add all current selections
+        selectedButtons.forEach(label => {
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "journal_selection";
+            input.value = label;
+            document.getElementById("hiddenInputsContainer").appendChild(input);
+        });
+    }
+
+    function removeJournalSelection(label) {
+        selectedButtons = selectedButtons.filter(item => item !== label);
+        updateJournalSelection();
+    }
+
+
+    function showLoadingSpinner() {
+      loadingSpinner.classList.remove('hidden');
+    }
+
+
+
+  </script>
+
+
+<script>
+    const fromYearInput = document.getElementById('fromYear');
+    const toYearInput = document.getElementById('toYear');
+  
+
+    // Load years from localStorage if they exist
+    const savedFromYear = localStorage.getItem('fromYear');
+    const savedToYear = localStorage.getItem('toYear');
+
+    if (savedFromYear !== null) {
+        fromYearInput.value = savedFromYear;
+    }
+    if (savedToYear !== null) {
+        toYearInput.value = savedToYear;
+    }
+
+    // Save to localStorage whenever user changes the year
+    [fromYearInput, toYearInput].forEach(input => {
+    input.addEventListener('input', () => {
+        localStorage.setItem('fromYear', fromYearInput.value);
+        localStorage.setItem('toYear', toYearInput.value);
+    });
+    });
+
+
+    function submitOnChange() {
+      showLoadingSpinner();
+      let selectedButtons = JSON.parse(localStorage.getItem("selectedFilters") || "[]");
+      updateJournalSelection();
+      filterForm.submit();
+    }
+  
+    fromYearInput.addEventListener('change', submitOnChange);
+    toYearInput.addEventListener('change', submitOnChange);
+  </script>
+
+
+
+
+</body>
+</html>
