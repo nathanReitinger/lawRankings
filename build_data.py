@@ -3,8 +3,11 @@ build the data files for the static site (docs/) from whatever the update script
 
 1. papers per journal      journal_store/ (get_papers; see journal_store.py, the repaired incremental store)
 2. faculty per school      faculty_runs/ (get_authors_from_v3, Hein AuthorBySchool), older authors_latest.csv
-3. journal ranks           newest rankings_<year>.csv (update_WandL, Washington & Lee)
-4. US law school list      newest usnews_<edition>.csv (update_usnews), else the hand-saved 2025_USnews.txt
+3. journal ranks           newest rankings_<year>.csv (update_WandL, Washington & Lee): specialty journals
+4. US law school list      newest usnews_<edition>.csv (update_usnews), else the hand-saved 2025_USnews.txt, plus
+                           the ABA-approved list aba_schools_<year>.csv (update_aba_schools), checked against Hein;
+                           also ranks the flagship law reviews (each school's main review gets its school's rank)
+5. flagship -> school      flagship_schools.csv in the data folder: which school publishes each W&L General journal
 
 python build_data.py              # rebuild docs/data/*.json
 python build_data.py --publish    # rebuild, then git commit + push docs/ (site updates on GitHub Pages)
@@ -17,6 +20,8 @@ import json
 import os
 import re
 import subprocess
+import time
+import unicodedata
 from collections import defaultdict
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
@@ -32,8 +37,17 @@ OUT_DIR = os.path.join(HERE, 'docs', 'data')
 
 sys.path.insert(0, SOURCE_DIR)
 import journal_store as js   # noqa: E402  (shared volume keys, years and author keys with the update script)
+js.STORE_DIR = os.path.join(SOURCE_DIR, 'journal_store')
 
 VERSION = 2   # shown on the site as "Volume 2"; each data change bumps the build number
+
+# Flagship law reviews (W&L's General category) are ranked by the US News rank of the school that publishes
+# them; specialty journals by their W&L rank. This file says which school publishes each General journal and
+# whether it is that school's main law review ("main"), an online edition ("online"), a second general journal
+# ("secondary"), or not a school's journal ("non_school", "foreign"). Only main reviews get a US News rank.
+FLAGSHIP_FILE = os.path.join(SOURCE_DIR, 'flagship_schools.csv')
+DEFAULT_FLAGSHIP_TOP = 25     # the site's default view: main law reviews of the US News top 25 (tiers 1-3 and 4-25)
+DEFAULT_VIEW = f'flagship law reviews of the US News top {DEFAULT_FLAGSHIP_TOP} schools, last ten years, US law schools'
 
 # W&L subjects -> the simpler groups shown on the site. Edit freely; anything not listed lands in "Other".
 SUBJECT_GROUPS = {
@@ -77,7 +91,8 @@ SUBJECT_GROUPS = {
     ],
 }
 
-# short pieces we will probably want to weed out later; flagged (not dropped) so the site can toggle them
+# short pieces: a rough title guess the site's beta "Skip short pieces" box uses until the classifier
+# (Ollama model over title, section label, position, pages) replaces it; flagged, not dropped
 MINOR_TITLE = re.compile(
     r'\b(foreword|afterword|preface|prologue|epilogue|in memoriam|tribute|dedication|eulogy|remembering'
     r'|book reviews?|remarks|keynote|panel|transcript|roundtable|response|reply|rejoinder|errat(um|a))\b'
@@ -85,7 +100,8 @@ MINOR_TITLE = re.compile(
     re.IGNORECASE,
 )
 
-NAME_SUFFIXES = {'jr', 'sr', 'ii', 'iii', 'iv', 'v'}
+# no 'v': "Smith, John V." is a middle initial far more often than a fifth-generation suffix (stress test t14)
+NAME_SUFFIXES = {'jr', 'sr', 'ii', 'iii', 'iv'}
 
 # US News name -> name used on Hein's AuthorBySchool list, where normalizing alone can't line them up
 USNEWS_TO_HEIN = {
@@ -104,9 +120,16 @@ def parse_hein_name(url):
         last, rest = name.split(',', 1)
     else:
         last, rest = name, ''
-    clean = lambda s: re.sub(r'[^a-z0-9\- ]', ' ', s.lower()).split()
-    last = ' '.join(clean(last))
-    parts = [p for p in clean(rest) if p not in NAME_SUFFIXES]
+    # 2026-10-23 (stress tests t7, t14, t17): accents folded (José = Jose), letters of any script kept (an all-CJK
+    # name no longer becomes ""), hyphens and apostrophes joined (Smith-Jones = Smith Jones, O'Brien = OBrien),
+    # a suffix is found wherever it is ("Skeel Jr., David" = "Skeel, David Jr.") and kept with the last name as
+    # "skeel|jr", so Robert L. Jones and Robert L. Jones Jr. stay two people (match_authors can still match a
+    # paper that leaves the suffix off)
+    fold = lambda s: ''.join(c for c in unicodedata.normalize('NFKD', s.lower()) if not unicodedata.combining(c))
+    words = lambda s: re.sub(r'[^\w ]', ' ', re.sub(r"[-'’]", '', fold(s))).split()
+    suffix = next((p for p in words(last) + words(rest) if p in NAME_SUFFIXES), '')
+    last = ''.join(p for p in words(last) if p not in NAME_SUFFIXES) + ('|' + suffix if suffix else '')
+    parts = [p for p in words(rest) if p not in NAME_SUFFIXES]
     first = parts[0] if parts else ''
     middle = ' '.join(parts[1:])
     return last, first, middle
@@ -138,9 +161,7 @@ def load_papers():
     rows, coverage = [], []
     for f in sorted(glob.glob(os.path.join(SOURCE_DIR, js.STORE_DIR, 'j___*.csv'))):
         journal = os.path.basename(f)[len('j___'):-len('.csv')]
-        df = pd.read_csv(f, dtype=str, keep_default_na=False)
-        with open(f[:-len('.csv')] + '.json', encoding='utf-8') as fh:
-            state = json.load(fh)
+        df, state = js.load_store(journal)     # each volume's current copy (the update script appends new copies)
         df = df[(df['title'] != '') & (df['author'] != '')].copy()
         if df.empty:
             continue
@@ -195,11 +216,23 @@ def load_roster():
         part['run'] = run
         frames.append(part)
     df = pd.concat(frames, ignore_index=True)
+    # 2026-10-23 (stress test t15): a crash between a school's rows and its progress line writes them twice
+    df = df.drop_duplicates(['school', 'link']).reset_index(drop=True)
 
     parsed = df['link'].map(parse_hein_name)
     df['last'] = parsed.map(lambda p: p[0])
     df['first'] = parsed.map(lambda p: p[1])
     df['middle'] = parsed.map(lambda p: p[2])
+    # 2026-10-23 (stress test t9 g): a person who moved shows up at the old school (an older list) and the new one
+    # (a newer list, e.g. a run in progress); only the newest list that names them counts. People listed at two
+    # schools in the same list (joint appointments) keep both.
+    order = {run: i for i, (run, _, _) in enumerate(sources)}
+    df['_run'] = df['run'].map(order)
+    newest_run = df.groupby(['last', 'first', 'middle'])['_run'].transform('max')
+    moved = df[df['_run'] < newest_run]
+    if len(moved):
+        print(f'  {len(moved)} faculty listings dropped: the person is on a newer list at another school')
+    df = df[df['_run'] == newest_run].drop(columns='_run').reset_index(drop=True)
     df['hein_name'] = df['link'].map(lambda u: unquote(parse_qs(urlparse(str(u)).query).get('search_name', [''])[0]).strip())
     stamped = pd.to_datetime(df['collected_at'], errors='coerce') if 'collected_at' in df.columns else pd.Series(pd.NaT, index=df.index)
     from_link = pd.to_datetime(df['link'].str.extract(r'1==(\d{10})')[0].astype(float), unit='s')
@@ -252,6 +285,21 @@ def load_usnews():
             prev = pd.read_csv(manual[max(manual)], dtype=str).fillna('')
             for _, r in prev[prev['rank_text'] == 'Unranked'].iterrows():
                 out.setdefault(r['school'], None)
+        # 2026-10-23 (stress test): a school in the previous edition but not in this one (a TaxProf name not in
+        # taxprof_aliases.csv, a school US News skipped) keeps its previous rank instead of dropping off the site
+        older = [e for e in by_edition if e < edition]
+        if older:
+            e = max(older)
+            k = 'manual' if 'manual' in by_edition[e] else 'taxprof'
+            prev = pd.read_csv(by_edition[e][k], dtype=str).fillna('')
+            if 'matched' in prev.columns:
+                prev = prev[prev['matched'] == 'alias']
+            pcol = 'usnews_rank_text' if 'usnews_rank_text' in prev.columns else 'rank_text'
+            carried = [r['school'] for _, r in prev.iterrows() if r['school'] not in out]
+            for _, r in prev.iterrows():
+                out.setdefault(r['school'], label(r[pcol]))
+            if carried:
+                print(f'  {len(carried)} schools not in the {edition} US News list kept from {e}:', carried[:10])
         source = f'US News {edition}' + (' (via TaxProf Blog)' if kind == 'taxprof' else ' (saved page)')
         return edition, source, out
     return None
@@ -294,7 +342,73 @@ def load_us_schools(roster_schools):
     unmatched = [n for n in table if not any(v[0] == n for v in to_ret.values())]
     if unmatched:
         print(f'  {len(unmatched)} {source} schools not on Hein\'s faculty lists:', unmatched[:8])
-    return to_ret, {'edition': edition, 'source': source, 'schools': len(to_ret)}
+    return to_ret, {'edition': edition, 'source': source, 'schools': len(to_ret)}, table
+
+
+def load_flagship(general_journals, usnews):
+    '''journal -> [US News rank number (0 = unranked, -1 = not a main law review), [school, rank label, kind,
+    parent journal]] for every W&L General journal, from FLAGSHIP_FILE and the US News list in use'''
+    df = pd.read_csv(FLAGSHIP_FILE, dtype=str).fillna('')
+    rows = {r['journal']: r for _, r in df.iterrows()}
+    out = {}
+    for j in general_journals:
+        r = rows.get(j)
+        if r is None:
+            print('  !! W&L General journal not in flagship_schools.csv, counted with the other general journals:', j)
+            out[j] = [-1, ['', '', 'unmapped', '']]
+            continue
+        school, kind = r['host_school_usnews_name'], r['kind']
+        if kind != 'main':
+            out[j] = [-1, [school, '', kind, r.get('parent_journal', '')]]
+            continue
+        if school and school not in usnews:
+            print(f'  !! {j}: school "{school}" is not in the US News list in use; counted as unranked')
+        label = usnews.get(school)          # "14", "175-194", or None (Unranked)
+        out[j] = [int(re.match(r'\d+', label).group()) if label else 0, [school, label or 'Unranked', kind, '']]
+    return out
+
+
+def school_norm(s):
+    '''loose school-name key shared by the US News and ABA matching'''
+    s = s.lower().replace('&', 'and')
+    s = re.sub(r'\(.*?\)', '', s)
+    s = s.replace('--', ' ').replace('-', ' ').replace('/', ' ')
+    s = re.sub(r"[’']", '', s)
+    s = re.sub(r'\b(the|school of law|law school|law center|college of law|at|in|of|university|college|school|law|center)\b', ' ', s)
+    s = re.sub(r'[^a-z0-9 ]', '', s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+
+def load_aba(roster_schools):
+    '''ABA-approved law schools (newest aba_schools_<year>.csv, written by update_aba_schools() in main.py) matched to
+    the schools on Hein's faculty lists: (roster school -> ABA name, check results for meta.json). The check is the
+    point: every ABA-approved school should be on Hein's faculty lists, or the site is missing a school.'''
+    files = sorted(glob.glob(os.path.join(SOURCE_DIR, 'aba_schools_[0-9][0-9][0-9][0-9].csv')))
+    if not files:
+        print('  !! no aba_schools_<year>.csv yet (run main.py); skipping the ABA school check')
+        return {}, None
+    year = int(re.search(r'(\d{4})\.csv$', files[-1]).group(1))
+    aba = pd.read_csv(files[-1], dtype=str)['aba_name'].tolist()
+    aliases = dict(pd.read_csv(os.path.join(SOURCE_DIR, 'aba_aliases.csv'), dtype=str).itertuples(index=False))
+    uninvert = lambda n: (lambda m: f'{m.group(2)} {m.group(1)} {m.group(3)}' if m else n)(
+        re.match(r'^(.*?),\s*(THE UNIVERSITY OF|UNIVERSITY OF|THE)\s*(.*)$', n.strip()))
+    by_norm = defaultdict(list)
+    for s in roster_schools:
+        by_norm[school_norm(s)].append(s)
+    to_ret, missing = {}, []
+    for name in aba:
+        if name in aliases:
+            hits = [aliases[name]] if aliases[name] in set(roster_schools) else []
+        else:
+            hits = by_norm.get(school_norm(uninvert(name)), [])
+        if len(hits) == 1 and hits[0] not in to_ret:
+            to_ret[hits[0]] = name
+        else:
+            missing.append(name)
+    if missing:
+        print(f'  !! {len(missing)} ABA-approved schools ({year}) not found on Hein\'s faculty lists '
+              f'(add a line to aba_aliases.csv if Hein uses another name):', missing)
+    return to_ret, {'year': year, 'schools': len(aba), 'on_hein': len(to_ret), 'missing': missing}
 
 
 ################################################ build
@@ -303,9 +417,11 @@ def match_authors(papers, roster):
     '''paper author link -> list of roster row indexes (a person listed at two schools gets both)'''
     full = defaultdict(list)
     short = defaultdict(list)
+    no_suffix = defaultdict(list)
     for i, r in roster.iterrows():
         full[(r['last'], r['first'], r['middle'])].append(i)
         short[(r['last'], r['first'])].append(i)
+        no_suffix[(r['last'].split('|')[0], r['first'])].append(i)
 
     to_ret = {}
     stats = defaultdict(int)
@@ -319,9 +435,15 @@ def match_authors(papers, roster):
         # but only when the first + last is one person and the middle initials don't conflict
         cands = [i for i in short.get((last, first), []) if middles_compatible(middle, roster.at[i, 'middle'])]
         people = {(roster.at[i, 'last'], roster.at[i, 'first'], roster.at[i, 'middle']) for i in cands}
+        how = 'first_last'
+        if not people:
+            # a paper that adds or leaves off "Jr." etc.: only when the name without it is one person
+            cands = [i for i in no_suffix.get((last.split('|')[0], first), []) if middles_compatible(middle, roster.at[i, 'middle'])]
+            people = {(roster.at[i, 'last'], roster.at[i, 'first'], roster.at[i, 'middle']) for i in cands}
+            how = 'suffix_differs'
         if len(people) == 1:
             to_ret[link] = cands
-            stats['first_last'] += 1
+            stats[how] += 1
         elif len(people) > 1:
             stats['ambiguous'] += 1
         else:
@@ -330,9 +452,10 @@ def match_authors(papers, roster):
 
 
 def default_ranking(data, years=10, top=30):
-    '''the site's default view in Python: General top 10, last `years` years, US law schools'''
+    '''the site's default view in Python (DEFAULT_VIEW): main law reviews of the US News top 25, last `years`
+    years, US law schools'''
     last = max(data['papers']['year'])
-    journals = {i for i, j in enumerate(data['journals']) if j[2] and 1 <= j[2] <= 10}
+    journals = {i for i, j in enumerate(data['journals']) if j[2] and 1 <= j[2] <= DEFAULT_FLAGSHIP_TOP}
     score, faculty = defaultdict(float), defaultdict(set)
     P = data['papers']
     for p, person in zip(data['credits']['paper'], data['credits']['person']):
@@ -356,10 +479,14 @@ def update_history(meta, data, prev):
         'build': meta['build'], 'version': meta['version'], 'date': meta['built'],
         'papers_collected': meta['papers_collected'], 'faculty_collected': meta['faculty_collected'],
         'rankings_edition': meta['rankings']['edition'], 'us_schools': meta.get('us_schools'),
+        'flagship_ranks': meta['flagship_ranks'], 'default_view': meta['default_view'],
         'counts': meta['counts'], 'top': default_ranking(data),
     }
     if history and history[-1]['build'] == meta['build']:
-        history[-1] = entry        # same data as the last build: refresh its entry, keep the number
+        # same data as the last build: refresh its entry, keep the number and what changed in that build
+        if 'changes' in history[-1]:
+            entry['changes'] = history[-1]['changes']
+        history[-1] = entry
     else:
         if history:
             before = history[-1]
@@ -369,6 +496,10 @@ def update_history(meta, data, prev):
                 'faculty_with_papers': meta['counts']['faculty_with_papers'] - before['counts']['faculty_with_papers'],
                 'moved': [[s, old_rank.get(s), i] for i, (s, _, _) in enumerate(entry['top'], start=1) if old_rank.get(s) != i],
             }
+            if before.get('default_view') != entry['default_view']:
+                # a different default view: its top 30 isn't comparable with the previous build's
+                entry['changes']['moved'] = []
+                entry['changes']['view_changed'] = entry['default_view']
         history.append(entry)
     meta['history_entry'] = entry
     return history
@@ -379,8 +510,13 @@ def build():
     papers, coverage = load_papers()
     roster = load_roster()
     wl_year, rankings, rankings_fetched = load_rankings()
-    us, us_meta = load_us_schools(roster['school'].unique())
-    print(f"  US law schools: {us_meta['schools']} from {us_meta['source']}")
+    us, us_meta, usnews_table = load_us_schools(roster['school'].unique())
+    aba, aba_check = load_aba(roster['school'].unique())
+    extra = sorted(set(aba) - set(us))
+    if extra:
+        print(f'  {len(extra)} ABA-approved schools not matched to US News, counted as US law schools too:', extra)
+    print(f"  US law schools: {len(set(us) | set(aba))} ({us_meta['schools']} from {us_meta['source']}, "
+          f"{len(aba)} from the ABA list)")
 
     ##### journals and their categories
     ranked = rankings[rankings['journal'].isin(papers['journal'].unique())]
@@ -405,12 +541,12 @@ def build():
     journal_id = {j: i for i, j in enumerate(journal_names)}
     collected_on = dict(zip(coverage['journal'], coverage['collected']))
     journals = []
+    flagship = load_flagship(sorted(ranked.loc[ranked['journal_type'] == 'General', 'journal'].unique()), usnews_table)
     for j in journal_names:
         jdf = ranked[ranked['journal'] == j]
-        gen = jdf[jdf['journal_type'] == 'General']
-        general_rank = None
-        if len(gen):
-            general_rank = int(gen['WandL_rank'].iloc[0]) if pd.notna(gen['score'].iloc[0]) else 0
+        # flagship: the school's US News rank (0 = unranked school, -1 = online edition or other general
+        # journal, None = not a General journal); the W&L General rank is not used
+        general_rank, host = flagship.get(j, [None, None])
         # [subject id, W&L rank in that subject (0 = NR), W&L score] - the site re-ranks groups from the scores
         subs = [[subjects.index(r.journal_type), int(r.WandL_rank) if pd.notna(r.score) else 0,
                  float(r.score) if pd.notna(r.score) else None]
@@ -418,7 +554,7 @@ def build():
         grps = sorted({(groups.index(subject_to_group[subjects[s]]),
                         group_rank.get((j, subject_to_group[subjects[s]])) or 0) for s, _, _ in subs})
         # rank 0 = listed by W&L but not ranked (NR); it only shows up under "All"
-        journals.append([j, collected_on[j], general_rank, subs, [list(g) for g in grps]])
+        journals.append([j, collected_on[j], general_rank, subs, [list(g) for g in grps]] + ([host] if host else []))
 
     not_ranked = sorted(set(papers['journal']) - set(journal_names))
     if not_ranked:
@@ -479,7 +615,7 @@ def build():
 
     p = first_rows.loc[paper_keys]
     data = {
-        'schools': [[s, s in us, us.get(s, (None, None))[1]] for s in schools],
+        'schools': [[s, s in us or s in aba, us.get(s, (None, None))[1]] for s in schools],
         'people': people,
         'subjects': subjects,
         'groups': groups,
@@ -516,11 +652,15 @@ def build():
             'schools': int(roster['school'].nunique()),
         },
         'us_schools': us_meta,
+        'aba_check': aba_check,
         'rankings': {'source': 'Washington & Lee Law Journal Rankings', 'edition': wl_year,
                      'fetched': rankings_fetched.strftime('%Y-%m-%d')},
+        'flagship_ranks': {'source': us_meta['source'], 'edition': us_meta['edition'],
+                           'default_top': DEFAULT_FLAGSHIP_TOP},
+        'default_view': DEFAULT_VIEW,
         'years': {'min': int(min(data['papers']['year'])), 'max': int(max(data['papers']['year']))},
         'counts': {'papers': len(paper_keys), 'credits': len(credit_paper), 'faculty_with_papers': len(people),
-                   'minor_papers': int(sum(data['papers']['minor']))},
+                   'minor_papers': int(sum(1 for m in data['papers']['minor'] if m))},
         'matching': stats,
         'group_subjects': {g: [s for s in subjects if subject_to_group[s] == g] for g in groups},
         'coverage': [{k: (None if isinstance(v, float) and v != v else v) for k, v in r.items()}
@@ -562,12 +702,24 @@ def publish(meta):
            f"papers {meta['counts']['papers']} ({ch.get('papers', 0):+d}), "
            f"faculty with papers {meta['counts']['faculty_with_papers']} ({ch.get('faculty_with_papers', 0):+d}), "
            f"{len(ch.get('moved', []))} of the default top 30 moved")
-    subprocess.run(['git', 'add', 'docs'], cwd=HERE, check=True)   # the data and the page code that reads it
-    if subprocess.run(['git', 'diff', '--cached', '--quiet'], cwd=HERE).returncode == 0:
+    # only docs/ is committed (other staged or changed files in the repo stay as they are); git never waits
+    # for a password prompt; a push that failed last time is retried even when there is nothing new
+    env = dict(os.environ, GIT_TERMINAL_PROMPT='0')
+    git = lambda *a, **k: subprocess.run(['git', *a], cwd=HERE, env=env, **k)
+    git('add', 'docs', check=True)   # the data and the page code that reads it
+    if git('diff', '--cached', '--quiet', '--', 'docs').returncode != 0:
+        git('commit', '-m', msg, '--', 'docs', check=True)
+    else:
         print('no data changes to publish')
+    ahead = git('rev-list', '--count', '@{upstream}..HEAD', capture_output=True, text=True)
+    if ahead.returncode == 0 and ahead.stdout.strip() == '0':
         return
-    subprocess.run(['git', 'commit', '-m', msg], cwd=HERE, check=True)
-    subprocess.run(['git', 'push'], cwd=HERE, check=True)
+    for attempt in range(3):
+        if git('push').returncode == 0:
+            return
+        print(f'git push failed ({attempt + 1}/3); trying again in a minute')
+        time.sleep(60)
+    raise RuntimeError('git push failed three times; the commit is saved locally and goes out with the next run')
 
 
 if __name__ == '__main__':

@@ -69,6 +69,7 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 .panel-info { border: 1px solid #bce8f1; border-radius: 4px; background: #d9edf7; color: #31708f; }
 .intro-panel { border-bottom: none; border-radius: 4px 4px 0 0; padding: 10px 15px 6px; }
 .intro-panel p { margin: 0; }
+.rank-rule { margin-top: 4px !important; }
 .data-line { font-size: 13px; margin-top: 4px !important; }
 .controls-sticky { position: sticky; top: 0; z-index: 100; background: #fff; }
 .controls { border-top: none; border-radius: 0 0 4px 4px; padding: 8px 15px; margin-bottom: 16px;

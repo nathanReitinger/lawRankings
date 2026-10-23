@@ -23,7 +23,7 @@
   </div>
 
   <div class="prose">
-    <p>Each time the update scripts run, the data is rebuilt. When anything the site shows changes, the build number goes up and an entry is added here: when each source was collected, how many articles and faculty are counted, and how the default view (General law reviews, W&amp;L top 10, last ten years, US law schools) changed.</p>
+    <p>Each time the update scripts run, the data is rebuilt. When anything the site shows changes, the build number goes up and an entry is added here: when each source was collected, how many articles and faculty are counted, and how the default view changed (<span id="defaultView">flagship law reviews of the US News top 25 schools, last ten years, US law schools</span>).</p>
     <div id="builds"><p class="loading">Loading…</p></div>
   </div>
 
@@ -48,12 +48,13 @@
         '<ul>' +
         '<li>Articles collected ' + esc(fmt(e.papers_collected.from)) + ' – ' + esc(fmt(e.papers_collected.to)) + ' (' + e.papers_collected.journals + ' journals)</li>' +
         '<li>Faculty lists ' + esc(fmt(e.faculty_collected.from)) + ' – ' + esc(fmt(e.faculty_collected.to)) + ' (' + e.faculty_collected.faculty.toLocaleString() + ' people at ' + e.faculty_collected.schools + ' institutions)</li>' +
-        '<li>W&amp;L journal ranks: ' + esc(e.rankings_edition) + ' edition' + (e.us_schools ? '; US law schools per ' + esc(e.us_schools.source) : '') + '</li>' +
+        '<li>Journal ranks: ' + (e.flagship_ranks ? 'US News ' + esc(e.flagship_ranks.edition) + ' (flagship), ' : '') + 'W&amp;L ' + esc(e.rankings_edition) + (e.flagship_ranks ? ' (specialty)' : ' (all journals)') + '</li>' +
         '<li>' + e.counts.papers.toLocaleString() + ' articles by ' + e.counts.faculty_with_papers.toLocaleString() + ' current faculty' +
           (ch ? ' (' + signed(ch.papers) + ' articles, ' + signed(ch.faculty_with_papers) + ' faculty since the previous build)' : '') + '</li>' +
         '</ul>' +
-        (ch ? (ch.moved.length ? '<details><summary>' + ch.moved.length + ' schools moved in the default top 30</summary><ul>' + moved + '</ul></details>'
-                               : '<p class="text-muted">No change in the default top 30.</p>') : '') +
+        (ch ? (ch.view_changed ? '<p class="text-muted">The default view changed in this build (now: ' + esc(ch.view_changed) + '), so its top 30 is not compared with the previous build.</p>'
+               : ch.moved.length ? '<details><summary>' + ch.moved.length + ' schools moved in the default top 30</summary><ul>' + moved + '</ul></details>'
+                                 : '<p class="text-muted">No change in the default top 30.</p>') : '') +
         '<details><summary>Default top 30 in this build</summary><table><thead><tr><th>#</th><th>School</th><th>Count</th><th>Faculty</th></tr></thead><tbody>' +
         e.top.map(([s, score, n], i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(s) + '</td><td>' + score + '</td><td>' + n + '</td></tr>').join('') +
         '</tbody></table></details>';
