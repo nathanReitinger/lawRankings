@@ -13,9 +13,10 @@
   const DEFAULT_BANDS = ['1', '2'];                                      // = W&L top 10
   const STORAGE_KEY = 'lawRankings.v3';
   const HEIN_PROFILE = 'https://heinonline.org/HOL/AuthorProfile?action=edit&collection=journals&search_name=';
-  const COLORS = { general: '#377eb8', specialty: '#ff7f00' };
+  const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
 
   let DATA, META, state, groupSubjects;
+  let journalCats, personPapers;   // journal -> [0 = flagship, 1+g = specialty group g]; person -> their papers
   let current = { areas: [], rows: [] };
   const titleChunks = {};
   const openSchools = new Set();
@@ -117,7 +118,7 @@
       const bands = BANDS.filter((b) => state.bands.includes(b.id));
       const set = new Set();
       DATA.journals.forEach((j, ji) => { if (bands.some((b) => inBand(j[2], b))) set.add(ji); });
-      list.push({ label: 'General', short: 'general', color: COLORS.general, cls: 'c-general', journals: set });
+      list.push({ label: 'Flagship', short: 'flagship', color: COLORS.general, cls: 'c-general', journals: set });
     }
     DATA.groups.forEach((g) => {
       const subs = state.groups[g];
@@ -258,7 +259,7 @@
   function bandJournals(id) {
     const band = BANDS.find((b) => b.id === id);
     const js = DATA.journals.filter((j) => inBand(j[2], band)).sort((a, b) => (a[2] || 999) - (b[2] || 999));
-    return '<p>w&amp;l ' + esc(META.rankings.edition) + ' general rank</p>' + (js.length
+    return '<p>w&amp;l ' + esc(META.rankings.edition) + ' rank among general (flagship) law reviews</p>' + (js.length
       ? js.map((j) => '<div class="jrnl">' + (j[2] ? j[2] + '. ' : 'NR ') + esc(j[0]) + '</div>').join('')
       : '<div class="jrnl">none</div>');
   }
@@ -372,47 +373,61 @@
     tr.setAttribute('aria-expanded', openPeople.has(key));
   }
 
-  // the drop-down under a faculty member: articles by area (chart) and the article list with HeinOnline links
+  // the drop-down under a faculty member: where they publish (bars, all their articles in the chosen years,
+  // whatever journals are selected) and the article list with HeinOnline links
   function fillDetail(detailRow) {
     const [s, person] = detailRow.dataset.key.split(':').map(Number);
     const r = current.rows.find((x) => x.school === s);
     const f = r && r.faculty.get(person);
     if (!f) return;
-    const papers = f.papers.slice().sort((a, b) => DATA.papers.year[b] - DATA.papers.year[a]);
+    const P = DATA.papers;
+    const counted = new Set(f.papers);
+    const papers = (personPapers.get(person) || [])
+      .filter((p) => P.year[p] >= state.from && P.year[p] <= state.to && !(state.minor && P.minor[p]))
+      .sort((a, b) => P.year[b] - P.year[a] || (counted.has(b) - counted.has(a)));
     titlesFor(papers).then((titles) => {
       const items = papers.map((p, i) => {
         const [title, link] = titles[i] || ['(title unavailable)', ''];
         const href = link || heinProfile(person);
         const how = link ? 'Open the article on HeinOnline' : 'Open the author\'s HeinOnline profile (article link not collected yet)';
-        const n = DATA.papers.authors[p];
-        return '<li><a href="' + esc(href) + '" target="_blank" rel="noopener" title="' + how + '">' + esc(title) + '</a> ' +
-          '<span class="meta">— ' + esc(DATA.journals[DATA.papers.journal[p]][0]) + ', ' + DATA.papers.year[p] +
-          (n > 1 ? ' (' + n + ' authors)' : '') + '</span></li>';
+        const n = P.authors[p];
+        const cats = journalCats[P.journal[p]].map((c) => '<span class="' + (c === 0 ? 'c-general' : 'c-specialty') + '">' + esc(catShort(c)) + '</span>').join('');
+        return '<li' + (counted.has(p) ? '' : ' class="not-counted" title="Not in the journals selected for this ranking"') + '>' +
+          '<a href="' + esc(href) + '" target="_blank" rel="noopener" title="' + how + '">' + esc(title) + '</a> ' +
+          '<span class="meta">— ' + esc(DATA.journals[P.journal[p]][0]) + ', ' + P.year[p] + (n > 1 ? ' (' + n + ' authors)' : '') +
+          (cats ? ' <span class="areaname">' + cats + '</span>' : '') + '</span></li>';
       }).join('');
-      detailRow.firstElementChild.innerHTML = chartSvg(f) + '<ol class="paper-list">' + items + '</ol>';
+      const note = papers.length > f.papers.length
+        ? '<p class="detail-note">' + f.papers.length + ' of these ' + papers.length + ' articles are in the selected journals; the others are shown in gray.</p>' : '';
+      detailRow.firstElementChild.innerHTML = authorBars(papers) + note + '<ol class="paper-list">' + items + '</ol>';
     }).catch(() => {
       detailRow.firstElementChild.innerHTML = '<span class="loading">Could not load the article titles.</span>';
     });
   }
 
-  function chartSvg(f) {
-    const areas = current.areas;
-    if (areas.length < 2) return '';
-    const max = Math.max(...f.byArea, 1);
-    const bw = 22, gap = 8, h = 60, left = 26;
-    const width = left + areas.length * (bw + gap) + 10;
-    let svg = '<svg class="chart" width="' + width + '" height="' + (h + 78) + '" role="img" aria-label="Adjusted articles by area">' +
-      '<g font-family="Helvetica,Arial,sans-serif" font-size="10" fill="#333">' +
-      '<line x1="' + left + '" y1="4" x2="' + left + '" y2="' + (h + 4) + '" stroke="#888"/>' +
-      '<line x1="' + left + '" y1="' + (h + 4) + '" x2="' + (width - 4) + '" y2="' + (h + 4) + '" stroke="#888"/>' +
-      '<text x="' + (left - 4) + '" y="' + (h + 7) + '" text-anchor="end">0</text>' +
-      '<text x="' + (left - 4) + '" y="9" text-anchor="end">' + (Math.round(max * 10) / 10) + '</text>';
-    areas.forEach((a, i) => {
-      const v = f.byArea[i], bh = Math.round((v / max) * h), x = left + 6 + i * (bw + gap);
-      svg += '<rect x="' + x + '" y="' + (h + 4 - bh) + '" width="' + bw + '" height="' + bh + '" fill="' + a.color + '"><title>' + esc(a.label) + ': ' + v.toFixed(1) + '</title></rect>' +
-        '<text transform="translate(' + (x + bw / 2 + 3) + ' ' + (h + 10) + ') rotate(-90)" text-anchor="end">' + esc(a.short) + '</text>';
+  function catLabel(c) { return c === 0 ? 'Flagship' : DATA.groups[c - 1]; }
+  function catShort(c) { return c === 0 ? 'flagship' : shortName(DATA.groups[c - 1]); }
+
+  // horizontal bars: Flagship, then the specialty groups in the filter panel's order; empty categories are left out
+  function authorBars(papers) {
+    const n = new Map(), adj = new Map();
+    papers.forEach((p) => {
+      journalCats[DATA.papers.journal[p]].forEach((c) => {
+        n.set(c, (n.get(c) || 0) + 1);
+        adj.set(c, (adj.get(c) || 0) + 1 / DATA.papers.authors[p]);
+      });
     });
-    return svg + '</g></svg>';
+    const cats = [...n.keys()].sort((a, b) => a - b);
+    if (!cats.length) return '';
+    const max = Math.max(...n.values());
+    return '<div class="bars" role="img" aria-label="Articles by journal group, ' + state.from + '–' + state.to + '">' +
+      '<div class="bars-title">Articles by journal group, ' + state.from + '–' + state.to + '</div>' +
+      cats.map((c) => {
+        const tip = catLabel(c) + ': ' + n.get(c) + ' article' + (n.get(c) === 1 ? '' : 's') + ' (adjusted for co-authors: ' + adj.get(c).toFixed(1) + ')';
+        return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + esc(catLabel(c)) + '</span>' +
+          '<span class="bar-track"><span class="bar ' + (c === 0 ? 'bg-general' : 'bg-specialty') + '" style="width:' + (100 * n.get(c) / max).toFixed(1) + '%"></span></span>' +
+          '<span class="bar-value">' + n.get(c) + '</span></div>';
+      }).join('') + '</div>';
   }
 
   ////////////////////////////////////////////// titles: per-decade files, fetched on first use
@@ -460,6 +475,7 @@
       ' · <a href="faq.html#data">details</a>';
     $('footer').innerHTML = '<p>Volume ' + esc(META.version) + ', Build ' + esc(META.build) + ' · built ' + esc(fmtDate(META.built)) +
       ' · <a href="history.html">build history</a> · <a href="faq.html">about &amp; method</a></p>' +
+      '<p>Built by <a href="https://www.law.northwestern.edu/faculty/profiles/NathanReitinger/">Nathan Reitinger</a> · Northwestern Pritzker School of Law</p>' +
       '<p class="text-muted">Modeled on <a href="https://csrankings.org/">CSrankings</a>. Journal ranks: Washington &amp; Lee Law Journal Rankings. Articles and faculty: HeinOnline.</p>';
   }
 
@@ -497,6 +513,16 @@
     DATA = data;
     META = meta;
     groupSubjects = META.group_subjects || {};
+    // which bars a journal's articles count toward: flagship (any W&L General law review) and each specialty group it is in
+    journalCats = DATA.journals.map((j) => {
+      const cats = j[2] !== null && j[2] !== undefined ? [0] : [];
+      return cats.concat([...new Set(j[4].map(([g]) => g + 1))].sort((a, b) => a - b));
+    });
+    personPapers = new Map();
+    DATA.credits.person.forEach((person, k) => {
+      if (!personPapers.has(person)) personPapers.set(person, []);
+      personPapers.get(person).push(DATA.credits.paper[k]);
+    });
     let saved = null;
     try { saved = JSON.parse(recall(STORAGE_KEY) || 'null'); } catch (e) { saved = null; }
     state = cleanState(readHash() || saved);
