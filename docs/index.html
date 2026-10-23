@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Law School Rankings</title>
+  <meta name="description" content="Law schools ranked by where their faculty publish, using HeinOnline metadata and Washington &amp; Lee journal rankings.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@600&family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    .font-garamond { font-family: 'EB Garamond', serif; }
+    .font-crimson { font-family: 'Crimson Text', serif; }
+    .boxed-title {
+      border: 1px solid black;
+      padding: 0.5rem 1rem;
+      display: inline-block;
+      letter-spacing: 0.25rem;
+      font-size: 1.5rem;
+    }
+
+    /* "i" next to each faculty member: hover for titles on desktop, tap to list them on phones */
+    .tooltip-icon {
+      position: relative;
+      display: inline-block;
+      margin-left: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      border-radius: 50%;
+      background-color: #e2e8f0;
+      width: 18px;
+      height: 18px;
+      text-align: center;
+      line-height: 18px;
+      font-size: 0.75rem;
+      color: #1e3a8a;
+      border: none;
+      padding: 0;
+      vertical-align: middle;
+    }
+    .tooltip-text {
+      visibility: hidden;
+      opacity: 0;
+      background-color: white;
+      color: #333;
+      text-align: left;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      position: absolute;
+      z-index: 100;
+      top: 24px;
+      left: 0;
+      transition: opacity 0.3s ease;
+      width: min(480px, 80vw);
+      max-height: 240px;
+      overflow-y: auto;
+      white-space: normal;
+      word-wrap: break-word;
+      font-weight: normal;
+      font-size: 0.85rem;
+      line-height: 1.3;
+    }
+    @media (hover: hover) {
+      .tooltip-icon:hover .tooltip-text { visibility: visible; opacity: 1; }
+    }
+    .title-list { margin: 0; padding: 0.25rem 0 0.25rem 1.1rem; list-style-type: disc; font-size: 0.85rem; line-height: 1.4; }
+    .title-list li { margin-bottom: 0.2rem; }
+    .title-meta { color: #6b7280; }
+
+    .ranking-button {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+      border-radius: 0.375rem;
+      border: 1px solid transparent;
+      color: #2563eb;
+      background-color: #f9fafb;
+      transition: background 0.2s, color 0.2s;
+    }
+    .ranking-button.selected {
+      background-color: #bbf7d0;
+      color: #065f46;
+      border-color: #86efac;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .table-container {
+      display: block;
+      width: 100%;
+      margin: 5px auto;
+      padding: 3px;
+      border-radius: 15px;
+      border: 2px solid rgba(0, 0, 0, 0.2);
+      box-sizing: border-box;
+    }
+    @media (min-width: 768px) {
+      .table-container { max-height: calc(100vh - 230px); overflow-y: auto; }
+    }
+    .table-container::-webkit-scrollbar { width: 8px; }
+    .table-container::-webkit-scrollbar-thumb { background-color: rgba(0, 0, 0, 0.2); border-radius: 5px; }
+
+    .school-table {
+      width: 100%;
+      margin-bottom: 0;
+      border-collapse: collapse;
+      background-color: transparent;
+      color: #333;
+      font-family: 'Crimson Text', serif;
+      table-layout: auto;
+    }
+    .school-table > * > tr > th, .school-table > * > tr > td {
+      padding: 6px 10px;
+      text-align: left;
+      font-size: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .school-table > thead > tr > th {
+      position: sticky;
+      top: var(--sticky-top, 0px);
+      z-index: 5;
+      background-color: #fff;
+      font-weight: bold;
+    }
+    .school-table > * > tr > :first-child { text-align: right; }
+    .school-table > * > tr > :nth-child(3),
+    .school-table > * > tr > :nth-child(4) { text-align: right; white-space: nowrap; }
+    .school-table > tbody > tr.faculty-accordion > td { text-align: left; }
+    .school-row { cursor: pointer; }
+    .school-row:hover { background-color: rgba(255, 255, 255, 0.9); }
+    .school-row .arrow { display: inline-block; width: 1rem; color: #374151; font-size: 0.8rem; }
+    .faculty-accordion > td { background-color: #fafafa; padding: 6px 4px 10px !important; }
+    .faculty-accordion .table { margin-bottom: 0; background: white; font-family: 'Crimson Text', serif; }
+    .faculty-accordion .table th, .faculty-accordion .table td { font-size: 15px; padding: 5px 8px; }
+    .faculty-accordion .table td:nth-child(2), .faculty-accordion .table td:nth-child(3),
+    .faculty-accordion .table th:nth-child(2), .faculty-accordion .table th:nth-child(3) { text-align: right; white-space: nowrap; }
+    .titles-row > td { background: #fff; }
+
+    @media (max-width: 767px) {
+      .boxed-title { font-size: 1.15rem !important; letter-spacing: 0.12rem; padding: 0.4rem 0.75rem; }
+      .school-table > * > tr > th, .school-table > * > tr > td { font-size: 15px; padding: 7px 6px; }
+      .school-table { --sticky-top: 52px; }
+      .faculty-accordion .table th, .faculty-accordion .table td { font-size: 14px; padding: 5px 6px; }
+      /* phones: filters slide in from the left */
+      #leftPane { transform: translateX(-100%); transition: transform 0.25s ease; }
+      body.filters-open #leftPane { transform: translateX(0); }
+      body.filters-open { overflow: hidden; }
+      body.filters-open #drawerBackdrop { display: block; }
+    }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans">
+
+  <!-- Phone header: opens the filter drawer and says what is being shown -->
+  <div id="mobileBar" class="md:hidden sticky top-0 z-30 flex items-center gap-3 bg-white border-b shadow-sm px-3" style="height: 52px;">
+    <button id="openFilters" type="button" class="flex items-center gap-2 px-3 py-1 rounded-md border bg-gray-100 text-gray-700 text-sm font-semibold">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+      Filters
+    </button>
+    <div id="mobileSummary" class="text-xs text-gray-600 leading-tight truncate font-crimson" style="font-size: 0.9rem;"></div>
+  </div>
+  <div id="drawerBackdrop" class="hidden fixed inset-0 bg-black bg-opacity-30 z-40 md:hidden"></div>
+
+  <div class="md:flex md:h-screen md:overflow-hidden">
+    <!-- Left Pane -->
+    <aside id="leftPane" class="fixed md:static inset-y-0 left-0 z-50 md:z-auto flex flex-col bg-white border-r p-4 shadow-md" style="width: min(320px, 86vw); overflow-y: auto;">
+      <div class="flex justify-between items-center md:hidden mb-2">
+        <span class="font-crimson font-bold text-lg">Filters</span>
+        <button id="closeFilters" type="button" class="text-2xl leading-none text-gray-600 px-2" aria-label="Close filters">&times;</button>
+      </div>
+
+      <!-- Years -->
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold mb-3 text-gray-700">Years</h2>
+        <div class="flex gap-4">
+          <div class="flex-1">
+            <label for="fromYear" class="block text-sm font-medium text-gray-600">From</label>
+            <input type="number" id="fromYear" inputmode="numeric" class="mt-1 p-2 w-full border rounded-md text-sm text-gray-700 focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div class="flex-1">
+            <label for="toYear" class="block text-sm font-medium text-gray-600">To</label>
+            <input type="number" id="toYear" inputmode="numeric" class="mt-1 p-2 w-full border rounded-md text-sm text-gray-700 focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- General -->
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold mb-1 text-gray-700">General</h2>
+        <p class="text-xs text-gray-500 mb-2">Flagship law reviews, by W&amp;L rank</p>
+        <div id="generalButtons" class="flex flex-wrap gap-2 text-sm"></div>
+      </div>
+
+      <!-- Specialty -->
+      <div class="mb-6">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-lg font-semibold text-gray-700">Specialty</h2>
+          <div class="flex gap-2">
+            <button id="selectAllSpecialty" type="button" class="text-xs text-blue-600 hover:underline">Select All</button>
+            <button id="clearFilters" type="button" class="text-xs text-blue-600 hover:underline">Clear</button>
+          </div>
+        </div>
+        <div class="flex justify-center items-center mb-4">
+          <div class="relative p-2 rounded-lg border border-gray-300">
+            <div id="tierButtons" class="flex justify-center items-center gap-2"></div>
+            <div class="absolute bottom-0 right-0 text-xs font-serif text-gray-500 mr-2 mb-1 bg-white px-1 transform translate-y-3">Rank</div>
+          </div>
+        </div>
+        <div id="groupButtons" class="flex flex-col gap-2 text-sm"></div>
+
+        <details id="moreSubjects" class="mt-4">
+          <summary class="text-sm text-blue-600 cursor-pointer select-none">More: individual W&amp;L subjects</summary>
+          <p class="text-xs text-gray-500 mt-2 mb-2">Each subject is ranked by W&amp;L on its own; "Rank" above applies here too.</p>
+          <div id="subjectButtons" class="flex flex-col gap-1 text-xs"></div>
+        </details>
+      </div>
+
+      <!-- Options -->
+      <div class="mb-6 space-y-2 text-sm text-gray-700">
+        <label class="flex items-start gap-2 cursor-pointer">
+          <input type="checkbox" id="usOnly" class="mt-1">
+          <span>US law schools only</span>
+        </label>
+        <label class="flex items-start gap-2 cursor-pointer">
+          <input type="checkbox" id="skipMinor" class="mt-1">
+          <span>Skip short pieces <span class="text-gray-500">(forewords, tributes, book reviews, responses; beta)</span></span>
+        </label>
+      </div>
+
+      <div class="md:hidden sticky bottom-0 bg-white pt-2 pb-1 mt-auto">
+        <button id="showResults" type="button" class="w-full py-2 rounded-md bg-green-200 text-green-900 border border-green-300 shadow-md font-semibold text-sm">Show results</button>
+      </div>
+    </aside>
+
+    <!-- Drag Handle -->
+    <div id="dragHandle" class="hidden md:block w-2 cursor-col-resize bg-gray-300 hover:bg-gray-400 transition"></div>
+
+    <!-- Right Pane -->
+    <main id="rightPane" class="flex-1 min-w-0 p-3 md:p-6 bg-gray-50 md:overflow-y-auto relative">
+
+      <!-- Title Box mimicking HLR -->
+      <div class="bg-white rounded-xl mb-4 px-4 md:px-6 py-3 flex flex-col items-center justify-center shadow-lg">
+        <div class="w-full flex justify-between items-center mb-2 font-bold font-crimson text-base md:text-lg">
+          <span>VERSION 2.0</span>
+          <span><a href="faq.html">ABOUT</a></span>
+        </div>
+        <div class="my-2">
+          <div class="boxed-title font-garamond text-2xl">Law School Rankings</div>
+        </div>
+        <div class="text-sm italic font-crimson text-gray-700 mt-1 text-center">
+          Beta version, not for public release!
+        </div>
+        <div id="dataAsOf" class="text-xs font-crimson text-gray-600 mt-2 text-center leading-snug" style="font-size: 0.85rem;"></div>
+      </div>
+
+      <div class="bg-white shadow-md rounded-lg p-2 md:p-4 relative" style="min-height: 300px;">
+        <div id="loadingSpinner" class="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75 z-50">
+          <svg class="w-12 h-12 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle class="opacity-25" cx="12" cy="12" r="10"></circle>
+            <path class="opacity-75" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+          </svg>
+        </div>
+        <div id="selectionSummary" class="hidden md:block text-sm font-crimson text-gray-600 px-1 mb-1"></div>
+        <div id="school-table" class="table-container"></div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
