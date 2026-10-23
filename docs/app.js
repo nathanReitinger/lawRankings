@@ -2,16 +2,18 @@
 (function () {
   'use strict';
 
-  // general law reviews come in W&L rank bands, like CSrankings' venue groups; checked bands form one "General" area
+  // Flagship law reviews are ranked by their school's US News rank, specialty journals by W&L rank (fixed: the
+  // site offers no other method). Flagship reviews come in US News tiers, like CSrankings' venue groups; checked
+  // tiers form one "Flagship" area. j[2]: US News rank of the school (0 = unranked, -1 = not a main law review).
   const BANDS = [
-    { id: '1', label: 'W&L rank 1–3', lo: 1, hi: 3 },
-    { id: '2', label: 'W&L rank 4–10', lo: 4, hi: 10 },
-    { id: '3', label: 'W&L rank 11–25', lo: 11, hi: 25 },
-    { id: '4', label: 'W&L rank 26–50', lo: 26, hi: 50 },
-    { id: '5', label: 'W&L rank 51 and below', lo: 51, hi: Infinity },   // includes journals W&L lists but doesn't rank
+    { id: '1', label: 'US News 1–3', lo: 1, hi: 3 },
+    { id: '2', label: 'US News 4–25', lo: 4, hi: 25 },
+    { id: '3', label: 'US News 26–50', lo: 26, hi: 50 },
+    { id: '4', label: 'US News 51 and above', lo: 51, hi: Infinity },   // includes schools US News leaves unranked
+    { id: '5', label: 'Online editions & other general journals', other: true },
   ];
-  const DEFAULT_BANDS = ['1', '2'];                                      // = W&L top 10
-  const STORAGE_KEY = 'lawRankings.v3';
+  const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
+  const STORAGE_KEY = 'lawRankings.v4';                                 // v4: tiers became US News tiers
   const HEIN_PROFILE = 'https://heinonline.org/HOL/AuthorProfile?action=edit&collection=journals&search_name=';
   const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
 
@@ -63,20 +65,20 @@
 
   function readHash() {
     const h = new URLSearchParams(location.hash.slice(1));
-    if (!h.has('g')) return null;
+    if (!h.has('f')) return null;
     const groups = {};
     (h.get('s') || '').split('|').filter(Boolean).forEach((part) => {
       const [g, subs] = part.split(':');
       groups[g] = subs ? subs.split(';') : (groupSubjects[g] || []).slice();
     });
     const years = (h.get('y') || '').split('-');
-    return { bands: (h.get('g') || '').split('.').filter(Boolean), groups, cutoff: h.get('c'),
+    return { bands: (h.get('f') || '').split('.').filter(Boolean), groups, cutoff: h.get('c'),
       from: years[0], to: years[1], region: h.get('r'), minor: h.get('m') === '1' };
   }
 
   function saveState() {
     const h = new URLSearchParams();
-    h.set('g', state.bands.join('.') || 'none');
+    h.set('f', state.bands.join('.') || 'none');
     const parts = Object.entries(state.groups).map(([g, subs]) =>
       subs.length === groupSubjects[g].length ? g : g + ':' + subs.join(';'));
     if (parts.length) h.set('s', parts.join('|'));
@@ -90,9 +92,10 @@
 
   ////////////////////////////////////////////// ranking
 
-  function inBand(generalRank, band) {
-    if (generalRank === null || generalRank === undefined) return false;
-    const r = generalRank === 0 ? Infinity : generalRank;
+  function inBand(usRank, band) {
+    if (usRank === null || usRank === undefined) return false;
+    if (band.other || usRank === -1) return !!band.other && usRank === -1;
+    const r = usRank === 0 ? Infinity : usRank;
     return r >= band.lo && r <= band.hi;
   }
 
@@ -256,12 +259,21 @@
     arrow.innerHTML = show ? '&#9660;' : '&#9658;';
   }
 
+  const KIND = { online: 'online edition', secondary: 'second journal', non_school: 'not a school\'s journal', foreign: 'outside the US', unmapped: 'school not identified yet' };
+
   function bandJournals(id) {
     const band = BANDS.find((b) => b.id === id);
-    const js = DATA.journals.filter((j) => inBand(j[2], band)).sort((a, b) => (a[2] || 999) - (b[2] || 999));
-    return '<p>w&amp;l ' + esc(META.rankings.edition) + ' rank among general (flagship) law reviews</p>' + (js.length
-      ? js.map((j) => '<div class="jrnl">' + (j[2] ? j[2] + '. ' : 'NR ') + esc(j[0]) + '</div>').join('')
-      : '<div class="jrnl">none</div>');
+    const js = DATA.journals.filter((j) => inBand(j[2], band))
+      .sort((a, b) => ((a[2] || 999) - (b[2] || 999)) || a[0].localeCompare(b[0]));
+    const head = band.other
+      ? '<p>general journals that are not a school\'s main law review</p>'
+      : '<p>school\'s us news rank (' + esc(META.flagship_ranks.edition) + ' edition)</p>';
+    const line = (j) => {
+      const [school, label, kind] = j[5] || ['', '', 'unmapped'];
+      if (band.other) return esc(j[0]) + ' <span class="text-muted">(' + esc(KIND[kind] || kind) + ')</span>';
+      return (label === 'Unranked' ? 'unranked ' : '#' + esc(label) + ' ') + esc(j[0]);
+    };
+    return head + (js.length ? js.map((j) => '<div class="jrnl">' + line(j) + '</div>').join('') : '<div class="jrnl">none</div>');
   }
 
   function syncPanel() {
@@ -278,8 +290,8 @@
     $('toYear').value = state.to;
     $('region').value = state.region;
     const nb = state.bands.length, ng = Object.keys(state.groups).length;
-    setSel($('pillGeneral'), nb === 0 ? 'none' : nb >= 4 ? 'all' : 'partial');
-    setSel($('toggleGeneral'), nb === 0 ? 'none' : nb >= 4 ? 'all' : 'partial');
+    setSel($('pillGeneral'), nb === 0 ? 'none' : nb === BANDS.length ? 'all' : 'partial');
+    setSel($('toggleGeneral'), nb === 0 ? 'none' : nb === BANDS.length ? 'all' : 'partial');
     setSel($('pillSpecialty'), ng === 0 ? 'none' : ng === DATA.groups.length ? 'all' : 'partial');
     setSel($('toggleSpecialty'), ng === 0 ? 'none' : ng === DATA.groups.length ? 'all' : 'partial');
   }
@@ -390,11 +402,10 @@
         const [title, link] = titles[i] || ['(title unavailable)', ''];
         const href = link || heinProfile(person);
         const how = link ? 'Open the article on HeinOnline' : 'Open the author\'s HeinOnline profile (article link not collected yet)';
-        const n = P.authors[p];
         const cats = journalCats[P.journal[p]].map((c) => '<span class="' + (c === 0 ? 'c-general' : 'c-specialty') + '">' + esc(catShort(c)) + '</span>').join('');
         return '<li' + (counted.has(p) ? '' : ' class="not-counted" title="Not in the journals selected for this ranking"') + '>' +
           '<a href="' + esc(href) + '" target="_blank" rel="noopener" title="' + how + '">' + esc(title) + '</a> ' +
-          '<span class="meta">— ' + esc(DATA.journals[P.journal[p]][0]) + ', ' + P.year[p] + (n > 1 ? ' (' + n + ' authors)' : '') +
+          '<span class="meta">— ' + esc(DATA.journals[P.journal[p]][0]) + ', ' + P.year[p] +
           (cats ? ' <span class="areaname">' + cats + '</span>' : '') + '</span></li>';
       }).join('');
       const note = papers.length > f.papers.length
@@ -408,7 +419,7 @@
   function catLabel(c) { return c === 0 ? 'Flagship' : DATA.groups[c - 1]; }
   function catShort(c) { return c === 0 ? 'flagship' : shortName(DATA.groups[c - 1]); }
 
-  // horizontal bars: Flagship, then the specialty groups in the filter panel's order; empty categories are left out
+  // horizontal bars, most to least; empty categories are left out
   function authorBars(papers) {
     const n = new Map(), adj = new Map();
     papers.forEach((p) => {
@@ -417,7 +428,7 @@
         adj.set(c, (adj.get(c) || 0) + 1 / DATA.papers.authors[p]);
       });
     });
-    const cats = [...n.keys()].sort((a, b) => a - b);
+    const cats = [...n.keys()].sort((a, b) => n.get(b) - n.get(a) || a - b);   // most to least
     if (!cats.length) return '';
     const max = Math.max(...n.values());
     return '<div class="bars" role="img" aria-label="Articles by journal group, ' + state.from + '–' + state.to + '">' +
@@ -470,13 +481,12 @@
     $('mhDate').textContent = fmtDate(META.built, { month: 'long', year: 'numeric' });
     $('dataLine').innerHTML = '<b>Data:</b> articles collected ' + esc(fmtDate(p.from)) + ' – ' + esc(fmtDate(p.to)) +
       ' (' + p.journals + ' journals) · faculty lists ' + esc(fmtDate(f.to)) +
-      ' · W&amp;L ranks ' + esc(META.rankings.edition) +
-      (META.us_schools ? ' · US law schools per ' + esc(META.us_schools.source) : '') +
+      ' · ranks: US News ' + esc(META.flagship_ranks.edition) + ' (flagship), W&amp;L ' + esc(META.rankings.edition) + ' (specialty)' +
       ' · <a href="faq.html#data">details</a>';
     $('footer').innerHTML = '<p>Volume ' + esc(META.version) + ', Build ' + esc(META.build) + ' · built ' + esc(fmtDate(META.built)) +
       ' · <a href="history.html">build history</a> · <a href="faq.html">about &amp; method</a></p>' +
       '<p>Built by <a href="https://www.law.northwestern.edu/faculty/profiles/NathanReitinger/">Nathan Reitinger</a> · Northwestern Pritzker School of Law</p>' +
-      '<p class="text-muted">Modeled on <a href="https://csrankings.org/">CSrankings</a>. Journal ranks: Washington &amp; Lee Law Journal Rankings. Articles and faculty: HeinOnline.</p>';
+      '<p class="text-muted">Modeled on <a href="https://csrankings.org/">CSrankings</a>.</p>';
   }
 
   function wire() {
@@ -513,7 +523,7 @@
     DATA = data;
     META = meta;
     groupSubjects = META.group_subjects || {};
-    // which bars a journal's articles count toward: flagship (any W&L General law review) and each specialty group it is in
+    // which bars a journal's articles count toward: flagship (any W&L General journal, main review or not) and each specialty group it is in
     journalCats = DATA.journals.map((j) => {
       const cats = j[2] !== null && j[2] !== undefined ? [0] : [];
       return cats.concat([...new Set(j[4].map(([g]) => g + 1))].sort((a, b) => a - b));

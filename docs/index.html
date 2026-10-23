@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Law School Rankings</title>
-  <meta name="description" content="Law schools ranked by where their faculty publish: HeinOnline metadata and Washington &amp; Lee journal rankings, in the style of CSrankings.">
+  <meta name="description" content="Law schools ranked by where their faculty publish, in the style of CSrankings.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
@@ -29,21 +29,22 @@
   </div>
 
   <div class="panel-info intro-panel">
-    <p>Law schools ranked by where their faculty publish: articles in the journals you select, credited to each author's current school and split between co-authors (like <a href="https://csrankings.org/">CSrankings</a>). Journal ranks from Washington &amp; Lee; articles and faculty lists from HeinOnline.</p>
+    <p>Law schools ranked by where their faculty publish: articles in the journals you select, credited to each author's current school and split between co-authors (like <a href="https://csrankings.org/">CSrankings</a>).</p>
+    <p class="rank-rule"><b>How journals are ranked:</b> flagship law reviews (each school's main law review) by their school's <i>U.S. News</i> rank; specialty journals by their Washington &amp; Lee (W&amp;L) journal rank.</p>
     <p class="data-line" id="dataLine">&nbsp;</p>
   </div>
   <div class="controls-sticky" id="controlsSticky">
     <div class="panel-info controls">
       <button type="button" class="btn-filters" id="openFilters">Filters</button>
-      <label>Rank <select id="region" class="ctl-select" aria-label="Which schools to rank">
+      <label>Schools <select id="region" class="ctl-select" aria-label="Which schools to include">
         <option value="us">US law schools</option>
         <option value="all">all institutions</option>
       </select></label>
       <span class="ctl-years">from <select id="fromYear" class="ctl-select" aria-label="From year"></select>
         to <select id="toYear" class="ctl-select" aria-label="To year"></select></span>
       <span class="ctl-pills">
-        <button type="button" class="area-pill bg-general" id="pillGeneral" title="Flagship law reviews (W&amp;L General): turn on/off">Flagship</button>
-        <button type="button" class="area-pill bg-specialty" id="pillSpecialty" title="Specialty journals: turn on/off">Specialty</button>
+        <button type="button" class="area-pill bg-general" id="pillGeneral" title="Flagship law reviews, by their school's US News rank: turn on/off">Flagship</button>
+        <button type="button" class="area-pill bg-specialty" id="pillSpecialty" title="Specialty journals, by W&amp;L rank: turn on/off">Specialty</button>
       </span>
       <span id="summary" class="text-muted" style="font-size:13px"></span>
     </div>
@@ -55,14 +56,15 @@
       <div class="drawer-head"><b>Filters</b><button type="button" id="closeFilters" class="btn-about" style="padding:2px 10px">Close</button></div>
       <table class="area-table">
         <tbody id="generalBody">
-          <tr class="area-head"><td colspan="2"><button type="button" class="area-btn bg-general" id="toggleGeneral" title="Turn all flagship law review tiers on/off">Flagship Law Reviews</button></td></tr>
+          <tr class="area-head"><td colspan="2"><button type="button" class="area-btn bg-general" id="toggleGeneral" title="Turn all flagship law review tiers on/off">Flagship Law Reviews</button>
+            <div style="margin-top:6px"><small class="text-muted">tiered by their school's US News rank</small></div></td></tr>
         </tbody>
         <tbody id="specialtyBody">
           <tr class="area-head"><td colspan="2"><button type="button" class="area-btn bg-specialty" id="toggleSpecialty" title="Turn all specialty groups on/off">Specialty Journals</button>
-            <div style="margin-top:6px"><small class="text-muted">count journals ranked
-              <select id="cutoff" class="inline-select" aria-label="Specialty rank cutoff">
-                <option value="3">top 3</option><option value="5">top 5</option><option value="10">top 10</option><option value="25">top 25</option><option value="all">all</option>
-              </select> in each group</small></div></td></tr>
+            <div style="margin-top:6px"><small class="text-muted">count each group's top
+              <select id="cutoff" class="inline-select" aria-label="How many journals per group, by W&amp;L rank">
+                <option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="25">25</option><option value="all">all</option>
+              </select> journals by W&amp;L rank</small></div></td></tr>
         </tbody>
         <tbody>
           <tr class="area-head"><td colspan="2"><span class="area-btn bg-options">Options</span></td></tr>
