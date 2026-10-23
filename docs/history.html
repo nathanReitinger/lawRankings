@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build History</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <div class="lsr-mast-wrap">
+    <header class="lsr-mast">
+      <p class="lsr-issue"><span>Volume <span id="mhVolume">&nbsp;</span></span><span id="mhDate">&nbsp;</span><a href="history.html" title="What changed in each build">Build <span id="mhBuild">&nbsp;</span></a></p>
+      <h1 class="lsr-mark"><a href="./">Law School Rankings</a></h1>
+      <div class="lsr-foot">
+        <a class="lsr-about back" href="./">Rankings</a>
+        <span class="lsr-note">Build history</span>
+      </div>
+    </header>
+  </div>
+
+  <div class="prose">
+    <p>Each time the scrapers run, the data is rebuilt. When anything the site shows changes, the build number goes up and an entry is added here: when each source was collected, how many articles and faculty are counted, and how the default view (General law reviews, W&amp;L top 10, last ten years, US law schools) changed.</p>
+    <div id="builds"><p class="loading">Loading…</p></div>
+  </div>
+
+  <footer class="page-footer"><p><a href="./">rankings</a> · <a href="faq.html">about &amp; method</a></p></footer>
+</div>
+<script>
+(function () {
+  'use strict';
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (iso, o) => iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', o || { month: 'short', day: 'numeric', year: 'numeric' }) : '?';
+  const signed = (n) => (n > 0 ? '+' : '') + n.toLocaleString();
+  Promise.all([fetch('data/history.json').then((r) => r.json()), fetch('data/meta.json').then((r) => r.json())]).then(([history, meta]) => {
+    document.getElementById('mhVolume').textContent = meta.version;
+    document.getElementById('mhBuild').textContent = meta.build;
+    document.getElementById('mhDate').textContent = fmt(meta.built, { month: 'long', year: 'numeric' });
+    document.getElementById('builds').innerHTML = history.slice().reverse().map((e) => {
+      const ch = e.changes;
+      const moved = ch ? ch.moved.map(([school, before, now]) => before
+        ? '<li>' + esc(school) + ': ' + before + ' &rarr; ' + now + ' <span class="' + (now < before ? 'up' : 'down') + '">' + (now < before ? '&#9650;' : '&#9660;') + '</span></li>'
+        : '<li>' + esc(school) + ': new in the top 30 at ' + now + '</li>').join('') : '';
+      return '<h2>Volume ' + esc(e.version) + ', Build ' + esc(e.build) + ' <small class="text-muted">' + esc(fmt(e.date)) + '</small></h2>' +
+        '<ul>' +
+        '<li>Articles collected ' + esc(fmt(e.papers_scraped.from)) + ' – ' + esc(fmt(e.papers_scraped.to)) + ' (' + e.papers_scraped.journals + ' journals)</li>' +
+        '<li>Faculty lists ' + esc(fmt(e.faculty_scraped.from)) + ' – ' + esc(fmt(e.faculty_scraped.to)) + ' (' + e.faculty_scraped.faculty.toLocaleString() + ' people at ' + e.faculty_scraped.schools + ' institutions)</li>' +
+        '<li>W&amp;L journal ranks: ' + esc(e.rankings_edition) + ' edition' + (e.us_schools ? '; US law schools per ' + esc(e.us_schools.source) : '') + '</li>' +
+        '<li>' + e.counts.papers.toLocaleString() + ' articles by ' + e.counts.faculty_with_papers.toLocaleString() + ' current faculty' +
+          (ch ? ' (' + signed(ch.papers) + ' articles, ' + signed(ch.faculty_with_papers) + ' faculty since the previous build)' : '') + '</li>' +
+        '</ul>' +
+        (ch ? (ch.moved.length ? '<details><summary>' + ch.moved.length + ' schools moved in the default top 30</summary><ul>' + moved + '</ul></details>'
+                               : '<p class="text-muted">No change in the default top 30.</p>') : '') +
+        '<details><summary>Default top 30 in this build</summary><table><thead><tr><th>#</th><th>School</th><th>Count</th><th>Faculty</th></tr></thead><tbody>' +
+        e.top.map(([s, score, n], i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(s) + '</td><td>' + score + '</td><td>' + n + '</td></tr>').join('') +
+        '</tbody></table></details>';
+    }).join('');
+  }).catch((err) => { document.getElementById('builds').textContent = 'Could not load the history (' + err.message + ').'; });
+})();
+</script>
+</body>
+</html>
