@@ -1,24 +1,27 @@
 '''
 build the data files for the static site (docs/) from whatever the update scripts in ../../main.py left behind
 
-1. papers per journal      j___<journal>.csv in the data folder (newest) and last_one___<date>/ (older runs)
-2. faculty per school      authors_latest.csv (get_authors_from_v3, Hein AuthorBySchool)
-3. journal ranks           rankings_<year>.csv (update_WandL, Washington & Lee)
-4. US law school list      2025_USnews.txt (hand-saved US News page)
+1. papers per journal      journal_store/ (get_papers; see journal_store.py, the repaired incremental store)
+2. faculty per school      faculty_runs/ (get_authors_from_v3, Hein AuthorBySchool), older authors_latest.csv
+3. journal ranks           newest rankings_<year>.csv (update_WandL, Washington & Lee)
+4. US law school list      newest usnews_<edition>.csv (update_usnews), else the hand-saved 2025_USnews.txt
 
 python build_data.py              # rebuild docs/data/*.json
-python build_data.py --publish    # rebuild, then git commit + push docs/data (site updates on GitHub Pages)
+python build_data.py --publish    # rebuild, then git commit + push docs/ (site updates on GitHub Pages)
 '''
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
 import subprocess
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote
+
+import sys
 
 import pandas as pd
 from bs4 import BeautifulSoup
@@ -26,6 +29,11 @@ from bs4 import BeautifulSoup
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCE_DIR = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT_DIR = os.path.join(HERE, 'docs', 'data')
+
+sys.path.insert(0, SOURCE_DIR)
+import journal_store as js   # noqa: E402  (shared volume keys, years and author keys with the update script)
+
+VERSION = 2   # shown on the site as "Volume 2"; each data change bumps the build number
 
 # W&L subjects -> the simpler groups shown on the site. Edit freely; anything not listed lands in "Other".
 SUBJECT_GROUPS = {
@@ -37,6 +45,7 @@ SUBJECT_GROUPS = {
     'Constitutional & Public Law': [
         'Constitutional Law', 'Administrative Law', 'Governmental Law', 'Legislation',
         'Public Policy, Politics and the Law', 'Education Law',
+        'War, Conflicts, Military and National Security Law',
     ],
     'Criminal Law & Litigation': [
         'Criminal Law', 'Criminology and Law Enforcement', 'Evidence and Procedure',
@@ -121,63 +130,36 @@ def middles_compatible(a, b):
 ################################################ inputs
 
 def infer_year(volume):
-    '''latest year mentioned in a Hein volume label, e.g. "31   (2023-2024)" -> 2024, "29 (1999-00)" -> 2000'''
-    v = str(volume)
-    if 'Index to Vols.' in v:
-        return None
-    years = [int(y) for y in re.findall(r'(?<!\d)(1[6-9]\d\d|20\d\d)(?!\d)', v)]
-    for start, end in re.findall(r'(?<!\d)(1[6-9]\d\d|20\d\d)-(\d\d)(?!\d)', v):
-        start = int(start)
-        end = start - start % 100 + int(end)
-        years.append(end if end >= start else end + 100)
-    years = [y for y in years if y <= datetime.now().year + 1]
-    return max(years) if years else None
-
-
-def load_journal_snapshots():
-    '''every j___*.csv we have, newest collection first for each journal'''
-    files = glob.glob(os.path.join(SOURCE_DIR, 'j___*.csv'))
-    files += glob.glob(os.path.join(SOURCE_DIR, 'last_one___*', 'j___*.csv'))
-    snaps = defaultdict(list)
-    for f in files:
-        df = pd.read_csv(f)
-        if df.empty:
-            continue
-        journal = os.path.basename(f)[len('j___'):-len('.csv')]
-        if 'collected_at' in df.columns and df['collected_at'].notna().any():
-            collected = pd.to_datetime(df['collected_at']).max().to_pydatetime()
-        else:
-            collected = datetime.fromtimestamp(os.path.getmtime(f))
-        snaps[journal].append((collected, df))
-    for journal in snaps:
-        snaps[journal].sort(key=lambda x: x[0], reverse=True)
-    return snaps
-
-
-def clean_snapshot(df):
-    df = df.dropna(subset=['title', 'author']).copy()
-    df['title'] = df['title'].astype(str).str.replace(r'\s+', ' ', regex=True).str.strip()
-    df['title_key'] = df['title'].str.lower().str.replace(r'[^a-z0-9]', '', regex=True)
-    df = df[df['title_key'] != '']
-    # when an issue fails to collapse, get_papers re-reads its papers under every older volume;
-    # the first time a (title, author) shows up is the real volume
-    return df.drop_duplicates(subset=['title_key', 'author'], keep='first')
+    return js.infer_year(volume)
 
 
 def load_papers():
-    rows = []
-    coverage = []
-    for journal, snaps in load_journal_snapshots().items():
-        cleaned = [clean_snapshot(df).assign(_snap=i) for i, (_, df) in enumerate(snaps)]
-        merged = pd.concat(cleaned).drop_duplicates(subset=['title_key', 'author'], keep='first')
-        merged['journal'] = journal
-        merged['year'] = merged['volume'].map(infer_year)
-        rows.append(merged)
+    '''every journal in journal_store/, plus when each was last checked'''
+    rows, coverage = [], []
+    for f in sorted(glob.glob(os.path.join(SOURCE_DIR, js.STORE_DIR, 'j___*.csv'))):
+        journal = os.path.basename(f)[len('j___'):-len('.csv')]
+        df = pd.read_csv(f, dtype=str, keep_default_na=False)
+        with open(f[:-len('.csv')] + '.json', encoding='utf-8') as fh:
+            state = json.load(fh)
+        df = df[(df['title'] != '') & (df['author'] != '')].copy()
+        if df.empty:
+            continue
+        df['title_key'] = df['title'].map(js.title_key)
+        df['author_key'] = df['author'].map(js.author_key)
+        df = df[df['title_key'] != '']
+        df['journal'] = journal
+        df['year'] = df['volume'].map(infer_year)
+        rows.append(df)
+        vols = state.get('volumes', {})
+        newest_volume = max((v.get('collected_at') or '' for v in vols.values()), default='')
+        collected = (state.get('checked_at') or newest_volume)[:10]
         coverage.append({
             'journal': journal,
-            'collected': snaps[0][0].strftime('%Y-%m-%d'),
-            'latest_year': None if merged['year'].isna().all() else int(merged['year'].max()),
-            'papers': int(merged.groupby(['volume', 'title_key']).ngroups),
+            'collected': collected,
+            'latest_year': None if df['year'].isna().all() else int(df['year'].max()),
+            'papers': int(df.groupby(['volume_key', 'title_key']).ngroups),
+            'verified': bool(state.get('verified_at')),
+            'volumes_to_recheck': sum(1 for v in vols.values() if v.get('status') == 'suspect'),
         })
     papers = pd.concat(rows, ignore_index=True)
     papers = papers[papers['year'].notna()]
@@ -186,12 +168,43 @@ def load_papers():
 
 
 def load_roster():
-    df = pd.read_csv(os.path.join(SOURCE_DIR, 'authors_latest.csv'))
+    '''newest faculty list for each school, from get_authors_from_v3 runs (faculty_runs/) and the older authors_latest.csv'''
+    sources = []   # oldest first
+    old = os.path.join(SOURCE_DIR, 'authors_latest.csv')
+    if os.path.exists(old):
+        sources.append(('authors_latest', pd.read_csv(old).rename(columns={'name': 'author'}), True))
+    for f in sorted(glob.glob(os.path.join(SOURCE_DIR, 'faculty_runs', 'authors_*.csv'))):
+        run = os.path.basename(f)[:-len('.csv')]
+        complete = os.path.exists(f[:-len('.csv')] + '.done')
+        sources.append((run, pd.read_csv(f), complete))
+
+    # the newest finished run decides which schools exist (Hein drops schools too);
+    # runs after it are still in progress and replace the lists for the schools they reached
+    last_done = max([i for i, s in enumerate(sources) if s[2]], default=0)
+    keep = set()
+    for _, df, _ in sources[last_done:]:
+        keep |= set(df['school'])
+    newest = {}
+    for run, df, _ in sources:
+        for school in df['school'].unique():
+            newest[school] = run
+    frames = []
+    for run, df, _ in sources:
+        mine = [s for s, r in newest.items() if r == run and s in keep]
+        part = df[df['school'].isin(mine)].copy()
+        part['run'] = run
+        frames.append(part)
+    df = pd.concat(frames, ignore_index=True)
+
     parsed = df['link'].map(parse_hein_name)
     df['last'] = parsed.map(lambda p: p[0])
     df['first'] = parsed.map(lambda p: p[1])
     df['middle'] = parsed.map(lambda p: p[2])
-    df['collected'] = df['link'].str.extract(r'1==(\d{10})')[0].astype(float)
+    df['hein_name'] = df['link'].map(lambda u: unquote(parse_qs(urlparse(str(u)).query).get('search_name', [''])[0]).strip())
+    stamped = pd.to_datetime(df['collected_at'], errors='coerce') if 'collected_at' in df.columns else pd.Series(pd.NaT, index=df.index)
+    from_link = pd.to_datetime(df['link'].str.extract(r'1==(\d{10})')[0].astype(float), unit='s')
+    df['collected'] = stamped.fillna(from_link)
+    print('  faculty lists:', ', '.join(f'{r} ({n} people)' for r, n in df['run'].value_counts().sort_index().items()))
     return df
 
 
@@ -208,8 +221,44 @@ def load_rankings():
     return year, df, datetime.fromtimestamp(os.path.getmtime(found[year]))
 
 
+def load_usnews():
+    '''(edition, source, {US News name: rank label}) from the newest usnews_<edition>.csv in the data folder.
+    Written by update_usnews() (TaxProf Blog) or usnews_manual.py (a US News page saved by hand); within an
+    edition the hand-saved page wins. TaxProf lists ranked schools only, so "Unranked" schools are carried over
+    from the newest hand-saved page. Names TaxProf uses that aren't in taxprof_aliases.csv are skipped.'''
+    by_edition, manual = defaultdict(dict), {}
+    for f in glob.glob(os.path.join(SOURCE_DIR, 'usnews_*.csv')):
+        m = re.fullmatch(r'usnews_(\d{4})-(\d{4})(_manual)?\.csv', os.path.basename(f))
+        if m:
+            kind = 'manual' if m.group(3) else 'taxprof'
+            by_edition[f'{m.group(1)}-{m.group(2)}'][kind] = f
+            if kind == 'manual':
+                manual[f'{m.group(1)}-{m.group(2)}'] = f
+    label = lambda t: (lambda x: x if re.fullmatch(r'\d+(\s*[-–]\s*\d+)?', x) else None)(str(t).strip().lstrip('#').strip())
+    for edition in sorted(by_edition, reverse=True):
+        kind = 'manual' if 'manual' in by_edition[edition] else 'taxprof'
+        df = pd.read_csv(by_edition[edition][kind], dtype=str).fillna('')
+        if 'matched' in df.columns:
+            bad = df[df['matched'] != 'alias']
+            if len(bad):
+                print(f'  !! {len(bad)} TaxProf names not in taxprof_aliases.csv, skipped:', bad['source_school'].tolist()[:10])
+            df = df[df['matched'] == 'alias']
+        if len(df) < 150:
+            print(f'  !! only {len(df)} usable schools in the {edition} US News list; trying an older edition')
+            continue
+        col = 'usnews_rank_text' if 'usnews_rank_text' in df.columns else 'rank_text'
+        out = {r['school']: label(r[col]) for _, r in df.iterrows()}
+        if kind == 'taxprof' and manual:
+            prev = pd.read_csv(manual[max(manual)], dtype=str).fillna('')
+            for _, r in prev[prev['rank_text'] == 'Unranked'].iterrows():
+                out.setdefault(r['school'], None)
+        source = f'US News {edition}' + (' (via TaxProf Blog)' if kind == 'taxprof' else ' (saved page)')
+        return edition, source, out
+    return None
+
+
 def load_us_schools(roster_schools):
-    '''roster school name -> (US News name, US News rank) for US law schools'''
+    '''roster school name -> (US News name, US News rank) for US law schools; plus where the list came from'''
     def norm(s):
         s = s.lower().replace('&', 'and')
         s = re.sub(r'\(.*?\)', '', s)
@@ -218,17 +267,22 @@ def load_us_schools(roster_schools):
         s = re.sub(r'[^a-z0-9 ]', '', s)
         return re.sub(r'\s+', ' ', s).strip()
 
-    html = open(os.path.join(SOURCE_DIR, '2025_USnews.txt'), encoding='utf-8').read()
-    soup = BeautifulSoup(html, 'html.parser')
+    found = load_usnews()
+    if found:
+        edition, source, table = found
+    else:
+        # nothing from update_usnews() yet: the hand-saved page this project started with
+        edition, source, table = '2025-2026', 'US News 2025-2026 (saved page)', {}
+        soup = BeautifulSoup(open(os.path.join(SOURCE_DIR, '2025_USnews.txt'), encoding='utf-8').read(), 'html.parser')
+        for div in soup.find_all('div', attrs={'name': True}):
+            rank_tag = div.find('strong', string=lambda s: s and '#' in s)
+            table[div.get('name').strip()] = rank_tag.get_text(strip=True).replace('#', '') if rank_tag else None
+
     by_norm = defaultdict(list)
     for s in roster_schools:
         by_norm[norm(s)].append(s)
-
     to_ret = {}
-    for div in soup.find_all('div', attrs={'name': True}):
-        us_name = div.get('name').strip()
-        rank_tag = div.find('strong', string=lambda s: s and '#' in s)
-        rank = rank_tag.get_text(strip=True).replace('#', '') if rank_tag else None
+    for us_name, rank in table.items():
         n = norm(USNEWS_TO_HEIN.get(us_name, us_name))
         hits = by_norm.get(n)
         if not hits:
@@ -237,7 +291,10 @@ def load_us_schools(roster_schools):
             hits = by_norm[prefixes[0]] if len(prefixes) == 1 else []
         for h in hits:
             to_ret.setdefault(h, (us_name, rank))
-    return to_ret
+    unmatched = [n for n in table if not any(v[0] == n for v in to_ret.values())]
+    if unmatched:
+        print(f'  {len(unmatched)} {source} schools not on Hein\'s faculty lists:', unmatched[:8])
+    return to_ret, {'edition': edition, 'source': source, 'schools': len(to_ret)}
 
 
 ################################################ build
@@ -272,12 +329,58 @@ def match_authors(papers, roster):
     return to_ret, dict(stats)
 
 
+def default_ranking(data, years=10, top=30):
+    '''the site's default view in Python: General top 10, last `years` years, US law schools'''
+    last = max(data['papers']['year'])
+    journals = {i for i, j in enumerate(data['journals']) if j[2] and 1 <= j[2] <= 10}
+    score, faculty = defaultdict(float), defaultdict(set)
+    P = data['papers']
+    for p, person in zip(data['credits']['paper'], data['credits']['person']):
+        if P['journal'][p] in journals and last - years <= P['year'][p] <= last:
+            for s in data['people'][person][1]:
+                if data['schools'][s][1]:
+                    score[s] += 1 / P['authors'][p]
+                    faculty[s].add(person)
+    order = sorted(score, key=lambda s: (-score[s], data['schools'][s][0]))[:top]
+    return [[data['schools'][s][0], round(score[s] + 1, 1), len(faculty[s])] for s in order]
+
+
+def update_history(meta, data, prev):
+    '''docs/data/history.json: one entry per build, so changes between builds can be seen on the site'''
+    path = os.path.join(OUT_DIR, 'history.json')
+    history = []
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            history = json.load(f)
+    entry = {
+        'build': meta['build'], 'version': meta['version'], 'date': meta['built'],
+        'papers_collected': meta['papers_collected'], 'faculty_collected': meta['faculty_collected'],
+        'rankings_edition': meta['rankings']['edition'], 'us_schools': meta.get('us_schools'),
+        'counts': meta['counts'], 'top': default_ranking(data),
+    }
+    if history and history[-1]['build'] == meta['build']:
+        history[-1] = entry        # same data as the last build: refresh its entry, keep the number
+    else:
+        if history:
+            before = history[-1]
+            old_rank = {s: i for i, (s, _, _) in enumerate(before['top'], start=1)}
+            entry['changes'] = {
+                'papers': meta['counts']['papers'] - before['counts']['papers'],
+                'faculty_with_papers': meta['counts']['faculty_with_papers'] - before['counts']['faculty_with_papers'],
+                'moved': [[s, old_rank.get(s), i] for i, (s, _, _) in enumerate(entry['top'], start=1) if old_rank.get(s) != i],
+            }
+        history.append(entry)
+    meta['history_entry'] = entry
+    return history
+
+
 def build():
     print('reading collections from', SOURCE_DIR)
     papers, coverage = load_papers()
     roster = load_roster()
     wl_year, rankings, rankings_fetched = load_rankings()
-    us = load_us_schools(roster['school'].unique())
+    us, us_meta = load_us_schools(roster['school'].unique())
+    print(f"  US law schools: {us_meta['schools']} from {us_meta['source']}")
 
     ##### journals and their categories
     ranked = rankings[rankings['journal'].isin(papers['journal'].unique())]
@@ -308,10 +411,12 @@ def build():
         general_rank = None
         if len(gen):
             general_rank = int(gen['WandL_rank'].iloc[0]) if pd.notna(gen['score'].iloc[0]) else 0
-        subs = [[subjects.index(r.journal_type), int(r.WandL_rank) if pd.notna(r.score) else 0]
+        # [subject id, W&L rank in that subject (0 = NR), W&L score] - the site re-ranks groups from the scores
+        subs = [[subjects.index(r.journal_type), int(r.WandL_rank) if pd.notna(r.score) else 0,
+                 float(r.score) if pd.notna(r.score) else None]
                 for r in jdf.itertuples() if r.journal_type != 'General']
         grps = sorted({(groups.index(subject_to_group[subjects[s]]),
-                        group_rank.get((j, subject_to_group[subjects[s]])) or 0) for s, _ in subs})
+                        group_rank.get((j, subject_to_group[subjects[s]])) or 0) for s, _, _ in subs})
         # rank 0 = listed by W&L but not ranked (NR); it only shows up under "All"
         journals.append([j, collected_on[j], general_rank, subs, [list(g) for g in grps]])
 
@@ -321,8 +426,20 @@ def build():
     papers = papers[papers['journal'].isin(journal_id)]
 
     ##### authorship credit
-    papers['paper_key'] = papers['journal'] + '|' + papers['volume'].astype(str) + '|' + papers['title_key']
-    n_authors = papers.groupby('paper_key')['author'].nunique()
+    papers['paper_key'] = papers['journal'] + '|' + papers['volume_key'] + '|' + papers['title_key']
+    # Hein sometimes lists the same papers under two volume numbers of the same year (Urban Lawyer 42 and 43,
+    # "Volume 58 (Supplement)" also inside vol 58): same journal, year, title and authors count once
+    authors_of = papers.groupby('paper_key')['author_key'].agg(lambda a: '|'.join(sorted(set(a))))
+    year_of = papers.groupby('paper_key')['year'].first()
+    sig = {k: (k.split('|', 1)[0], year_of[k], k.rsplit('|', 1)[1], authors_of[k]) for k in authors_of.index}
+    first = {}
+    for k in sorted(sig):
+        first.setdefault(sig[k], k)
+    same = {k: first[sig[k]] for k in sig if first[sig[k]] != k}
+    if same:
+        print(f'  {len(same)} papers listed twice by Hein in the same year (two volume numbers); counted once')
+        papers['paper_key'] = papers['paper_key'].map(lambda k: same.get(k, k))
+    n_authors = papers.groupby('paper_key')['author_key'].nunique()
     matched, stats = match_authors(papers, roster)
     print('  author matching:', stats)
 
@@ -339,10 +456,12 @@ def build():
     person_key = lambda i: (roster.at[i, 'last'], roster.at[i, 'first'], roster.at[i, 'middle'])
     people_keys = sorted({person_key(i) for i in person_rows})
     person_id = {k: n for n, k in enumerate(people_keys)}
-    people = [[None, []] for _ in people_keys]
+    # [display name, school ids, Hein search_name for their AuthorProfile link]
+    people = [[None, [], None] for _ in people_keys]
     for i in person_rows:
         p = people[person_id[person_key(i)]]
-        p[0] = display_name(roster.at[i, 'name'])
+        p[0] = display_name(roster.at[i, 'author'])
+        p[2] = roster.at[i, 'hein_name']
         sid = school_id[roster.at[i, 'school']]
         if sid not in p[1]:
             p[1].append(sid)
@@ -374,10 +493,10 @@ def build():
         'credits': {'paper': credit_paper, 'person': credit_person},
     }
 
-    # titles/<decade>.json, everything before 1970 in titles/early.json
+    # titles/<decade>.json as [title, Hein link] (link '' for papers from the old collections), before 1970 in titles/early.json
     title_chunks = defaultdict(list)
-    for t, y in zip(p['title'], p['year']):
-        title_chunks['early' if y < 1970 else str(y // 10 * 10)].append(str(t))
+    for t, y, link in zip(p['title'], p['year'], p['article_link']):
+        title_chunks['early' if y < 1970 else str(y // 10 * 10)].append([str(t), str(link or '')])
     data['title_chunks'] = []
     start = 0
     for name, chunk in title_chunks.items():
@@ -391,11 +510,12 @@ def build():
         'built': datetime.now().strftime('%Y-%m-%d'),
         'papers_collected': {'from': used['collected'].min(), 'to': used['collected'].max(), 'journals': int(len(used))},
         'faculty_collected': {
-            'from': datetime.fromtimestamp(roster_times.min(), tz=timezone.utc).strftime('%Y-%m-%d') if len(roster_times) else None,
-            'to': datetime.fromtimestamp(roster_times.max(), tz=timezone.utc).strftime('%Y-%m-%d') if len(roster_times) else None,
+            'from': roster_times.min().strftime('%Y-%m-%d') if len(roster_times) else None,
+            'to': roster_times.max().strftime('%Y-%m-%d') if len(roster_times) else None,
             'faculty': int(len(roster)),
             'schools': int(roster['school'].nunique()),
         },
+        'us_schools': us_meta,
         'rankings': {'source': 'Washington & Lee Law Journal Rankings', 'edition': wl_year,
                      'fetched': rankings_fetched.strftime('%Y-%m-%d')},
         'years': {'min': int(min(data['papers']['year'])), 'max': int(max(data['papers']['year']))},
@@ -403,13 +523,24 @@ def build():
                    'minor_papers': int(sum(data['papers']['minor']))},
         'matching': stats,
         'group_subjects': {g: [s for s in subjects if subject_to_group[s] == g] for g in groups},
-        'coverage': used.sort_values('journal').to_dict(orient='records'),
+        'coverage': [{k: (None if isinstance(v, float) and v != v else v) for k, v in r.items()}
+                     for r in used.sort_values('journal').to_dict(orient='records')],
     }
+
+    # the build number goes up whenever the data the site shows changes
+    digest = hashlib.sha1(json.dumps([data, title_chunks], sort_keys=True).encode()).hexdigest()[:12]
+    prev = {}
+    if os.path.exists(os.path.join(OUT_DIR, 'meta.json')):
+        prev = json.load(open(os.path.join(OUT_DIR, 'meta.json'), encoding='utf-8'))
+    meta['version'] = VERSION
+    meta['build'] = prev.get('build', 0) + (0 if prev.get('digest') == digest else 1)
+    meta['digest'] = digest
+    history = update_history(meta, data, prev)
 
     os.makedirs(os.path.join(OUT_DIR, 'titles'), exist_ok=True)
     for f in glob.glob(os.path.join(OUT_DIR, 'titles', '*.json')):
         os.remove(f)
-    outputs = [('data.json', data), ('meta.json', meta)]
+    outputs = [('data.json', data), ('meta.json', meta), ('history.json', history)]
     outputs += [(f'titles/{name}.json', chunk) for name, chunk in title_chunks.items()]
     for name, obj in outputs:
         with open(os.path.join(OUT_DIR, name), 'w', encoding='utf-8') as f:
@@ -422,8 +553,16 @@ def build():
 
 
 def publish(meta):
-    msg = f"Data update {meta['built']} (papers collected through {meta['papers_collected']['to']})"
-    subprocess.run(['git', 'add', 'docs/data'], cwd=HERE, check=True)
+    e = meta.get('history_entry', {})
+    ch = e.get('changes', {})
+    msg = (f"Build {meta['build']}: data update {meta['built']}\n\n"
+           f"papers collected {meta['papers_collected']['from']} to {meta['papers_collected']['to']}; "
+           f"faculty lists {meta['faculty_collected']['from']} to {meta['faculty_collected']['to']}; "
+           f"W&L {meta['rankings']['edition']}\n"
+           f"papers {meta['counts']['papers']} ({ch.get('papers', 0):+d}), "
+           f"faculty with papers {meta['counts']['faculty_with_papers']} ({ch.get('faculty_with_papers', 0):+d}), "
+           f"{len(ch.get('moved', []))} of the default top 30 moved")
+    subprocess.run(['git', 'add', 'docs'], cwd=HERE, check=True)   # the data and the page code that reads it
     if subprocess.run(['git', 'diff', '--cached', '--quiet'], cwd=HERE).returncode == 0:
         print('no data changes to publish')
         return
@@ -433,7 +572,7 @@ def publish(meta):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='build docs/data for the static rankings site')
-    parser.add_argument('--publish', action='store_true', help='git commit + push docs/data after building')
+    parser.add_argument('--publish', action='store_true', help='git commit + push docs/ after building')
     args = parser.parse_args()
     meta = build()
     if args.publish:

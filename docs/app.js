@@ -1,109 +1,144 @@
-// Law School Rankings: everything is computed in the browser from data/*.json (written by build_data.py)
+// Law School Rankings: rankings are computed in the browser from data/*.json (written by build_data.py)
 (function () {
   'use strict';
 
-  const GENERAL_TIERS = [['3', 'Top 3'], ['10', 'Top 10'], ['25', 'Top 25'], ['50', 'Top 50'], ['all', 'All']];
-  const SPECIALTY_TIERS = [['3', 'Top 3'], ['5', 'Top 5'], ['10', 'Top 10'], ['all', 'All']];
-  const STORAGE_KEY = 'lawRankings.v2';
-  const SELECTED = ['bg-green-200', 'text-green-900', 'border-green-300', 'shadow-md'];
-  const UNSELECTED = ['bg-gray-100', 'text-gray-700', 'hover:bg-gray-200'];
-  const desktop = window.matchMedia('(min-width: 768px)');
+  // general law reviews come in W&L rank bands, like CSrankings' venue groups; checked bands form one "General" area
+  const BANDS = [
+    { id: '1', label: 'W&L rank 1–3', lo: 1, hi: 3 },
+    { id: '2', label: 'W&L rank 4–10', lo: 4, hi: 10 },
+    { id: '3', label: 'W&L rank 11–25', lo: 11, hi: 25 },
+    { id: '4', label: 'W&L rank 26–50', lo: 26, hi: 50 },
+    { id: '5', label: 'W&L rank 51 and below', lo: 51, hi: Infinity },   // includes journals W&L lists but doesn't rank
+  ];
+  const DEFAULT_BANDS = ['1', '2'];                                      // = W&L top 10
+  const STORAGE_KEY = 'lawRankings.v3';
+  const HEIN_PROFILE = 'https://heinonline.org/HOL/AuthorProfile?action=edit&collection=journals&search_name=';
+  const COLORS = { general: '#377eb8', specialty: '#ff7f00' };
 
-  let DATA, META, state;
-  const titleChunks = {};   // chunk name -> Promise of title array
+  let DATA, META, state, groupSubjects;
+  let current = { areas: [], rows: [] };
+  const titleChunks = {};
   const openSchools = new Set();
+  const openPeople = new Set();
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const store = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } };
   const recall = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
-  const fmtDate = (iso, opts) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('en-US', opts || { month: 'short', day: 'numeric', year: 'numeric' }) : '?';
+  const fmtDate = (iso, opts) => (iso ? new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', opts || { month: 'short', day: 'numeric', year: 'numeric' }) : '?');
+  const heinProfile = (person) => HEIN_PROFILE + encodeURIComponent(DATA.people[person][2] || '');
 
-  ////////////////////////////////////////////// state (URL hash > localStorage > defaults)
+  ////////////////////////////////////////////// state: URL hash > localStorage > defaults
 
   function defaultState() {
     const to = Math.min(new Date().getFullYear(), META.years.max);
-    return { general: '10', groups: [], subjects: [], tier: '10', from: to - 10, to: to, us: true, minor: false };
+    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: to - 10, to: to, region: 'us', minor: false };
+  }
+
+  function clampYear(y, fallback) {
+    y = parseInt(y, 10);
+    return isNaN(y) ? fallback : Math.max(META.years.min, Math.min(META.years.max, y));
   }
 
   function cleanState(s) {
     const d = defaultState();
     const out = Object.assign({}, d, s || {});
-    if (out.general !== null && !GENERAL_TIERS.some(([v]) => v === out.general)) out.general = d.general;
-    if (!SPECIALTY_TIERS.some(([v]) => v === out.tier)) out.tier = d.tier;
-    out.groups = (out.groups || []).filter((g) => DATA.groups.includes(g));
-    out.subjects = (out.subjects || []).filter((g) => DATA.subjects.includes(g));
+    out.bands = (Array.isArray(out.bands) ? out.bands : d.bands).filter((b) => BANDS.some((x) => x.id === b));
+    const groups = {};
+    Object.entries(out.groups || {}).forEach(([g, subs]) => {
+      if (!groupSubjects[g]) return;
+      const ok = (Array.isArray(subs) ? subs : []).filter((x) => groupSubjects[g].includes(x));
+      if (ok.length) groups[g] = ok;
+    });
+    out.groups = groups;
+    if (!['3', '5', '10', '25', 'all'].includes(out.cutoff)) out.cutoff = d.cutoff;
     out.from = clampYear(out.from, d.from);
     out.to = clampYear(out.to, d.to);
     if (out.from > out.to) [out.from, out.to] = [out.to, out.from];
-    out.us = !!out.us;
+    out.region = out.region === 'all' ? 'all' : 'us';
     out.minor = !!out.minor;
     return out;
-  }
-
-  function clampYear(y, fallback) {
-    y = parseInt(y, 10);
-    if (isNaN(y)) return fallback;
-    return Math.max(META.years.min, Math.min(META.years.max, y));
   }
 
   function readHash() {
     const h = new URLSearchParams(location.hash.slice(1));
     if (!h.has('g')) return null;
-    const split = (k) => (h.get(k) ? h.get(k).split('|') : []);
+    const groups = {};
+    (h.get('s') || '').split('|').filter(Boolean).forEach((part) => {
+      const [g, subs] = part.split(':');
+      groups[g] = subs ? subs.split(';') : (groupSubjects[g] || []).slice();
+    });
     const years = (h.get('y') || '').split('-');
-    return {
-      general: h.get('g') === 'none' ? null : h.get('g'),
-      groups: split('grp'),
-      subjects: split('sub'),
-      tier: h.get('t'),
-      from: years[0],
-      to: years[1],
-      us: h.get('us') !== '0',
-      minor: h.get('minor') === '1',
-    };
+    return { bands: (h.get('g') || '').split('.').filter(Boolean), groups, cutoff: h.get('c'),
+      from: years[0], to: years[1], region: h.get('r'), minor: h.get('m') === '1' };
   }
 
   function saveState() {
     const h = new URLSearchParams();
-    h.set('g', state.general || 'none');
-    if (state.groups.length) h.set('grp', state.groups.join('|'));
-    if (state.subjects.length) h.set('sub', state.subjects.join('|'));
-    h.set('t', state.tier);
+    h.set('g', state.bands.join('.') || 'none');
+    const parts = Object.entries(state.groups).map(([g, subs]) =>
+      subs.length === groupSubjects[g].length ? g : g + ':' + subs.join(';'));
+    if (parts.length) h.set('s', parts.join('|'));
+    h.set('c', state.cutoff);
     h.set('y', state.from + '-' + state.to);
-    h.set('us', state.us ? '1' : '0');
-    if (state.minor) h.set('minor', '1');
+    h.set('r', state.region);
+    if (state.minor) h.set('m', '1');
     history.replaceState(null, '', '#' + h.toString());
     store(STORAGE_KEY, JSON.stringify(state));
   }
 
   ////////////////////////////////////////////// ranking
 
-  // each selected category is an "area"; school score = geometric mean over areas of (adjusted count + 1), like CSrankings
+  function inBand(generalRank, band) {
+    if (generalRank === null || generalRank === undefined) return false;
+    const r = generalRank === 0 ? Infinity : generalRank;
+    return r >= band.lo && r <= band.hi;
+  }
+
+  // a specialty group's journals: in any checked subject, re-ranked by their best W&L score in those subjects
+  function groupJournals(subjectIdx, cutoff) {
+    const cands = [];
+    DATA.journals.forEach((j, ji) => {
+      let member = false, best = null;
+      for (const [s, , score] of j[3]) {
+        if (!subjectIdx.has(s)) continue;
+        member = true;
+        if (score !== null && (best === null || score > best)) best = score;
+      }
+      if (member) cands.push([ji, best]);
+    });
+    if (cutoff === 'all') return new Set(cands.map((c) => c[0]));
+    return new Set(cands.filter((c) => c[1] !== null).sort((a, b) => b[1] - a[1]).slice(0, +cutoff).map((c) => c[0]));
+  }
+
   function areaList() {
-    const areas = [];
-    const n = state.tier === 'all' ? Infinity : +state.tier;
-    const inTier = (r, cut) => cut === Infinity || (r >= 1 && r <= cut);
-    if (state.general) {
-      const cut = state.general === 'all' ? Infinity : +state.general;
-      areas.push({ label: 'General ' + tierLabel(GENERAL_TIERS, state.general), test: (j) => j[2] !== null && inTier(j[2], cut) });
+    const list = [];
+    if (state.bands.length) {
+      const bands = BANDS.filter((b) => state.bands.includes(b.id));
+      const set = new Set();
+      DATA.journals.forEach((j, ji) => { if (bands.some((b) => inBand(j[2], b))) set.add(ji); });
+      list.push({ label: 'General', short: 'general', color: COLORS.general, cls: 'c-general', journals: set });
     }
-    state.groups.forEach((name) => {
-      const gi = DATA.groups.indexOf(name);
-      areas.push({ label: name, test: (j) => j[4].some(([g, r]) => g === gi && inTier(r, n)) });
+    DATA.groups.forEach((g) => {
+      const subs = state.groups[g];
+      if (!subs || !subs.length) return;
+      const idx = new Set(subs.map((s) => DATA.subjects.indexOf(s)).filter((i) => i >= 0));
+      list.push({ label: g, short: shortName(g), color: COLORS.specialty, cls: 'c-specialty', journals: groupJournals(idx, state.cutoff) });
     });
-    state.subjects.forEach((name) => {
-      const si = DATA.subjects.indexOf(name);
-      areas.push({ label: name, test: (j) => j[3].some(([s, r]) => s === si && inTier(r, n)) });
-    });
-    return areas;
+    return list;
+  }
+
+  function shortName(g) {
+    return g.replace(' & ', ' & ').replace('Constitutional & Public Law', 'con & public').replace('Criminal Law & Litigation', 'criminal & lit.')
+      .replace('International & Comparative', 'international').replace('Civil Rights & Social Justice', 'civil rights')
+      .replace('Environment & Property', 'env. & property').replace('Theory & the Profession', 'theory & prof.').toLowerCase();
   }
 
   function compute() {
     const areas = areaList();
     const A = areas.length;
-    if (!A) return { areas, rows: [], journals: 0 };
-    const jAreas = DATA.journals.map((j) => areas.reduce((acc, ar, i) => (ar.test(j) ? acc.concat(i) : acc), []));
+    if (!A) return { areas, rows: [] };
+    const jAreas = DATA.journals.map((j, ji) => areas.reduce((acc, ar, i) => (ar.journals.has(ji) ? acc.concat(i) : acc), []));
     const P = DATA.papers, C = DATA.credits;
     const bySchool = new Map();
     for (let k = 0; k < C.paper.length; k++) {
@@ -116,14 +151,14 @@
       const person = C.person[k];
       const w = 1 / P.authors[p];
       for (const s of DATA.people[person][1]) {
-        if (state.us && !DATA.schools[s][1]) continue;
+        if (state.region === 'us' && !DATA.schools[s][1]) continue;
         let e = bySchool.get(s);
         if (!e) { e = { areas: new Float64Array(A), faculty: new Map() }; bySchool.set(s, e); }
-        for (const a of as) e.areas[a] += w;
         let f = e.faculty.get(person);
-        if (!f) { f = { adj: 0, papers: [] }; e.faculty.set(person, f); }
+        if (!f) { f = { adj: 0, papers: [], byArea: new Float64Array(A) }; e.faculty.set(person, f); }
         f.adj += w;
         f.papers.push(p);
+        for (const a of as) { e.areas[a] += w; f.byArea[a] += w; }
       }
     }
     const rows = [];
@@ -133,167 +168,254 @@
       rows.push({ school: s, score: Math.pow(prod, 1 / A), faculty: e.faculty });
     });
     rows.sort((a, b) => b.score - a.score || DATA.schools[a.school][0].localeCompare(DATA.schools[b.school][0]));
-    return { areas, rows, journals: jAreas.filter((a) => a.length).length };
+    return { areas, rows };
   }
 
-  ////////////////////////////////////////////// rendering
+  ////////////////////////////////////////////// filter panel
 
-  function tierLabel(tiers, v) { return (tiers.find(([x]) => x === v) || [, v])[1]; }
-
-  function makeButton(label, onClick, extra) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = label;
-    btn.className = 'px-2 py-1 rounded-md border transition-colors duration-200 text-left inline-block ' + (extra || '');
-    btn.addEventListener('click', onClick);
-    return btn;
-  }
-
-  function paint(btn, on) {
-    btn.classList.remove(...(on ? UNSELECTED : SELECTED));
-    btn.classList.add(...(on ? SELECTED : UNSELECTED));
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  }
-
-  function buildFilters() {
-    const gen = $('generalButtons');
-    GENERAL_TIERS.forEach(([v, label]) => {
-      const b = makeButton(label, () => { state.general = state.general === v ? null : v; update(); }, 'text-sm');
-      b.dataset.general = v;
-      gen.appendChild(b);
+  function buildPanel() {
+    const gen = $('generalBody');
+    BANDS.forEach((b) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><span class="hovertip" data-band-toggle="' + b.id + '" title="Show/hide journals">&#9658;</span> <label for="band' + b.id + '">' + esc(b.label) + '</label>' +
+        '<div class="sub-list" id="bandList' + b.id + '" hidden></div></td>' +
+        '<td class="chk"><input type="checkbox" id="band' + b.id + '" data-band="' + b.id + '"></td>';
+      gen.appendChild(tr);
+    });
+    const spec = $('specialtyBody');
+    DATA.groups.forEach((g, gi) => {
+      const subs = groupSubjects[g] || [];
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td><span class="hovertip" data-group-toggle="' + gi + '" title="Show/hide W&amp;L subjects">&#9658;</span> <label for="grp' + gi + '">' + esc(g) + '</label>' +
+        '<div class="sub-list" id="grpList' + gi + '" hidden><p>w&amp;l subjects</p><table><tbody>' +
+        subs.map((s, si) => '<tr><td><label for="sub' + gi + '_' + si + '">' + esc(s) + '</label></td>' +
+          '<td class="chk"><input type="checkbox" id="sub' + gi + '_' + si + '" data-group="' + esc(g) + '" data-subject="' + esc(s) + '"></td></tr>').join('') +
+        '</tbody></table></div></td>' +
+        '<td class="chk"><input type="checkbox" id="grp' + gi + '" data-group-parent="' + esc(g) + '"></td>';
+      spec.appendChild(tr);
     });
 
-    const tiers = $('tierButtons');
-    SPECIALTY_TIERS.forEach(([v, label]) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'ranking-button';
-      b.textContent = label;
-      b.dataset.tier = v;
-      b.addEventListener('click', () => { state.tier = v; update(); });
-      tiers.appendChild(b);
+    $('areaPanel').addEventListener('click', (e) => {
+      const bt = e.target.closest('[data-band-toggle]');
+      if (bt) { toggleList(bt, $('bandList' + bt.dataset.bandToggle), () => bandJournals(bt.dataset.bandToggle)); return; }
+      const gt = e.target.closest('[data-group-toggle]');
+      if (gt) toggleList(gt, $('grpList' + gt.dataset.groupToggle));
+    });
+    $('areaPanel').addEventListener('change', (e) => {
+      const t = e.target;
+      if (t.dataset.band) {
+        state.bands = t.checked ? state.bands.concat(t.dataset.band) : state.bands.filter((b) => b !== t.dataset.band);
+        state.bands.sort();
+      } else if (t.dataset.groupParent) {
+        const g = t.dataset.groupParent;
+        if (t.checked) state.groups[g] = groupSubjects[g].slice(); else delete state.groups[g];
+      } else if (t.dataset.subject) {
+        const g = t.dataset.group;
+        const cur = new Set(state.groups[g] || []);
+        if (t.checked) cur.add(t.dataset.subject); else cur.delete(t.dataset.subject);
+        if (cur.size) state.groups[g] = groupSubjects[g].filter((s) => cur.has(s)); else delete state.groups[g];
+      } else if (t.id === 'skipMinor') {
+        state.minor = t.checked;
+      } else if (t.id === 'cutoff') {
+        state.cutoff = t.value;
+      } else {
+        return;
+      }
+      update();
     });
 
-    const toggle = (list, name) => {
-      const i = state[list].indexOf(name);
-      if (i >= 0) state[list].splice(i, 1); else state[list].push(name);
+    const toggleGeneral = () => { state.bands = state.bands.length ? [] : DEFAULT_BANDS.slice(); update(); };
+    const toggleSpecialty = () => {
+      if (Object.keys(state.groups).length) state.groups = {};
+      else DATA.groups.forEach((g) => { state.groups[g] = groupSubjects[g].slice(); });
       update();
     };
-    DATA.groups.forEach((g) => {
-      const b = makeButton(g, () => toggle('groups', g), 'text-sm');
-      b.dataset.group = g;
-      $('groupButtons').appendChild(b);
-    });
-    DATA.subjects.forEach((s) => {
-      const b = makeButton(s, () => toggle('subjects', s), 'text-xs');
-      b.dataset.subject = s;
-      $('subjectButtons').appendChild(b);
-    });
+    $('toggleGeneral').addEventListener('click', toggleGeneral);
+    $('pillGeneral').addEventListener('click', toggleGeneral);
+    $('toggleSpecialty').addEventListener('click', toggleSpecialty);
+    $('pillSpecialty').addEventListener('click', toggleSpecialty);
 
-    $('selectAllSpecialty').addEventListener('click', () => { state.groups = DATA.groups.slice(); update(); });
-    $('clearFilters').addEventListener('click', () => { state.groups = []; state.subjects = []; update(); });
-
-    ['fromYear', 'toYear'].forEach((id) => {
-      const input = $(id);
-      input.min = META.years.min;
-      input.max = META.years.max;
-      input.addEventListener('change', () => {
-        state.from = clampYear($('fromYear').value, state.from);
-        state.to = clampYear($('toYear').value, state.to);
-        if (state.from > state.to) [state.from, state.to] = [state.to, state.from];
-        update();
-      });
-    });
-    $('usOnly').addEventListener('change', (e) => { state.us = e.target.checked; update(); });
-    $('skipMinor').addEventListener('change', (e) => { state.minor = e.target.checked; update(); });
+    for (let y = META.years.max; y >= META.years.min; y--) {
+      $('fromYear').add(new Option(y, y));
+      $('toYear').add(new Option(y, y));
+    }
+    ['fromYear', 'toYear'].forEach((id) => $(id).addEventListener('change', () => {
+      state.from = clampYear($('fromYear').value, state.from);
+      state.to = clampYear($('toYear').value, state.to);
+      if (state.from > state.to) [state.from, state.to] = [state.to, state.from];
+      update();
+    }));
+    $('region').addEventListener('change', (e) => { state.region = e.target.value; update(); });
   }
 
-  function syncFilters() {
-    document.querySelectorAll('[data-general]').forEach((b) => paint(b, b.dataset.general === state.general));
-    document.querySelectorAll('[data-group]').forEach((b) => paint(b, state.groups.includes(b.dataset.group)));
-    document.querySelectorAll('[data-subject]').forEach((b) => paint(b, state.subjects.includes(b.dataset.subject)));
-    document.querySelectorAll('[data-tier]').forEach((b) => b.classList.toggle('selected', b.dataset.tier === state.tier));
-    if (state.subjects.length) $('moreSubjects').open = true;
+  function toggleList(arrow, list, fill) {
+    const show = list.hidden;
+    if (show && fill) list.innerHTML = fill();
+    list.hidden = !show;
+    arrow.innerHTML = show ? '&#9660;' : '&#9658;';
+  }
+
+  function bandJournals(id) {
+    const band = BANDS.find((b) => b.id === id);
+    const js = DATA.journals.filter((j) => inBand(j[2], band)).sort((a, b) => (a[2] || 999) - (b[2] || 999));
+    return '<p>w&amp;l ' + esc(META.rankings.edition) + ' general rank</p>' + (js.length
+      ? js.map((j) => '<div class="jrnl">' + (j[2] ? j[2] + '. ' : 'NR ') + esc(j[0]) + '</div>').join('')
+      : '<div class="jrnl">none</div>');
+  }
+
+  function syncPanel() {
+    document.querySelectorAll('[data-band]').forEach((c) => { c.checked = state.bands.includes(c.dataset.band); });
+    document.querySelectorAll('[data-group-parent]').forEach((c) => {
+      const g = c.dataset.groupParent, n = (state.groups[g] || []).length;
+      c.checked = n > 0 && n === groupSubjects[g].length;
+      c.indeterminate = n > 0 && n < groupSubjects[g].length;
+    });
+    document.querySelectorAll('[data-subject]').forEach((c) => { c.checked = (state.groups[c.dataset.group] || []).includes(c.dataset.subject); });
+    $('cutoff').value = state.cutoff;
+    $('skipMinor').checked = state.minor;
     $('fromYear').value = state.from;
     $('toYear').value = state.to;
-    $('usOnly').checked = state.us;
-    $('skipMinor').checked = state.minor;
+    $('region').value = state.region;
+    const nb = state.bands.length, ng = Object.keys(state.groups).length;
+    setSel($('pillGeneral'), nb === 0 ? 'none' : nb >= 4 ? 'all' : 'partial');
+    setSel($('toggleGeneral'), nb === 0 ? 'none' : nb >= 4 ? 'all' : 'partial');
+    setSel($('pillSpecialty'), ng === 0 ? 'none' : ng === DATA.groups.length ? 'all' : 'partial');
+    setSel($('toggleSpecialty'), ng === 0 ? 'none' : ng === DATA.groups.length ? 'all' : 'partial');
   }
 
-  function summaryText(result) {
-    const parts = result.areas.map((a) => a.label);
-    const spec = state.groups.length + state.subjects.length;
-    if (spec) parts.push('specialty ' + tierLabel(SPECIALTY_TIERS, state.tier).toLowerCase());
-    return { what: parts.join(' + ') || 'nothing selected', years: state.from + '–' + state.to };
+  function setSel(el, which) {
+    el.classList.remove('selection-none', 'selection-partial', 'selection-all');
+    el.classList.add('selection-' + which);
   }
 
-  function renderTable(result) {
-    const container = $('school-table');
-    const s = summaryText(result);
-    $('mobileSummary').innerHTML = '<b>' + esc(s.what) + '</b><br>' + esc(s.years) + (state.us ? ' · US schools' : '');
-    $('selectionSummary').textContent = result.areas.length
-      ? s.what + ' · ' + s.years + ' · ' + result.journals + ' journals · ' + result.rows.length + ' schools'
-      : '';
-    $('showResults').textContent = result.rows.length ? 'Show ' + result.rows.length + ' schools' : 'Show results';
+  ////////////////////////////////////////////// ranking table
 
-    if (!result.areas.length) {
-      container.innerHTML = '<p class="p-4 font-crimson text-gray-600">Pick a General tier or at least one Specialty to rank schools.</p>';
+  function renderRanking() {
+    const win = $('rankingWindow');
+    const { areas, rows } = current;
+    const nAreas = areas.length;
+    $('summary').textContent = nAreas ? rows.length + ' schools · ' + areas.map((a) => a.label).join(' + ') : '';
+    $('drawerDone').textContent = rows.length ? 'Show ' + rows.length + ' schools' : 'Show rankings';
+    if (!nAreas) {
+      win.innerHTML = '<p class="empty-note">Select at least one group of journals on the left' +
+        ' (<a href="#" id="resetDefaults">or go back to the default</a>).</p>';
+      $('resetDefaults').addEventListener('click', (e) => { e.preventDefault(); state = defaultState(); update(); });
       return;
     }
-    if (!result.rows.length) {
-      container.innerHTML = '<p class="p-4 font-crimson text-gray-600">No faculty publications match these filters.</p>';
+    if (!rows.length) {
+      win.innerHTML = '<p class="empty-note">No faculty articles match these filters.</p>';
       return;
     }
-
-    let html = '<table class="table table-bordered table-hover school-table"><thead><tr>' +
-      '<th>Rank</th><th>School</th><th>Score</th><th>Faculty #</th></tr></thead><tbody>';
-    result.rows.forEach((r, i) => {
+    let html = '<table class="ranking"><thead><tr><th class="num rank-cell">#</th><th>Institution</th>' +
+      '<th class="num"><abbr title="Geometric mean, across the selected areas, of the adjusted article counts plus one">Count</abbr></th>' +
+      '<th class="num"><abbr title="Faculty with at least one counted article">Faculty</abbr></th></tr></thead><tbody>';
+    rows.forEach((r, i) => {
       const open = openSchools.has(r.school);
-      html += '<tr class="school-row" tabindex="0" data-school="' + r.school + '" aria-expanded="' + open + '">' +
-        '<td>' + (i + 1) + '</td>' +
-        '<td><span class="arrow">' + (open ? '&#9660;' : '&#9654;') + '</span>' + esc(DATA.schools[r.school][0]) + '</td>' +
-        '<td>' + r.score.toFixed(1) + '</td>' +
-        '<td>' + r.faculty.size + '</td></tr>';
-      if (open) html += facultyRow(r);
+      html += '<tr class="school' + (i % 2 ? '' : ' alt') + '" data-school="' + r.school + '" tabindex="0" aria-expanded="' + open + '">' +
+        '<td class="num rank-cell">' + (i + 1) + '</td>' +
+        '<td><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span>&nbsp;' + esc(DATA.schools[r.school][0]) + '</td>' +
+        '<td class="num">' + r.score.toFixed(1) + '</td><td class="num">' + r.faculty.size + '</td></tr>';
+      if (open) html += facultyRows(r);
     });
-    container.innerHTML = html + '</tbody></table>';
-    container._rows = new Map(result.rows.map((r) => [r.school, r]));
-    if (openSchools.size) fillTitles(container);
+    win.innerHTML = html + '</tbody></table>';
+    win.querySelectorAll('tr.person-detail').forEach(fillDetail);
   }
 
-  function facultyRow(r) {
+  function facultyRows(r) {
     const people = [...r.faculty].sort((a, b) => b[1].adj - a[1].adj || DATA.people[a[0]][0].localeCompare(DATA.people[b[0]][0]));
-    let html = '<tr class="faculty-accordion"><td colspan="4"><div class="faculty-content">' +
-      '<table class="table table-bordered table-hover"><thead><tr><th>Faculty Member</th>' +
-      '<th><span class="hidden md:inline">Publications</span><span class="md:hidden">Pubs</span></th>' +
-      '<th><span class="hidden md:inline">Adjusted Count</span><span class="md:hidden">Adj.</span></th></tr></thead><tbody>';
-    people.forEach(([person, f]) => {
-      html += '<tr class="person-row" data-papers="' + f.papers.join(',') + '">' +
-        '<td>' + esc(DATA.people[person][0]) +
-        '<button type="button" class="tooltip-icon" aria-label="Show titles">i<span class="tooltip-text"><em>Loading titles…</em></span></button></td>' +
-        '<td>' + f.papers.length + '</td><td>' + f.adj.toFixed(1) + '</td></tr>';
+    let html = '<tr class="faculty"><td></td><td colspan="3"><table class="faculty-table"><thead><tr><th class="indent"></th>' +
+      '<th><abbr title="Click a name to see the articles">Faculty</abbr></th>' +
+      '<th class="num"><abbr title="Articles counted (click for the HeinOnline profile)"># Pubs</abbr></th>' +
+      '<th class="num"><abbr title="Each article counts 1, split between its co-authors">Adj. #</abbr></th></tr></thead><tbody>';
+    people.forEach(([person, f], i) => {
+      const key = r.school + ':' + person;
+      const open = openPeople.has(key);
+      const tags = current.areas.map((a, ai) => (f.byArea[ai] > 0 ? '<span class="' + a.cls + '">' + esc(a.short) + '</span>' : '')).join('');
+      html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
+        '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
+        '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
+        '<a class="icon-link" href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' +
+        '<svg class="ico" width="10" height="11"><use href="#i-hein"/></svg></a></td>' +
+        '<td class="num"><a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' + f.papers.length + '</a></td>' +
+        '<td class="num">' + f.adj.toFixed(1) + '</td></tr>';
+      if (open) html += '<tr class="person-detail" data-key="' + key + '"><td colspan="4"><span class="loading">Loading articles…</span></td></tr>';
     });
-    return html + '</tbody></table></div></td></tr>';
+    return html + '</tbody></table></td></tr>';
   }
 
-  function toggleSchool(row) {
-    const s = +row.dataset.school;
-    const next = row.nextElementSibling;
+  function toggleSchool(tr) {
+    const s = +tr.dataset.school;
+    if (openSchools.has(s)) openSchools.delete(s); else openSchools.add(s);
+    const r = current.rows.find((x) => x.school === s);
+    const next = tr.nextElementSibling;
+    if (next && next.classList.contains('faculty')) next.remove();
     if (openSchools.has(s)) {
-      openSchools.delete(s);
-      if (next && next.classList.contains('faculty-accordion')) next.remove();
-      row.querySelector('.arrow').innerHTML = '&#9654;';
-      row.setAttribute('aria-expanded', 'false');
-    } else {
-      openSchools.add(s);
-      row.insertAdjacentHTML('afterend', facultyRow($('school-table')._rows.get(s)));
-      row.querySelector('.arrow').innerHTML = '&#9660;';
-      row.setAttribute('aria-expanded', 'true');
-      fillTitles(row.nextElementSibling);
+      tr.insertAdjacentHTML('afterend', facultyRows(r));
+      tr.nextElementSibling.querySelectorAll('tr.person-detail').forEach(fillDetail);
     }
+    tr.querySelector('.hovertip').innerHTML = openSchools.has(s) ? '&#9660;' : '&#9658;';
+    tr.setAttribute('aria-expanded', openSchools.has(s));
   }
 
-  ////////////////////////////////////////////// titles (per-decade files, fetched on first use)
+  function togglePerson(tr) {
+    const key = tr.dataset.key;
+    const next = tr.nextElementSibling;
+    if (openPeople.has(key)) {
+      openPeople.delete(key);
+      if (next && next.classList.contains('person-detail')) next.remove();
+    } else {
+      openPeople.add(key);
+      tr.insertAdjacentHTML('afterend', '<tr class="person-detail" data-key="' + key + '"><td colspan="4"><span class="loading">Loading articles…</span></td></tr>');
+      fillDetail(tr.nextElementSibling);
+    }
+    tr.querySelector('.hovertip').innerHTML = openPeople.has(key) ? '&#9660;' : '&#9658;';
+    tr.setAttribute('aria-expanded', openPeople.has(key));
+  }
+
+  // the drop-down under a faculty member: articles by area (chart) and the article list with HeinOnline links
+  function fillDetail(detailRow) {
+    const [s, person] = detailRow.dataset.key.split(':').map(Number);
+    const r = current.rows.find((x) => x.school === s);
+    const f = r && r.faculty.get(person);
+    if (!f) return;
+    const papers = f.papers.slice().sort((a, b) => DATA.papers.year[b] - DATA.papers.year[a]);
+    titlesFor(papers).then((titles) => {
+      const items = papers.map((p, i) => {
+        const [title, link] = titles[i] || ['(title unavailable)', ''];
+        const href = link || heinProfile(person);
+        const how = link ? 'Open the article on HeinOnline' : 'Open the author\'s HeinOnline profile (article link not collected yet)';
+        const n = DATA.papers.authors[p];
+        return '<li><a href="' + esc(href) + '" target="_blank" rel="noopener" title="' + how + '">' + esc(title) + '</a> ' +
+          '<span class="meta">— ' + esc(DATA.journals[DATA.papers.journal[p]][0]) + ', ' + DATA.papers.year[p] +
+          (n > 1 ? ' (' + n + ' authors)' : '') + '</span></li>';
+      }).join('');
+      detailRow.firstElementChild.innerHTML = chartSvg(f) + '<ol class="paper-list">' + items + '</ol>';
+    }).catch(() => {
+      detailRow.firstElementChild.innerHTML = '<span class="loading">Could not load the article titles.</span>';
+    });
+  }
+
+  function chartSvg(f) {
+    const areas = current.areas;
+    if (areas.length < 2) return '';
+    const max = Math.max(...f.byArea, 1);
+    const bw = 22, gap = 8, h = 60, left = 26;
+    const width = left + areas.length * (bw + gap) + 10;
+    let svg = '<svg class="chart" width="' + width + '" height="' + (h + 78) + '" role="img" aria-label="Adjusted articles by area">' +
+      '<g font-family="Helvetica,Arial,sans-serif" font-size="10" fill="#333">' +
+      '<line x1="' + left + '" y1="4" x2="' + left + '" y2="' + (h + 4) + '" stroke="#888"/>' +
+      '<line x1="' + left + '" y1="' + (h + 4) + '" x2="' + (width - 4) + '" y2="' + (h + 4) + '" stroke="#888"/>' +
+      '<text x="' + (left - 4) + '" y="' + (h + 7) + '" text-anchor="end">0</text>' +
+      '<text x="' + (left - 4) + '" y="9" text-anchor="end">' + (Math.round(max * 10) / 10) + '</text>';
+    areas.forEach((a, i) => {
+      const v = f.byArea[i], bh = Math.round((v / max) * h), x = left + 6 + i * (bw + gap);
+      svg += '<rect x="' + x + '" y="' + (h + 4 - bh) + '" width="' + bw + '" height="' + bh + '" fill="' + a.color + '"><title>' + esc(a.label) + ': ' + v.toFixed(1) + '</title></rect>' +
+        '<text transform="translate(' + (x + bw / 2 + 3) + ' ' + (h + 10) + ') rotate(-90)" text-anchor="end">' + esc(a.short) + '</text>';
+    });
+    return svg + '</g></svg>';
+  }
+
+  ////////////////////////////////////////////// titles: per-decade files, fetched on first use
 
   function loadChunk(name) {
     if (!titleChunks[name]) {
@@ -308,112 +430,63 @@
   function chunkOf(p) { return DATA.title_chunks.find(([, start, end]) => p >= start && p < end); }
 
   function titlesFor(papers) {
-    const names = [...new Set(papers.map((p) => chunkOf(p)[0]))];
-    return Promise.all(names.map(loadChunk)).then(() => Promise.all(papers.map((p) => {
+    return Promise.all(papers.map((p) => {
       const [name, start] = chunkOf(p);
-      return titleChunks[name].then((list) => list[p - start]);
-    })));
-  }
-
-  function titleListHtml(papers, titles) {
-    const items = papers.map((p, i) => ({ p, t: titles[i] }))
-      .sort((a, b) => DATA.papers.year[b.p] - DATA.papers.year[a.p]);
-    return '<ul class="title-list">' + items.map(({ p, t }) => {
-      const j = DATA.journals[DATA.papers.journal[p]][0];
-      const n = DATA.papers.authors[p];
-      return '<li>' + esc(t) + ' <span class="title-meta">— ' + esc(j) + ', ' + DATA.papers.year[p] +
-        (n > 1 ? ' (' + n + ' authors)' : '') + '</span></li>';
-    }).join('') + '</ul>';
-  }
-
-  function fillTitles(scope) {
-    scope.querySelectorAll('.person-row').forEach((tr) => {
-      const papers = tr.dataset.papers.split(',').map(Number);
-      titlesFor(papers).then((titles) => {
-        tr.querySelector('.tooltip-text').innerHTML = titleListHtml(papers, titles);
-      }).catch(() => {
-        tr.querySelector('.tooltip-text').innerHTML = '<em>Could not load titles.</em>';
+      return loadChunk(name).then((list) => {
+        const t = list[p - start];
+        return Array.isArray(t) ? t : [t, ''];
       });
-    });
-  }
-
-  function toggleTitles(personRow) {
-    const next = personRow.nextElementSibling;
-    if (next && next.classList.contains('titles-row')) { next.remove(); return; }
-    personRow.insertAdjacentHTML('afterend', '<tr class="titles-row"><td colspan="3"><em class="text-gray-500 text-sm">Loading titles…</em></td></tr>');
-    const papers = personRow.dataset.papers.split(',').map(Number);
-    titlesFor(papers).then((titles) => {
-      personRow.nextElementSibling.firstElementChild.innerHTML = titleListHtml(papers, titles);
-    });
+    }));
   }
 
   ////////////////////////////////////////////// page
 
   function update() {
     saveState();
-    syncFilters();
-    renderTable(compute());
+    syncPanel();
+    current = compute();
+    renderRanking();
   }
 
-  function renderDataAsOf() {
+  function renderMeta() {
     const p = META.papers_collected, f = META.faculty_collected;
-    $('dataAsOf').innerHTML =
-      '<span class="font-semibold">Articles collected ' + esc(fmtDate(p.from)) + ' – ' + esc(fmtDate(p.to)) + '</span>' +
-      ' · faculty lists ' + esc(fmtDate(f.to, { month: 'short', year: 'numeric' })) +
+    $('mhVolume').textContent = META.version;
+    $('mhBuild').textContent = META.build;
+    $('mhDate').textContent = fmtDate(META.built, { month: 'long', year: 'numeric' });
+    $('dataLine').innerHTML = '<b>Data:</b> articles collected ' + esc(fmtDate(p.from)) + ' – ' + esc(fmtDate(p.to)) +
+      ' (' + p.journals + ' journals) · faculty lists ' + esc(fmtDate(f.to)) +
       ' · W&amp;L ranks ' + esc(META.rankings.edition) +
-      ' · <a href="faq.html#data" class="text-blue-600 hover:underline">details</a>';
+      (META.us_schools ? ' · US law schools per ' + esc(META.us_schools.source) : '') +
+      ' · <a href="faq.html#data">details</a>';
+    $('footer').innerHTML = '<p>Volume ' + esc(META.version) + ', Build ' + esc(META.build) + ' · built ' + esc(fmtDate(META.built)) +
+      ' · <a href="history.html">build history</a> · <a href="faq.html">about &amp; method</a></p>' +
+      '<p class="text-muted">Modeled on <a href="https://csrankings.org/">CSrankings</a>. Journal ranks: Washington &amp; Lee Law Journal Rankings. Articles and faculty: HeinOnline.</p>';
   }
 
-  function wirePage() {
-    $('school-table').addEventListener('click', (e) => {
-      if (e.target.closest('.tooltip-icon')) { toggleTitles(e.target.closest('.person-row')); return; }
-      const row = e.target.closest('.school-row');
-      if (row) toggleSchool(row);
-    });
-    $('school-table').addEventListener('keydown', (e) => {
-      const row = e.target.closest('.school-row');
-      if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleSchool(row); }
-    });
+  function wire() {
+    const win = $('rankingWindow');
+    const act = (e) => {
+      if (e.target.closest('a')) return;
+      const person = e.target.closest('tr.person');
+      if (person) { togglePerson(person); return; }
+      const school = e.target.closest('tr.school');
+      if (school) toggleSchool(school);
+    };
+    win.addEventListener('click', act);
+    win.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { if (e.target.matches('tr.person, tr.school')) { e.preventDefault(); act(e); } } });
 
     const setDrawer = (open) => document.body.classList.toggle('filters-open', open);
     $('openFilters').addEventListener('click', () => setDrawer(true));
     $('closeFilters').addEventListener('click', () => setDrawer(false));
     $('drawerBackdrop').addEventListener('click', () => setDrawer(false));
-    $('showResults').addEventListener('click', () => { setDrawer(false); window.scrollTo({ top: 0 }); });
+    $('drawerDone').addEventListener('click', () => { setDrawer(false); window.scrollTo({ top: $('rankingWindow').offsetTop - 60 }); });
 
-    // desktop: resizable filter pane, width remembered
-    const leftPane = $('leftPane');
-    const applyWidth = () => {
-      if (desktop.matches) {
-        leftPane.style.width = (recall('leftPaneWidth') || 250) + 'px';
-        leftPane.style.minWidth = '180px';
-      } else {
-        leftPane.style.width = 'min(320px, 86vw)';
-        leftPane.style.minWidth = '';
-        document.body.classList.remove('filters-open');
-      }
-    };
-    applyWidth();
-    desktop.addEventListener('change', applyWidth);
-    $('dragHandle').addEventListener('mousedown', (e) => {
-      document.body.style.cursor = 'col-resize';
-      const startX = e.clientX, startWidth = leftPane.offsetWidth;
-      const onMove = (ev) => {
-        const w = Math.max(200, startWidth + (ev.clientX - startX));
-        leftPane.style.width = w + 'px';
-        store('leftPaneWidth', w);
-      };
-      const onUp = () => {
-        document.body.style.cursor = '';
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
-      };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
-    });
+    const sticky = () => document.documentElement.style.setProperty('--controls-h', $('controlsSticky').offsetHeight + 'px');
+    sticky();
+    window.addEventListener('resize', sticky);
     window.addEventListener('hashchange', () => {
-      const fromHash = readHash();
-      if (fromHash) { state = cleanState(fromHash); syncFilters(); renderTable(compute()); }
+      const h = readHash();
+      if (h) { state = cleanState(h); syncPanel(); current = compute(); renderRanking(); }
     });
   }
 
@@ -423,19 +496,15 @@
   ]).then(([data, meta]) => {
     DATA = data;
     META = meta;
+    groupSubjects = META.group_subjects || {};
     let saved = null;
     try { saved = JSON.parse(recall(STORAGE_KEY) || 'null'); } catch (e) { saved = null; }
     state = cleanState(readHash() || saved);
-    renderDataAsOf();
-    buildFilters();
-    wirePage();
+    renderMeta();
+    buildPanel();
+    wire();
     update();
-    $('loadingSpinner').classList.add('hidden');
-    // warm the titles for the default view so the first hover is instant
-    const decades = DATA.title_chunks.filter(([name]) => name !== 'early' && +name + 9 >= state.from && +name <= state.to);
-    decades.forEach(([name]) => loadChunk(name).catch(() => {}));
   }).catch((err) => {
-    $('loadingSpinner').classList.add('hidden');
-    $('school-table').innerHTML = '<p class="p-4 text-red-700">Could not load the data (' + esc(err.message) + ').</p>';
+    $('rankingWindow').innerHTML = '<p class="empty-note">Could not load the data (' + esc(err.message) + ').</p>';
   });
 })();

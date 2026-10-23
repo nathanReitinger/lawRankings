@@ -1,127 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Law School Rankings FAQ</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@600&family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
-  <style>
-    .boxed-title {
-      border: 1px solid black;
-      padding: 0.5rem 1rem;
-      display: inline-block;
-      letter-spacing: 0.25rem;
-      font-size: 1.5rem;
-    }
-    .font-garamond { font-family: 'EB Garamond', serif; }
-    .font-crimson { font-family: 'Crimson Text', serif; }
-    .coverage th, .coverage td { padding: 3px 8px; font-size: 0.8rem; }
-    .coverage td:nth-child(n+2), .coverage th:nth-child(n+2) { text-align: right; white-space: nowrap; }
-    @media (max-width: 767px) {
-      .boxed-title { font-size: 1.05rem !important; letter-spacing: 0.1rem; padding: 0.4rem 0.6rem; }
-    }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About Law School Rankings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
-
-<body class="bg-gray-100 text-gray-900 font-sans">
-  <div class="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 py-6 md:py-10">
-    <div class="bg-white rounded-xl mb-6 px-4 md:px-6 py-3 flex flex-col items-center justify-center shadow-lg">
-      <div class="w-full flex justify-between items-center mb-2 font-bold font-crimson text-base md:text-lg">
-        <span>VERSION 2.0</span>
-        <span><a href="./" class="hover:underline">HOME</a></span>
+<body>
+<div class="container">
+  <div class="lsr-mast-wrap">
+    <header class="lsr-mast">
+      <p class="lsr-issue"><span>Volume <span id="mhVolume">&nbsp;</span></span><span id="mhDate">&nbsp;</span><a href="history.html" title="What changed in each build">Build <span id="mhBuild">&nbsp;</span></a></p>
+      <h1 class="lsr-mark"><a href="./">Law School Rankings</a></h1>
+      <div class="lsr-foot">
+        <a class="lsr-about back" href="./">Rankings</a>
+        <span class="lsr-note">About &amp; method</span>
       </div>
-      <div class="my-2">
-        <div class="boxed-title font-garamond text-2xl">Law School Rankings: FAQs</div>
-      </div>
-    </div>
-
-    <div class="bg-white shadow-md rounded-lg p-4 md:p-6">
-      <div class="space-y-6">
-        <div>
-          <h2 class="text-lg font-semibold font-crimson">What is this site?</h2>
-          <p class="text-sm text-gray-700">This site provides rankings and analytics on law school faculty scholarship output. This metric-based sorting of schools helps bring transparency to publications and helps connect communities of scholars.</p>
-        </div>
-
-        <div>
-          <h2 class="text-lg font-semibold font-crimson">How are rankings calculated?</h2>
-          <p class="text-sm text-gray-700">Rankings are calculated just as they are with CSRankings.org. Each paper is one credit, split evenly between its co-authors (the <em>adjusted count</em>). Each category you select (a General tier, a specialty group, or a single W&amp;L subject) is one area; a school's score is the geometric mean, across the selected areas, of its faculty's total adjusted count plus one. Papers are credited to the school where the author teaches <em>now</em>, so a professor who moved brings their earlier papers with them.</p>
-        </div>
-
-        <div>
-          <h2 class="text-lg font-semibold font-crimson">Where do journal ranks come from?</h2>
-          <p class="text-sm text-gray-700">Ranks come from the <a class="text-blue-600 hover:underline" href="https://managementtools4.wlu.edu/LawJournals/Default.aspx">Washington &amp; Lee Law Journal Rankings</a> (<span data-meta="wl"></span>). "Top 10" means a journal's W&amp;L rank. For the specialty groups, journals are re-ranked within the group by their W&amp;L score.</p>
-        </div>
-
-        <div>
-          <h2 class="text-lg font-semibold font-crimson">What is in each specialty group?</h2>
-          <p class="text-sm text-gray-700 mb-2">The groups combine W&amp;L's subject lists. Individual subjects are still available under "More" in the filters.</p>
-          <ul id="groupList" class="text-sm text-gray-700 list-disc pl-5 space-y-1"></ul>
-        </div>
-
-        <div>
-          <h2 class="text-lg font-semibold font-crimson">Where do the papers and authors come from?</h2>
-          <p class="text-sm text-gray-700">HeinOnline metadata. Papers come from each journal's table of contents; faculty come from HeinOnline's list of authors by school. A paper's author is matched to a faculty member by name (first and last name, using the middle name when it helps tell people apart), so people with very common names can be missed or, rarely, mismatched.</p>
-        </div>
-
-        <div id="data">
-          <h2 class="text-lg font-semibold font-crimson">How recent is the data?</h2>
-          <ul class="text-sm text-gray-700 list-disc pl-5 space-y-1">
-            <li>Journal tables of contents: collected <span data-meta="papers"></span>.</li>
-            <li>Faculty lists by school: collected <span data-meta="faculty"></span>.</li>
-            <li>Journal ranks: <span data-meta="wl"></span>, downloaded <span data-meta="wlFetched"></span>.</li>
-            <li>The most recent year is usually incomplete, since journals post issues to HeinOnline over time.</li>
-          </ul>
-          <details class="mt-3">
-            <summary class="text-sm text-blue-600 cursor-pointer">When each journal was last collected</summary>
-            <div class="overflow-x-auto mt-2">
-              <table class="table table-sm table-bordered coverage">
-                <thead><tr><th>Journal</th><th>Collected</th><th>Latest year</th><th>Papers</th></tr></thead>
-                <tbody id="coverage"></tbody>
-              </table>
-            </div>
-          </details>
-        </div>
-
-        <div>
-          <h2 class="text-lg font-semibold font-crimson">What counts as a "short piece"?</h2>
-          <p class="text-sm text-gray-700">For now, a title-based guess: forewords, introductions, tributes, in memoriams, book reviews, remarks, panels, transcripts, and responses or replies. Turning on "Skip short pieces" drops these. Page counts would be a better test and are planned.</p>
-        </div>
-
-        <div>
-          <h2 class="text-lg font-semibold font-crimson">Who built this?</h2>
-          <p class="text-sm text-gray-700">nathan</p>
-        </div>
-
-        <div>
-          <h2 class="text-lg font-semibold font-crimson">How can I suggest a correction?</h2>
-          <p class="text-sm text-gray-700">Please do. Email us at <a href="mailto:corrections@example.com" class="text-blue-600 hover:underline">corrections@example.com</a> with corrections or suggestions.</p>
-        </div>
-      </div>
-    </div>
+    </header>
   </div>
 
-  <script>
-    (function () {
-      const fmt = (iso) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-      const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-      fetch('data/meta.json').then((r) => r.json()).then((m) => {
-        const set = (key, text) => document.querySelectorAll('[data-meta="' + key + '"]').forEach((el) => { el.textContent = text; });
-        set('papers', fmt(m.papers_collected.from) + ' – ' + fmt(m.papers_collected.to) + ' (' + m.papers_collected.journals + ' journals)');
-        set('faculty', fmt(m.faculty_collected.from) + (m.faculty_collected.to !== m.faculty_collected.from ? ' – ' + fmt(m.faculty_collected.to) : '') +
-          ' (' + m.faculty_collected.faculty.toLocaleString() + ' people at ' + m.faculty_collected.schools + ' institutions)');
-        set('wl', m.rankings.edition + ' edition');
-        set('wlFetched', fmt(m.rankings.fetched));
-        document.getElementById('groupList').innerHTML = Object.entries(m.group_subjects).map(([g, subs]) =>
-          '<li><b>' + esc(g) + ':</b> ' + subs.map(esc).join('; ') + '</li>').join('');
-        document.getElementById('coverage').innerHTML = m.coverage.map((c) =>
-          '<tr><td>' + esc(c.journal) + '</td><td>' + esc(c.collected) + '</td><td>' + (c.latest_year || '') + '</td><td>' + c.papers.toLocaleString() + '</td></tr>').join('');
-      });
-    })();
-  </script>
-</body>
+  <div class="prose">
+    <h2>What is this site?</h2>
+    <p>This site provides rankings and analytics on law school faculty scholarship output. This metric-based sorting of schools helps bring transparency to publications and helps connect communities of scholars. It is modeled on <a href="https://csrankings.org/">CSrankings</a>.</p>
 
+    <h2>How are rankings calculated?</h2>
+    <p>Just as they are on CSrankings. Each article is one credit, split evenly between its co-authors (the <em>adjusted count</em>). Every group you select is one <em>area</em>: the General law reviews (all the W&amp;L rank bands you check, together), and each specialty group you check. A school's count is the geometric mean, across the selected areas, of its faculty's total adjusted count in that area plus one. Articles are credited to the school where the author teaches <em>now</em>, so a professor who moves brings their earlier articles along.</p>
+
+    <h2>Where do journal ranks come from?</h2>
+    <p>The <a href="https://managementtools4.wlu.edu/LawJournals/Default.aspx">Washington &amp; Lee Law Journal Rankings</a> (<span data-meta="wl"></span>), combined score, US journals. General law reviews use W&amp;L's General rank. A specialty group is re-ranked by W&amp;L score among the subjects you leave checked, and "top 10" counts that group's ten highest-scoring journals.</p>
+
+    <h2>What is in each specialty group?</h2>
+    <ul id="groupList"></ul>
+
+    <h2>Where do the articles and authors come from?</h2>
+    <p>HeinOnline metadata. Articles come from each journal's table of contents on HeinOnline; faculty come from HeinOnline's list of authors by school. An article's author is matched to a faculty member by name (first and last name, using the middle name to tell people apart), so people with very common names can be missed or, rarely, mismatched.</p>
+    <p>Which schools are US law schools comes from the <span data-meta="usnews">US News law school list</span>.</p>
+
+    <h2 id="data">How recent is the data?</h2>
+    <ul>
+      <li>Journal tables of contents: collected <span data-meta="papers"></span>.</li>
+      <li>Faculty lists by school: collected <span data-meta="faculty"></span>.</li>
+      <li>Journal ranks: <span data-meta="wl"></span>, downloaded <span data-meta="wlFetched"></span>.</li>
+      <li>This is Volume <span data-meta="version"></span>, Build <span data-meta="build"></span>, built <span data-meta="built"></span>. See the <a href="history.html">build history</a> for what changed between builds.</li>
+      <li>The most recent year is usually incomplete: journals post issues to HeinOnline over time.</li>
+    </ul>
+    <details>
+      <summary>When each journal was last collected</summary>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>Journal</th><th>Collected</th><th>Latest year</th><th>Articles</th><th>Checked by the new update script</th></tr></thead>
+        <tbody id="coverage"></tbody>
+      </table></div>
+    </details>
+
+    <h2>What counts as a "short piece"?</h2>
+    <p>For now, a title-based guess: forewords, introductions, tributes, in memoriams, book reviews, remarks, panels, transcripts, and responses or replies. "Skip short pieces" drops these. Page counts would be a better test; the update script now saves them, so this will improve.</p>
+
+    <h2>Who built this?</h2>
+    <p>nathan</p>
+
+    <h2>How can I suggest a correction?</h2>
+    <p>Please do. Email us at <a href="mailto:corrections@example.com">corrections@example.com</a> with corrections or suggestions.</p>
+  </div>
+
+  <footer class="page-footer"><p><a href="./">rankings</a> · <a href="history.html">build history</a></p></footer>
+</div>
+<script>
+(function () {
+  'use strict';
+  const fmt = (iso, o) => iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', o || { month: 'long', day: 'numeric', year: 'numeric' }) : '?';
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  fetch('data/meta.json').then((r) => r.json()).then((m) => {
+    const set = (key, text) => document.querySelectorAll('[data-meta="' + key + '"]').forEach((el) => { el.textContent = text; });
+    document.getElementById('mhVolume').textContent = m.version;
+    document.getElementById('mhBuild').textContent = m.build;
+    document.getElementById('mhDate').textContent = fmt(m.built, { month: 'long', year: 'numeric' });
+    set('papers', fmt(m.papers_collected.from) + ' – ' + fmt(m.papers_collected.to) + ' (' + m.papers_collected.journals + ' journals)');
+    set('faculty', fmt(m.faculty_collected.from) + (m.faculty_collected.to !== m.faculty_collected.from ? ' – ' + fmt(m.faculty_collected.to) : '') +
+      ' (' + m.faculty_collected.faculty.toLocaleString() + ' people at ' + m.faculty_collected.schools + ' institutions)');
+    set('wl', m.rankings.edition + ' edition');
+    set('wlFetched', fmt(m.rankings.fetched));
+    set('version', m.version);
+    set('build', m.build);
+    set('built', fmt(m.built));
+    if (m.us_schools) set('usnews', 'US News list (' + m.us_schools.source + ')');
+    document.getElementById('groupList').innerHTML = Object.entries(m.group_subjects).map(([g, subs]) =>
+      '<li><b>' + esc(g) + ':</b> ' + subs.map(esc).join('; ') + '</li>').join('');
+    document.getElementById('coverage').innerHTML = m.coverage.map((c) =>
+      '<tr><td>' + esc(c.journal) + '</td><td>' + esc(c.collected) + '</td><td>' + (c.latest_year || '') + '</td><td>' + c.papers.toLocaleString() +
+      '</td><td>' + (c.verified ? 'yes' : 'not yet') + '</td></tr>').join('');
+  });
+})();
+</script>
+</body>
 </html>
