@@ -2,7 +2,8 @@
 
 Law schools ranked by where their current faculty publish (CSrankings-style), using HeinOnline metadata and the Washington & Lee law journal rankings.
 
-The site is static: `docs/` is served as-is (GitHub Pages → Settings → Pages → Deploy from branch `main`, folder `/docs`). Rankings are computed in the browser from `docs/data/`.
+Live at **https://nathanreitinger.github.io/lawRankings/** (GitHub Pages, branch `main`, folder `/docs`). The site is static; rankings are computed in the browser from `docs/data/`.
+The old address, lawschoolrankings.pythonanywhere.com, redirects there (`pythonanywhere_wsgi.py`).
 
 ## Updating the data
 
