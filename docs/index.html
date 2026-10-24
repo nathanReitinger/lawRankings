@@ -7,7 +7,7 @@
   <meta name="description" content="Law schools ranked by where their faculty publish, in the style of CSrankings.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&family=Orbitron:wght@700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,11 +19,10 @@
 <div class="container">
   <div class="lsr-mast-wrap">
     <header class="lsr-mast">
-      <p class="lsr-issue"><span>Volume <span id="mhVolume">&nbsp;</span></span><span id="mhDate">&nbsp;</span><a href="history.html" title="What changed in each build">Build <span id="mhBuild">&nbsp;</span></a></p>
+      <p class="lsr-issue"><a href="history.html" title="Version history (major.data.site)">Volume <span id="mhVolume">&nbsp;</span></a><span class="lsr-stamp" id="mhStamp" title="Last substantive data update (Unix time)">&nbsp;</span></p>
       <h1 class="lsr-mark"><a href="./">Law School Rankings</a></h1>
       <div class="lsr-foot">
         <a class="lsr-about" href="faq.html">About</a>
-        <span class="lsr-note">Beta version, not for public release</span>
       </div>
     </header>
   </div>
@@ -82,6 +81,7 @@
 
   <footer class="page-footer" id="footer"></footer>
 </div>
+<script src="masthead.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

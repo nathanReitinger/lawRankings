@@ -16,47 +16,80 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 
 .container { margin: 0 auto; padding: 0 15px; max-width: 1170px; }
 
-/* ---------- masthead: Harvard Law Review print masthead (page 1 of every issue), recreated in CSS ----------
-   Measured from 139 Harv. L. Rev. 1 (Nov. 2025); all sizes are proportional to the wordmark's cap height.
-   Alegreya 450 is the closest Google Font to HLR's wordmark; Noto Serif 700 stands in for Century Bold. */
+/* ---------- masthead: the Harvard Law Review's boxed wordmark, cyberpunk edition (2026-10-24) ----------
+   Same proportions as before (measured from 139 Harv. L. Rev. 1; sizes scale with the wordmark): the box, the
+   line above it (version on the left, data timestamp on the right) and the About button. The box is now a night
+   panel with a neon edge, a techno face (Orbitron), a chromatic split and faint scan lines. */
 .lsr-mast-wrap { container-type: inline-size; display: flex; justify-content: center; padding: 22px 0 16px; }
 .lsr-mast {
-  --ink: #000; --paper: #fff; --fi: max(11px, 0.486em);
-  font-size: clamp(15px, 5.6vw, 3rem);
-  font-size: clamp(15px, calc(100cqi / 16.4), 3rem);
+  --ink: #0b0820; --paper: #fff; --neon: #00e5ff; --neon2: #ff2bd6; --night: #0b0820; --fi: max(11px, 0.42em);
+  font-size: clamp(12px, 4vw, 2.5rem);
+  font-size: clamp(12px, calc(100cqi / 19.5), 2.5rem);   /* Orbitron is wider than the old serif */
   display: inline-grid; grid-template-columns: minmax(0, max-content); max-width: 100%; margin: 0; color: var(--ink);
 }
 .lsr-issue {
   display: flex; justify-content: space-between; align-items: baseline; gap: 0.6em; margin: 0;
-  font-family: 'Noto Serif', 'Century Schoolbook', 'New Century Schoolbook', Georgia, serif; font-weight: 700;
-  font-size: var(--fi); line-height: 1; letter-spacing: 0; word-spacing: 0.15em; text-transform: uppercase; white-space: nowrap;
+  font-family: 'Share Tech Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-weight: 400;
+  font-size: var(--fi); line-height: 1; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;
 }
 .lsr-issue a { color: inherit; }
-.lsr-issue a:hover { text-decoration: underline; }
+.lsr-issue a:hover { text-decoration: underline; color: #6a00ff; }
+.lsr-stamp { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; cursor: help; }
+.lsr-stamp::before { content: "\25B8\00A0"; color: var(--neon2); }
 .lsr-mark {
-  --ls: 0.170em;
+  --ls: 0.11em;
+  position: relative; overflow: hidden;
   margin: calc(0.4315em - 0.112 * var(--fi)) 0 0;
-  padding: 0.256em 0.855em 0.261em 0.833em;
-  border: max(1.5px, 0.069em) solid currentColor;
-  font-family: 'Alegreya', 'Libre Caslon Text', Georgia, 'Times New Roman', serif; font-weight: 450; font-style: normal;
-  font-size: 1em; line-height: 1; letter-spacing: var(--ls); word-spacing: 0.015em; text-transform: uppercase;
+  padding: 0.30em 0.80em 0.28em 0.80em;
+  border: max(1.5px, 0.06em) solid var(--neon);
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
+    linear-gradient(135deg, #12082e 0%, var(--night) 55%, #04121c 100%);
+  box-shadow: 0 0 0 1px rgba(0,229,255,.25), 0 0 0.18em rgba(0,229,255,.9), 0 0 0.6em rgba(0,229,255,.35), inset 0 0 0.5em rgba(0,229,255,.18);
+  color: #effcff;
+  font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', system-ui, sans-serif; font-weight: 800; font-style: normal;
+  font-size: 1em; line-height: 1; letter-spacing: var(--ls); word-spacing: 0.05em; text-transform: uppercase;
+  text-shadow: -0.035em 0 rgba(255,43,214,.85), 0.035em 0 rgba(0,229,255,.85), 0 0 0.28em rgba(0,229,255,.75);
   font-kerning: normal; font-variant-ligatures: none; text-align: center; white-space: nowrap;
 }
+.lsr-mark::after {                       /* a neon tick in the corner, like a HUD bracket */
+  content: ""; position: absolute; right: 0.18em; bottom: 0.18em; width: 0.42em; height: 0.42em;
+  border-right: 2px solid var(--neon2); border-bottom: 2px solid var(--neon2); opacity: .9; pointer-events: none;
+}
+.lsr-mark::before {
+  content: ""; position: absolute; left: 0.18em; top: 0.18em; width: 0.42em; height: 0.42em;
+  border-left: 2px solid var(--neon2); border-top: 2px solid var(--neon2); opacity: .9; pointer-events: none;
+}
 .lsr-mark > a { display: inline-block; margin-right: calc(-1 * var(--ls)); color: inherit; }
-.lsr-mark > a:hover { text-decoration: none; }
+.lsr-mark > a:hover { text-decoration: none; animation: lsr-glitch .45s steps(2, end) 1; }
+@keyframes lsr-glitch {
+  0%   { text-shadow: -0.06em 0 rgba(255,43,214,.9), 0.06em 0 rgba(0,229,255,.9), 0 0 0.3em rgba(0,229,255,.8); transform: translateX(0.02em); }
+  50%  { text-shadow: 0.05em 0 rgba(255,43,214,.9), -0.05em 0 rgba(0,229,255,.9), 0 0 0.3em rgba(255,43,214,.6); transform: translateX(-0.02em); }
+  100% { text-shadow: -0.035em 0 rgba(255,43,214,.85), 0.035em 0 rgba(0,229,255,.85), 0 0 0.28em rgba(0,229,255,.75); transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .lsr-mark > a:hover { animation: none; } }
 .lsr-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.32em; }
-.lsr-note { margin-left: auto; font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: max(12px, 0.323em); letter-spacing: 0.04em; text-align: right; }
+.lsr-note { margin-left: auto; font-family: 'Share Tech Mono', ui-monospace, Menlo, monospace; font-size: max(12px, 0.3em); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; }
 .lsr-about {
   display: inline-flex; align-items: center; gap: 0.45em; min-height: 32px; padding: 0 0.85em 0 0.95em;
-  font-family: 'Noto Serif', Georgia, serif; font-weight: 700; font-size: max(12px, 0.27em); line-height: 1;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-decoration: none;
-  background: var(--paper); border: 1px solid currentColor; border-radius: 2px; cursor: pointer; transition: background-color .15s, color .15s;
+  font-family: 'Share Tech Mono', ui-monospace, Menlo, monospace; font-weight: 400; font-size: max(13px, 0.3em); line-height: 1;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); text-decoration: none;
+  background: var(--paper); border: 1px solid currentColor; border-radius: 2px; cursor: pointer; transition: background-color .15s, color .15s, box-shadow .15s;
 }
 .lsr-about::after { content: "\2192"; letter-spacing: 0; font-weight: 400; }
 .lsr-about.back::after { content: none; }
 .lsr-about.back::before { content: "\2190"; letter-spacing: 0; font-weight: 400; }
-.lsr-about:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
-.lsr-about:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.lsr-about:hover { background: var(--night); color: var(--neon); box-shadow: 0 0 0.4em rgba(0,229,255,.5); text-decoration: none; }
+.lsr-about:focus-visible { outline: 2px solid var(--neon2); outline-offset: 2px; }
+
+/* footer buttons: report a flaw (email), the faculty list on GitHub */
+.foot-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0 6px; }
+.btn-line {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid #337ab7; border-radius: 4px;
+  color: #337ab7; background: #fff; font-size: 13px; text-decoration: none;
+}
+.btn-line:hover, .btn-line:focus { background: #337ab7; color: #fff; text-decoration: none; }
+.home-link { margin-left: 4px; font-size: 12px; }
 
 .btn-about {
   display: inline-block; font-family: Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: .02em;
@@ -151,6 +184,7 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: point
 .paper-list li { margin: 0 0 4px; }
 .paper-list .meta { color: #777; }
 .loading { color: #777; font-style: italic; font-size: 13px; }
+
 
 /* ---------- footer ---------- */
 .page-footer { margin-top: 2em; padding: 1em 0 2em; border-top: 1px solid #ddd; text-align: center; color: #555; font-size: 13px; }

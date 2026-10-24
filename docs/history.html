@@ -3,32 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Build History</title>
+  <title>Version History</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&family=Orbitron:wght@700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
   <div class="lsr-mast-wrap">
     <header class="lsr-mast">
-      <p class="lsr-issue"><span>Volume <span id="mhVolume">&nbsp;</span></span><span id="mhDate">&nbsp;</span><a href="history.html" title="What changed in each build">Build <span id="mhBuild">&nbsp;</span></a></p>
+      <p class="lsr-issue"><a href="history.html" title="Version history (major.data.site)">Volume <span id="mhVolume">&nbsp;</span></a><span class="lsr-stamp" id="mhStamp" title="Last substantive data update (Unix time)">&nbsp;</span></p>
       <h1 class="lsr-mark"><a href="./">Law School Rankings</a></h1>
       <div class="lsr-foot">
         <a class="lsr-about back" href="./">Rankings</a>
-        <span class="lsr-note">Build history</span>
+        <span class="lsr-note">Version history</span>
       </div>
     </header>
   </div>
 
   <div class="prose">
-    <p>Each time the scrapers run, the data is rebuilt. When anything the site shows changes, the build number goes up and an entry is added here: when each source was collected, how many articles and faculty are counted, and how the default view changed (<span id="defaultView">flagship law reviews of the US News top 25 schools, last ten years, US law schools</span>).</p>
+    <p>Versions are <i>major.data.site</i>: the middle number goes up when the substantive data changes (articles, faculty, schools, journals, ranks), the last when only the site itself changes. Each version lists when each source was collected, how many articles and faculty are counted, and how the default view changed (<span id="defaultView">flagship law reviews of the US News top 25 schools, last ten years, US law schools</span>). Entries before version 2.0.0 were numbered as builds.</p>
     <div id="builds"><p class="loading">Loading…</p></div>
   </div>
 
-  <footer class="page-footer"><p><a href="./">rankings</a> · <a href="faq.html">about &amp; method</a></p><p>Built by <a href="https://www.law.northwestern.edu/faculty/profiles/NathanReitinger/">Nathan Reitinger</a> · Northwestern Pritzker School of Law</p></footer>
+  <footer class="page-footer" id="footer"></footer>
 </div>
+<script src="masthead.js"></script>
 <script>
 (function () {
   'use strict';
@@ -36,26 +37,28 @@
   const fmt = (iso, o) => iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', o || { month: 'short', day: 'numeric', year: 'numeric' }) : '?';
   const signed = (n) => (n > 0 ? '+' : '') + n.toLocaleString();
   Promise.all([fetch('data/history.json').then((r) => r.json()), fetch('data/meta.json').then((r) => r.json())]).then(([history, meta]) => {
-    document.getElementById('mhVolume').textContent = meta.version;
-    document.getElementById('mhBuild').textContent = meta.build;
-    document.getElementById('mhDate').textContent = fmt(meta.built, { month: 'long', year: 'numeric' });
+    window.LSR.stampMasthead(meta);
+    document.getElementById('footer').innerHTML = window.LSR.siteFooter(meta);
     document.getElementById('builds').innerHTML = history.slice().reverse().map((e) => {
       const ch = e.changes;
       const moved = ch ? ch.moved.map(([school, before, now]) => before
         ? '<li>' + esc(school) + ': ' + before + ' &rarr; ' + now + ' <span class="' + (now < before ? 'up' : 'down') + '">' + (now < before ? '&#9650;' : '&#9660;') + '</span></li>'
         : '<li>' + esc(school) + ': new in the top 30 at ' + now + '</li>').join('') : '';
-      return '<h2>Volume ' + esc(e.version) + ', Build ' + esc(e.build) + ' <small class="text-muted">' + esc(fmt(e.date)) + '</small></h2>' +
+      const what = { data: 'data update', site: 'site update', major: 'major update' }[e.kind] || '';
+      const title = e.build ? 'Build ' + esc(e.build) + ' <small class="text-muted">(before version numbers)</small>'
+                            : 'Volume ' + esc(e.version) + (what ? ' <small class="text-muted">' + what + '</small>' : '');
+      return '<h2>' + title + ' <small class="text-muted">' + esc(fmt(e.date)) + (e.data_updated && e.kind !== 'site' ? ' · ' + e.data_updated : '') + '</small></h2>' +
         '<ul>' +
         '<li>Articles collected ' + esc(fmt(e.papers_scraped.from)) + ' – ' + esc(fmt(e.papers_scraped.to)) + ' (' + e.papers_scraped.journals + ' journals)</li>' +
         '<li>Faculty lists ' + esc(fmt(e.faculty_scraped.from)) + ' – ' + esc(fmt(e.faculty_scraped.to)) + ' (' + e.faculty_scraped.faculty.toLocaleString() + ' people at ' + e.faculty_scraped.schools + ' institutions)</li>' +
         '<li>Journal ranks: ' + (e.flagship_ranks ? 'US News ' + esc(e.flagship_ranks.edition) + ' (flagship), ' : '') + 'W&amp;L ' + esc(e.rankings_edition) + (e.flagship_ranks ? ' (specialty)' : ' (all journals)') + '</li>' +
         '<li>' + e.counts.papers.toLocaleString() + ' articles by ' + e.counts.faculty_with_papers.toLocaleString() + ' current faculty' +
-          (ch ? ' (' + signed(ch.papers) + ' articles, ' + signed(ch.faculty_with_papers) + ' faculty since the previous build)' : '') + '</li>' +
+          (ch ? ' (' + signed(ch.papers) + ' articles, ' + signed(ch.faculty_with_papers) + ' faculty since the previous version)' : '') + '</li>' +
         '</ul>' +
-        (ch ? (ch.view_changed ? '<p class="text-muted">The default view changed in this build (now: ' + esc(ch.view_changed) + '), so its top 30 is not compared with the previous build.</p>'
+        (ch ? (ch.view_changed ? '<p class="text-muted">The default view changed in this version (now: ' + esc(ch.view_changed) + '), so its top 30 is not compared with the previous version.</p>'
                : ch.moved.length ? '<details><summary>' + ch.moved.length + ' schools moved in the default top 30</summary><ul>' + moved + '</ul></details>'
                                  : '<p class="text-muted">No change in the default top 30.</p>') : '') +
-        '<details><summary>Default top 30 in this build</summary><table><thead><tr><th>#</th><th>School</th><th>Count</th><th>Faculty</th></tr></thead><tbody>' +
+        '<details><summary>Default top 30 in this version</summary><table><thead><tr><th>#</th><th>School</th><th>Count</th><th>Faculty</th></tr></thead><tbody>' +
         e.top.map(([s, score, n], i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(s) + '</td><td>' + score + '</td><td>' + n + '</td></tr>').join('') +
         '</tbody></table></details>';
     }).join('');
