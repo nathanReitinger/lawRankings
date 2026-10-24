@@ -24,8 +24,9 @@ import subprocess
 import time
 import unicodedata
 from collections import defaultdict
+from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse, parse_qs, unquote, quote
 
 import sys
 
@@ -40,7 +41,18 @@ sys.path.insert(0, SOURCE_DIR)
 import journal_store as js   # noqa: E402  (shared volume keys, years and author keys with the update script)
 js.STORE_DIR = os.path.join(SOURCE_DIR, 'journal_store')
 
-VERSION = 2   # shown on the site as "Volume 2"; each data change bumps the build number
+# Versions (2026-10-24, the owner's rule): MAJOR.minor.patch, shown as "Volume 2.1.0".
+#   major: set here by hand for a major update (minor and patch go back to 0)
+#   minor: goes up when the substantive data changes (papers, authors, credits, schools, journals: a hash of
+#          data.json and the titles); the "data updated" timestamp on the site is the time of that change
+#   patch: goes up when anything else the site serves changes (its pages, scripts, styles), data unchanged
+MAJOR = 2
+SITE_FILES = ['docs/*.html', 'docs/*.js', 'docs/*.css']
+
+# Faculty corrections anyone can propose with a GitHub pull request (faculty/README.md says how); applied on top of
+# Hein's faculty lists in every build. The full list the build used is written to faculty/list-<letter>.csv.
+FACULTY_EDITS = os.path.join(HERE, 'faculty', 'edits.csv')
+FACULTY_LIST_DIR = os.path.join(HERE, 'faculty')
 
 # Flagship law reviews (W&L's General category) are ranked by the US News rank of the school that publishes
 # them; specialty journals by their W&L rank. This file says which school publishes each General journal and
@@ -211,6 +223,66 @@ def read_csv_safely(path, **kw):
     return pd.read_csv(io.BytesIO(raw), **kw)
 
 
+def hein_profile_link(hein_name):
+    return 'https://heinonline.org/HOL/AuthorProfile?action=edit&search_name=' + quote(hein_name.strip()) + '&collection=journals'
+
+
+def load_faculty_edits():
+    '''faculty/edits.csv (pull requests welcome): action, hein_name, school, name, homepage, note'''
+    if not os.path.exists(FACULTY_EDITS):
+        return pd.DataFrame(columns=['action', 'hein_name', 'school', 'name', 'homepage', 'note'])
+    e = pd.read_csv(FACULTY_EDITS, dtype=str).fillna('')
+    e['action'] = e['action'].str.strip().str.lower()
+    bad = e[~e['action'].isin(['add', 'remove', 'move', 'alias', 'homepage'])]
+    if len(bad):
+        print(f'  !! faculty/edits.csv: {len(bad)} rows with an unknown action, ignored:', bad['action'].tolist()[:5])
+    return e[e['action'].isin(['add', 'remove', 'move', 'alias', 'homepage'])]
+
+
+def apply_faculty_edits(df):
+    '''add / remove / move people on the faculty lists, from faculty/edits.csv'''
+    e = load_faculty_edits()
+    if e.empty:
+        return df
+    key = lambda name: parse_hein_name(hein_profile_link(name))
+    df_keys = df['link'].map(parse_hein_name)
+    n = defaultdict(int)
+    for r in e.itertuples():
+        if r.action == 'remove':
+            hit = (df_keys == key(r.hein_name)) & ((df['school'] == r.school) if r.school else True)
+            df, df_keys = df[~hit], df_keys[~hit]
+            n['removed'] += int(hit.sum())
+        elif r.action in ('add', 'move'):
+            if r.action == 'move':
+                hit = df_keys == key(r.hein_name)
+                df, df_keys = df[~hit], df_keys[~hit]
+            row = {'school': r.school, 'author': r.hein_name, 'link': hein_profile_link(r.hein_name), 'run': 'faculty/edits.csv'}
+            df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+            df_keys = df['link'].map(parse_hein_name)
+            n[r.action + 'ed' if r.action == 'add' else 'moved'] += 1
+    print('  faculty/edits.csv applied:', dict(n) or 'nothing to change on the lists')
+    return df.reset_index(drop=True)
+
+
+def write_faculty_list(roster):
+    '''faculty/list-<letter>.csv: every person on the lists this build used (Hein's lists plus faculty/edits.csv),
+    one file per first letter of the last name, like CSrankings' csrankings-<letter>.csv'''
+    os.makedirs(FACULTY_LIST_DIR, exist_ok=True)
+    out = pd.DataFrame({
+        'name': roster['author'].map(lambda a: display_name(str(a))),
+        'school': roster['school'],
+        'hein_name': roster['hein_name'],
+        'hein_profile': roster['hein_name'].map(hein_profile_link),
+        'source': roster['run'],
+    }).sort_values(['hein_name', 'school'])
+    letter = out['hein_name'].str.strip().str[:1].str.lower().where(lambda c: c.str.match(r'[a-z]'), 'other')
+    for f in glob.glob(os.path.join(FACULTY_LIST_DIR, 'list-*.csv')):
+        os.remove(f)
+    for l, part in out.groupby(letter):
+        part.to_csv(os.path.join(FACULTY_LIST_DIR, f'list-{l}.csv'), index=False)
+    print(f'  wrote faculty/list-*.csv ({len(out)} listings)')
+
+
 def load_roster():
     '''newest faculty list for each school, from get_authors_from_v3 runs (faculty_runs/) and the older authors_latest.csv'''
     sources = []   # oldest first
@@ -239,6 +311,7 @@ def load_roster():
         part['run'] = run
         frames.append(part)
     df = pd.concat(frames, ignore_index=True)
+    df = apply_faculty_edits(df)
     # 2026-10-23 (stress test t15): a crash between a school's rows and its progress line writes them twice
     df = df.drop_duplicates(['school', 'link']).reset_index(drop=True)
 
@@ -253,6 +326,9 @@ def load_roster():
     # newer list has them: a joint appointment, not a move (while a faculty run is unfinished, the other school may
     # simply not have been reached yet).
     order = {run: i for i, (run, _, _) in enumerate(sources)}
+    # rows added by faculty/edits.csv are always kept and take no part in this (an added joint appointment must
+    # not knock out the person's Hein listing elsewhere)
+    order['faculty/edits.csv'] = -1
     df['_run'] = df['run'].map(order)
     person = list(zip(df['last'], df['first'], df['middle']))
     df['_person'] = person
@@ -263,7 +339,7 @@ def load_roster():
         p = sdf['link'].map(parse_hein_name)
         for key, school in zip(p, sdf['school']):
             listed.setdefault((src, key), set()).add(school)
-    keep_mask = [run_i == newest_i or bool(listed.get((run, who), set()) & newest_schools[who])
+    keep_mask = [run_i == newest_i or run_i == -1 or bool(listed.get((run, who), set()) & newest_schools[who])
                  for run, run_i, newest_i, who in zip(df['run'], df['_run'], newest_run, df['_person'])]
     moved = int(len(df) - sum(keep_mask))
     if moved:
@@ -285,6 +361,15 @@ def load_rankings():
             found[int(m.group(1))] = f
     year = max(found)
     df = pd.read_csv(found[year])
+    # (2026-10-24, "all data possible") journals W&L no longer lists keep the categories of the newest older edition
+    # that has them, unranked: our data on them stays on the site (Harvard BlackLetter Law Journal, Harvard
+    # Negotiation Law Review, Boston College Law Review E. Supp.)
+    for older in sorted(found, reverse=True)[1:]:
+        old = pd.read_csv(found[older])
+        old = old[~old['journal'].isin(set(df['journal']))].copy()
+        if len(old):
+            old['score'], old['WandL_rank'] = 'NR', 'NR'
+            df = pd.concat([df, old], ignore_index=True)
     df['score'] = pd.to_numeric(df['score'], errors='coerce')   # "NR" -> NaN
     df['WandL_rank'] = pd.to_numeric(df['WandL_rank'], errors='coerce')
     return year, df, datetime.fromtimestamp(os.path.getmtime(found[year]))
@@ -461,8 +546,40 @@ def match_authors(papers, roster):
 
     to_ret = {}
     stats = defaultdict(int)
+    # faculty/edits.csv "alias": another Hein spelling for a faculty member (e.g. "Williams, Robert F." for the Rutgers
+    # "Williams, Robert"); papers under that spelling go to that person
+    edits = load_faculty_edits()
+    alias = {}
+    for r in edits[edits['action'] == 'alias'].itertuples():
+        target = parse_hein_name(hein_profile_link(r.name))
+        hits = [i for i in full.get(target, []) if not r.school or roster.at[i, 'school'] == r.school]
+        if hits:
+            alias[parse_hein_name(hein_profile_link(r.hein_name))] = hits
+        else:
+            print(f'  !! faculty/edits.csv alias {r.hein_name!r} -> {r.name!r}: no such person on the lists')
+    # (math check, 2026-10-23) the middle initials Hein's paper authors use for each first + last name: a faculty
+    # member listed with no middle name ("Smith, Michael") must not absorb "Smith, Michael S." and "Smith, Michael D."
+    # Counted in papers: when one initial has 85%+ of them, that is the faculty member and the rest are strays or
+    # namesakes; with no dominant initial, several people share the name and none is credited automatically.
+    rows_per_link = papers.groupby('author').size()
+    paper_mids = defaultdict(lambda: defaultdict(int))
+    for link in papers['author'].unique():
+        l, f, m = parse_hein_name(link)
+        if m:
+            paper_mids[(l.split('|')[0], f)][m[0]] += int(rows_per_link[link])
+
+    def dominant_initial(last, first):
+        counts = paper_mids.get((last.split('|')[0], first), {})
+        if not counts:
+            return None
+        top = max(counts, key=counts.get)
+        return top if counts[top] >= 0.85 * sum(counts.values()) else None
     for link in papers['author'].unique():
         last, first, middle = parse_hein_name(link)
+        if (last, first, middle) in alias:
+            to_ret[link] = alias[(last, first, middle)]
+            stats['alias (faculty/edits.csv)'] += 1
+            continue
         if (last, first, middle) in full:
             hits = full[(last, first, middle)]
             if not middle and all(joined_prefix(raw_last(link), raw_last(roster.at[i, 'link'])) for i in hits):
@@ -482,7 +599,12 @@ def match_authors(papers, roster):
                      and ('|' not in last or '|' not in roster.at[i, 'last'])]   # Jr. vs III are two people (review)
             people = {(roster.at[i, 'last'], roster.at[i, 'first'], roster.at[i, 'middle']) for i in cands}
             how = 'suffix_differs'
-        if len(people) == 1 and not middle and all(joined_prefix(raw_last(link), raw_last(roster.at[i, 'link'])) for i in cands):
+        roster_mid = next(iter(people))[2] if len(people) == 1 else ''
+        if len(people) == 1 and middle and not roster_mid and middle[0] != dominant_initial(last, first):
+            # the faculty list gives no middle name and this paper's middle initial is not the one that dominates
+            # this first + last name on Hein: a namesake (or several people), not credited automatically (math check)
+            stats['middle_unsure'] += 1
+        elif len(people) == 1 and not middle and all(joined_prefix(raw_last(link), raw_last(roster.at[i, 'link'])) for i in cands):
             # 2026-10-23 (math check): the names only meet once a one-letter prefix is joined on ("d'Avis, Ronald"
             # vs "Davis, Ronald B.") and the paper gives no middle initial: too weak to credit automatically.
             # Longer joins are kept ("An-Na'im" = "An-Naim", "Du Bose" = "Dubose").
@@ -510,8 +632,10 @@ def default_ranking(data, years=10, top=30):
                 if data['schools'][s][1]:
                     score[s] += 1 / P['authors'][p]
                     faculty[s].add(person)
-    order = sorted(score, key=lambda s: (-score[s], data['schools'][s][0]))[:top]
-    return [[data['schools'][s][0], round(score[s] + 1, 1), len(faculty[s])] for s in order]
+    snap = {s: round(v, 9) for s, v in score.items()}            # same snapping and rounding as app.js (math check)
+    order = sorted(snap, key=lambda s: (-snap[s], data['schools'][s][0]))[:top]
+    half_up = lambda x: float(Decimal(repr(round(x, 9))).quantize(Decimal('0.1'), ROUND_HALF_UP))
+    return [[data['schools'][s][0], half_up(snap[s] + 1), len(faculty[s])] for s in order]
 
 
 def git_json(path):
@@ -534,14 +658,14 @@ def update_history(meta, data, prev):
         except ValueError:     # killed mid-write (review): fall back to the committed copy
             history = git_json('docs/data/history.json') or []
     entry = {
-        'build': meta['build'], 'version': meta['version'], 'date': meta['built'],
+        'version': meta['version'], 'kind': meta['kind'], 'date': meta['built'], 'data_updated': meta['data_updated'],
         'papers_collected': meta['papers_collected'], 'faculty_collected': meta['faculty_collected'],
         'rankings_edition': meta['rankings']['edition'], 'us_schools': meta.get('us_schools'),
         'flagship_ranks': meta['flagship_ranks'], 'default_view': meta['default_view'],
         'counts': meta['counts'], 'top': default_ranking(data),
     }
-    if history and history[-1]['build'] == meta['build']:
-        # same data as the last build: refresh its entry, keep the number and what changed in that build
+    if history and history[-1].get('version') == meta['version']:
+        # nothing changed since the last build: refresh its entry, keep the number and what changed in it
         if 'changes' in history[-1]:
             entry['changes'] = history[-1]['changes']
         history[-1] = entry
@@ -632,6 +756,9 @@ def build():
     info = papers.groupby('paper_key').agg(journal=('journal', 'first'), volume_key=('volume_key', 'first'),
                                            title_key=('title_key', 'first'), year=('year', 'first'))
     info['authors'] = papers.groupby('paper_key')['name_key'].agg(lambda a: '|'.join(sorted(set(a))))
+    # the piece's first page, where the update script saved it ("... | Page 125"): a recurring piece by the same author in
+    # each issue (a "Chairman's Page") starts on a different page, a piece listed twice starts on the same one
+    info['page'] = papers.groupby('paper_key')['raw'].first().str.extract(r'\bPage (\d+)')[0].fillna('')
     info['sig'] = list(zip(info['journal'], info['year'], info['title_key'], info['authors']))
     # the same piece twice: within a volume (listed twice) always one paper; across two volume numbers of the same year
     # (Urban Lawyer 42 and 43, "Volume 58 (Supplement)" inside vol 58) only when the two volumes duplicate each other
@@ -653,14 +780,24 @@ def build():
         for k in keys[1:]:
             v2 = info.at[k, 'volume_key']
             if v2 == v1:
-                same[k], within = first, within + 1
+                if info.at[k, 'page'] == info.at[first, 'page']:     # same page too: listed twice
+                    same[k], within = first, within + 1
             elif (info.at[first, 'journal'], *sorted([v1, v2])) in wholesale:
                 same[k], across = first, across + 1
     if same:
         print(f'  {across} papers listed twice by Hein in the same year (two volume numbers) and {within} listed twice '
               f'in one volume; counted once')
         papers['paper_key'] = papers['paper_key'].map(lambda k: same.get(k, k))
-    n_authors = papers.groupby('paper_key')['name_key'].nunique()
+    # co-authors counted as people: two spellings of one name in a paper ("McClurg, Andrew J." and "McClurg, Andrew
+    # Jay") are one author (math check)
+    def count_people(keys):
+        by = defaultdict(set)
+        for k in set(keys):
+            last, first, middle = k.split('/', 2)
+            by[(last, first)].add(middle[:1])
+        return sum(max(1, len(m - {''})) for m in by.values())
+    n_authors = papers.groupby('paper_key')['name_key'].agg(count_people)
+    write_faculty_list(roster)
     matched, stats = match_authors(papers, roster)
     print('  author matching:', stats)
 
@@ -678,7 +815,11 @@ def build():
     people_keys = sorted({person_key(i) for i in person_rows})
     person_id = {k: n for n, k in enumerate(people_keys)}
     # [display name, school ids, Hein search_name for their AuthorProfile link]
-    people = [[None, [], None] for _ in people_keys]
+    # [display name, school ids, Hein search_name, homepage (from faculty/edits.csv, '' if none)]
+    edits = load_faculty_edits()
+    homepage = {parse_hein_name(hein_profile_link(r.hein_name)): r.homepage.strip()
+                for r in edits[edits['action'] == 'homepage'].itertuples() if r.homepage.strip().startswith('http')}
+    people = [[None, [], None, homepage.get(k, '')] for k in people_keys]
     for i in person_rows:
         p = people[person_id[person_key(i)]]
         p[0] = display_name(roster.at[i, 'author'])
@@ -697,6 +838,29 @@ def build():
                 seen.add(key)
                 credit_paper.append(key[0])
                 credit_person.append(key[1])
+
+    # Faculty tags (the owner, 2026-10-23: "a separate computation"): where each person publishes among the specialty
+    # journals, over all their articles and all years, whatever the site's filters. An article in a journal that sits
+    # in several groups counts a share toward each. The top group is a tag; so is the second when it is at least half
+    # the top. Two specialty articles at least; flagship law reviews are not a tag (nearly everyone publishes there).
+    journal_groups = {journal_id[j[0]]: sorted({g for g, _ in j[4]}) for j in journals}
+    weight = defaultdict(lambda: defaultdict(float))
+    for pk, person_i in zip(credit_paper, credit_person):
+        gs = journal_groups.get(journal_id[first_rows.at[paper_keys[pk], 'journal']], [])
+        for g in gs:
+            weight[person_i][g] += 1 / len(gs)
+    tagged = 0
+    for person_i, w in weight.items():
+        ranked_groups = sorted(w, key=lambda g: (-w[g], g))
+        if sum(w.values()) < 2:
+            continue
+        tags = [ranked_groups[0]] + [g for g in ranked_groups[1:2] if w[g] >= 0.5 * w[ranked_groups[0]]]
+        people[person_i].append(tags)
+        tagged += 1
+    for person_entry in people:
+        if len(person_entry) < 5:
+            person_entry.append([])
+    print(f'  faculty tags: {tagged} people tagged by where they publish among specialty journals')
 
     p = first_rows.loc[paper_keys]
     data = {
@@ -752,17 +916,37 @@ def build():
                      for r in used.sort_values('journal').to_dict(orient='records')],
     }
 
-    # the build number goes up whenever the data the site shows changes
+    # versions (see MAJOR): a hash of the substantive data, and one of the site's own files
     digest = hashlib.sha1(json.dumps([data, title_chunks], sort_keys=True).encode()).hexdigest()[:12]
+    site = hashlib.sha1()
+    for f in sorted(f for pat in SITE_FILES for f in glob.glob(os.path.join(HERE, pat))):
+        site.update(os.path.basename(f).encode() + b'\0' + open(f, 'rb').read())
+    site_digest = site.hexdigest()[:12]
     prev = {}
     if os.path.exists(os.path.join(OUT_DIR, 'meta.json')):
         try:
             prev = json.load(open(os.path.join(OUT_DIR, 'meta.json'), encoding='utf-8'))
-        except ValueError:     # a build killed while writing it (review): the build number restarts from git's copy
+        except ValueError:     # a build killed while writing it (review): fall back to git's copy
             prev = git_json('docs/data/meta.json')
-    meta['version'] = VERSION
-    meta['build'] = prev.get('build', 0) + (0 if prev.get('digest') == digest else 1)
+    now = int(time.time())
+    if not prev.get('semver'):                           # the first versioned build: the owner's "version 2.0"
+        semver, kind, updated = [MAJOR, 0, 0], 'data', now
+    else:
+        semver, updated = list(prev['semver']), prev.get('data_updated') or now
+        if MAJOR != semver[0]:
+            semver, kind, updated = [MAJOR, 0, 0], 'major', now
+        elif prev.get('digest') != digest:
+            semver, kind, updated = [semver[0], semver[1] + 1, 0], 'data', now
+        elif prev.get('site_digest') != site_digest:
+            semver, kind = [semver[0], semver[1], semver[2] + 1], 'site'
+        else:
+            kind = prev.get('kind', 'data')
+    meta['semver'] = semver
+    meta['version'] = '.'.join(map(str, semver))
+    meta['kind'] = kind
+    meta['data_updated'] = updated                       # unix time of the last substantive data change
     meta['digest'] = digest
+    meta['site_digest'] = site_digest
     history = update_history(meta, data, prev)
 
     os.makedirs(os.path.join(OUT_DIR, 'titles'), exist_ok=True)
@@ -784,7 +968,8 @@ def build():
 def publish(meta):
     e = meta.get('history_entry', {})
     ch = e.get('changes', {})
-    msg = (f"Build {meta['build']}: data update {meta['built']}\n\n"
+    what = {'data': 'data update', 'site': 'site update', 'major': 'major update'}.get(meta.get('kind'), 'update')
+    msg = (f"Version {meta['version']}: {what} {meta['built']}\n\n"
            f"papers collected {meta['papers_collected']['from']} to {meta['papers_collected']['to']}; "
            f"faculty lists {meta['faculty_collected']['from']} to {meta['faculty_collected']['to']}; "
            f"W&L {meta['rankings']['edition']}\n"
@@ -795,9 +980,10 @@ def publish(meta):
     # for a password prompt; a push that failed last time is retried even when there is nothing new
     env = dict(os.environ, GIT_TERMINAL_PROMPT='0')
     git = lambda *a, **k: subprocess.run(['git', *a], cwd=HERE, env=env, **k)
-    git('add', 'docs', check=True)   # the data and the page code that reads it
-    if git('diff', '--cached', '--quiet', '--', 'docs').returncode != 0:
-        git('commit', '-m', msg, '--', 'docs', check=True)
+    paths = ['docs', 'faculty']       # the data, the page code that reads it, the faculty list the build used
+    git('add', *paths, check=True)
+    if git('diff', '--cached', '--quiet', '--', *paths).returncode != 0:
+        git('commit', '-m', msg, '--', *paths, check=True)
     else:
         print('no data changes to publish')
     ahead = git('rev-list', '--count', '@{upstream}..HEAD', capture_output=True, text=True)

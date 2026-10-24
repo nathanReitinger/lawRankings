@@ -13,7 +13,9 @@
     { id: '5', label: 'Online editions & other general journals', other: true },
   ];
   const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
-  const STORAGE_KEY = 'lawRankings.v4';                                 // v4: tiers became US News tiers
+  const STORAGE_KEY = 'lawRankings.v4';
+  const MAINTAINER_EMAIL = 'nathan.reitinger@law.northwestern.edu';   // the owner asked for an email button (2026-10-24)
+  const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers
   const HEIN_PROFILE = 'https://heinonline.org/HOL/AuthorProfile?action=edit&collection=journals&search_name=';
   const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
 
@@ -29,6 +31,9 @@
   const store = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } };
   const recall = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const fmtDate = (iso, opts) => (iso ? new Date(iso.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', opts || { month: 'short', day: 'numeric', year: 'numeric' }) : '?');
+  // (math check) sums of 1/n carry float noise: snap before comparing, round halves up when showing one decimal
+  const snap = (x) => Math.round(x * 1e9) / 1e9;
+  const one = (x) => (Math.round(snap(x) * 10 + 1e-7) / 10).toFixed(1);
   const heinProfile = (person) => HEIN_PROFILE + encodeURIComponent(DATA.people[person][2] || '');
 
   ////////////////////////////////////////////// state: URL hash > localStorage > defaults
@@ -169,7 +174,7 @@
     bySchool.forEach((e, s) => {
       let prod = 1;
       e.areas.forEach((c) => { prod *= c + 1; });
-      rows.push({ school: s, score: Math.pow(prod, 1 / A), faculty: e.faculty });
+      rows.push({ school: s, score: snap(Math.pow(prod, 1 / A)), faculty: e.faculty });
     });
     rows.sort((a, b) => b.score - a.score || DATA.schools[a.school][0].localeCompare(DATA.schools[b.school][0]));
     return { areas, rows };
@@ -322,12 +327,14 @@
     let html = '<table class="ranking"><thead><tr><th class="num rank-cell">#</th><th>Institution</th>' +
       '<th class="num"><abbr title="Geometric mean, across the selected areas, of the adjusted article counts plus one">Count</abbr></th>' +
       '<th class="num"><abbr title="Faculty with at least one counted article">Faculty</abbr></th></tr></thead><tbody>';
+    let rank = 0;
     rows.forEach((r, i) => {
       const open = openSchools.has(r.school);
+      if (i === 0 || r.score !== rows[i - 1].score) rank = i + 1;   // tied schools share a rank, as on CSrankings
       html += '<tr class="school' + (i % 2 ? '' : ' alt') + '" data-school="' + r.school + '" tabindex="0" aria-expanded="' + open + '">' +
-        '<td class="num rank-cell">' + (i + 1) + '</td>' +
+        '<td class="num rank-cell">' + rank + '</td>' +
         '<td><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span>&nbsp;' + esc(DATA.schools[r.school][0]) + '</td>' +
-        '<td class="num">' + r.score.toFixed(1) + '</td><td class="num">' + r.faculty.size + '</td></tr>';
+        '<td class="num">' + one(r.score) + '</td><td class="num">' + r.faculty.size + '</td></tr>';
       if (open) html += facultyRows(r);
     });
     win.innerHTML = html + '</tbody></table>';
@@ -343,14 +350,18 @@
     people.forEach(([person, f], i) => {
       const key = r.school + ':' + person;
       const open = openPeople.has(key);
-      const tags = current.areas.map((a, ai) => (f.byArea[ai] > 0 ? '<span class="' + a.cls + '">' + esc(a.short) + '</span>' : '')).join('');
+      // tags: where this person publishes most among the specialty journals, all their articles and years, whatever the
+      // filters (a separate computation, done in build_data.py)
+      const tags = (DATA.people[person][4] || []).map((g) => '<span class="c-specialty" title="Publishes most in ' + esc(DATA.groups[g]) +
+        ' (specialty journals, all years)">' + esc(shortName(DATA.groups[g])) + '</span>').join('');
       html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
         '<a class="icon-link" href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' +
-        '<svg class="ico" width="10" height="11"><use href="#i-hein"/></svg></a></td>' +
+        '<svg class="ico" width="10" height="11"><use href="#i-hein"/></svg></a>' +
+        (DATA.people[person][3] ? '<a class="icon-link home-link" href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener" title="Homepage">&#8962;</a>' : '') + '</td>' +
         '<td class="num"><a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' + f.papers.length + '</a></td>' +
-        '<td class="num">' + f.adj.toFixed(1) + '</td></tr>';
+        '<td class="num">' + one(f.adj) + '</td></tr>';
       if (open) html += '<tr class="person-detail" data-key="' + key + '"><td colspan="4"><span class="loading">Loading articles…</span></td></tr>';
     });
     return html + '</tbody></table></td></tr>';
@@ -434,7 +445,7 @@
     return '<div class="bars" role="img" aria-label="Articles by journal group, ' + state.from + '–' + state.to + '">' +
       '<div class="bars-title">Articles by journal group, ' + state.from + '–' + state.to + '</div>' +
       cats.map((c) => {
-        const tip = catLabel(c) + ': ' + n.get(c) + ' article' + (n.get(c) === 1 ? '' : 's') + ' (adjusted for co-authors: ' + adj.get(c).toFixed(1) + ')';
+        const tip = catLabel(c) + ': ' + n.get(c) + ' article' + (n.get(c) === 1 ? '' : 's') + ' (adjusted for co-authors: ' + one(adj.get(c)) + ')';
         return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + esc(catLabel(c)) + '</span>' +
           '<span class="bar-track"><span class="bar ' + (c === 0 ? 'bg-general' : 'bg-specialty') + '" style="width:' + (100 * n.get(c) / max).toFixed(1) + '%"></span></span>' +
           '<span class="bar-value">' + n.get(c) + '</span></div>';
@@ -476,17 +487,12 @@
 
   function renderMeta() {
     const p = META.papers_collected, f = META.faculty_collected;
-    $('mhVolume').textContent = META.version;
-    $('mhBuild').textContent = META.build;
-    $('mhDate').textContent = fmtDate(META.built, { month: 'long', year: 'numeric' });
+    window.LSR.stampMasthead(META);
     $('dataLine').innerHTML = '<b>Data:</b> articles collected ' + esc(fmtDate(p.from)) + ' – ' + esc(fmtDate(p.to)) +
       ' (' + p.journals + ' journals) · faculty lists ' + esc(fmtDate(f.to)) +
       ' · ranks: US News ' + esc(META.flagship_ranks.edition) + ' (flagship), W&amp;L ' + esc(META.rankings.edition) + ' (specialty)' +
       ' · <a href="faq.html#data">details</a>';
-    $('footer').innerHTML = '<p>Volume ' + esc(META.version) + ', Build ' + esc(META.build) + ' · built ' + esc(fmtDate(META.built)) +
-      ' · <a href="history.html">build history</a> · <a href="faq.html">about &amp; method</a></p>' +
-      '<p>Built by <a href="https://www.law.northwestern.edu/faculty/profiles/NathanReitinger/">Nathan Reitinger</a> · Northwestern Pritzker School of Law</p>' +
-      '<p class="text-muted">Modeled on <a href="https://csrankings.org/">CSrankings</a>.</p>';
+    $('footer').innerHTML = window.LSR.siteFooter(META);
   }
 
   function wire() {

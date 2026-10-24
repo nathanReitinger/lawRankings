@@ -6,14 +6,14 @@
   <title>About Law School Rankings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&family=Orbitron:wght@700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
   <div class="lsr-mast-wrap">
     <header class="lsr-mast">
-      <p class="lsr-issue"><span>Volume <span id="mhVolume">&nbsp;</span></span><span id="mhDate">&nbsp;</span><a href="history.html" title="What changed in each build">Build <span id="mhBuild">&nbsp;</span></a></p>
+      <p class="lsr-issue"><a href="history.html" title="Version history (major.data.site)">Volume <span id="mhVolume">&nbsp;</span></a><span class="lsr-stamp" id="mhStamp" title="Last substantive data update (Unix time)">&nbsp;</span></p>
       <h1 class="lsr-mark"><a href="./">Law School Rankings</a></h1>
       <div class="lsr-foot">
         <a class="lsr-about back" href="./">Rankings</a>
@@ -31,6 +31,9 @@
 
     <h2>What are "flagship" law reviews?</h2>
     <p>A school's main, general-interest law review, such as the <i>Harvard Law Review</i> or the <i>Northwestern University Law Review</i>. W&amp;L lists these in its "General" category, together with online editions (the <i>Yale Law Journal Forum</i>, for example) and a few other general journals; in the rankings those form their own tier, "Online editions &amp; other general journals", which is off by default. The other journals are specialty journals, which this site groups into nine areas. Open a faculty member on the rankings page to see bars for where they publish: one for flagship law reviews and one for each specialty group they have published in, counting all their articles in the years you chose (articles outside the selected journals are listed in gray).</p>
+
+    <h2>What do the tags next to a name mean?</h2>
+    <p>Where that person publishes most among the specialty journals: the specialty group with the most of their specialty-journal articles, over all their articles and all years (an article in a journal that belongs to two groups counts half toward each), and a second group when it has at least half as many. People with fewer than two specialty-journal articles have no tag. Tags do not change with the filters; the bars in each person's drop-down show the full picture for the years you choose.</p>
 
     <h2>How are journals ranked?</h2>
     <p>Each kind of journal has one fixed source, and the site offers no other method:</p>
@@ -50,7 +53,7 @@
       <li>Check against the ABA: <span data-meta="aba"></span></li>
       <li>Flagship ranks: <i>U.S. News</i>, <span data-meta="us"></span>.</li>
       <li>Specialty ranks: Washington &amp; Lee, <span data-meta="wl"></span>, downloaded <span data-meta="wlFetched"></span>.</li>
-      <li>This is Volume <span data-meta="version"></span>, Build <span data-meta="build"></span>, built <span data-meta="built"></span>. See the <a href="history.html">build history</a> for what changed between builds.</li>
+      <li>This is Volume <span data-meta="version"></span>; the data last changed at Unix time <span data-meta="updated"></span> (<span data-meta="updatedDate"></span>). See the <a href="history.html">version history</a> for what changed.</li>
       <li>The most recent year is usually incomplete: journals post their issues over time.</li>
     </ul>
     <details>
@@ -64,25 +67,35 @@
     <h2>What counts as a "short piece"? <small class="text-muted">(pending)</small></h2>
     <p>Being rebuilt. The new rule will count a piece as short if it runs under 10 pages, or if it is a memorial (an in memoriam or tribute piece) of any length under 20 pages, and will be explained here with examples once it is in place. Until then, "Skip short pieces" uses a rough guess from titles.</p>
 
-    <h2>Who built this?</h2>
-    <p><a href="https://www.law.northwestern.edu/faculty/profiles/NathanReitinger/">Nathan Reitinger</a>, Northwestern Pritzker School of Law.</p>
+    <h2>What do the version numbers mean?</h2>
+    <p>The volume number in the top left is a version, <i>major.data.site</i>. The middle number goes up whenever the substantive data changes (articles, faculty, schools, journals or their ranks; the site keeps a fingerprint of the data to tell), and the timestamp in the top right is the moment of that change, in Unix time. The last number goes up for changes to the site itself that leave the data alone. The first number goes up for a major update. The <a href="history.html">version history</a> lists every version.</p>
 
-    <h2>How can I suggest a correction?</h2>
-    <p>Please do. Reach out to <a href="https://www.law.northwestern.edu/faculty/profiles/NathanReitinger/">Nathan Reitinger</a>.</p>
+    <h2>Who built this?</h2>
+    <p><a href="https://www.law.northwestern.edu/faculty/profiles/NathanReitinger/">Nathan Reitinger</a>, Northwestern Pritzker School of Law, who maintains it.</p>
+
+    <h2 id="corrections">How can I suggest a correction?</h2>
+    <p>Please do. Two ways:</p>
+    <ul>
+      <li><b>Someone missing, at the wrong school, or missing some articles?</b> The faculty list is public and anyone can propose a change to it with a GitHub pull request, the way <a href="https://github.com/emeryberger/CSrankings">CSrankings</a> does it: see <a id="facultyReadme" href="#">how to edit the faculty list</a>, or <a id="facultyEdit" href="#">open the corrections file</a> and propose your change.</li>
+      <li><b>Anything else, or not on GitHub?</b> <a id="mailNathan" class="btn-line" href="#">Notice a flaw? Email Nathan</a></li>
+    </ul>
   </div>
 
-  <footer class="page-footer"><p><a href="./">rankings</a> · <a href="history.html">build history</a></p><p>Built by <a href="https://www.law.northwestern.edu/faculty/profiles/NathanReitinger/">Nathan Reitinger</a> · Northwestern Pritzker School of Law</p></footer>
+  <footer class="page-footer" id="footer"></footer>
 </div>
+<script src="masthead.js"></script>
 <script>
 (function () {
   'use strict';
   const fmt = (iso, o) => iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', o || { month: 'long', day: 'numeric', year: 'numeric' }) : '?';
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  document.getElementById('facultyReadme').href = window.LSR.repo + '/blob/main/faculty/README.md';
+  document.getElementById('facultyEdit').href = window.LSR.repo + '/edit/main/faculty/edits.csv';
+  document.getElementById('mailNathan').href = 'mailto:' + window.LSR.email + '?subject=' + encodeURIComponent('Law School Rankings: I noticed a flaw');
   fetch('data/meta.json').then((r) => r.json()).then((m) => {
     const set = (key, text) => document.querySelectorAll('[data-meta="' + key + '"]').forEach((el) => { el.textContent = text; });
-    document.getElementById('mhVolume').textContent = m.version;
-    document.getElementById('mhBuild').textContent = m.build;
-    document.getElementById('mhDate').textContent = fmt(m.built, { month: 'long', year: 'numeric' });
+    window.LSR.stampMasthead(m);
+    document.getElementById('footer').innerHTML = window.LSR.siteFooter(m);
     set('papers', fmt(m.papers_collected.from) + ' – ' + fmt(m.papers_collected.to) + ' (' + m.papers_collected.journals + ' journals)');
     set('faculty', fmt(m.faculty_collected.from) + (m.faculty_collected.to !== m.faculty_collected.from ? ' – ' + fmt(m.faculty_collected.to) : '') +
       ' (' + m.faculty_collected.faculty.toLocaleString() + ' people at ' + m.faculty_collected.schools + ' institutions)');
@@ -93,7 +106,8 @@
     set('aba', a ? a.on_hein + ' of the ' + a.schools + ' ABA-approved law schools (' + a.year + ') are on the faculty lists' +
       (a.missing.length ? '; not listed by HeinOnline: ' + a.missing.map((n) => n.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())).join(', ') + '.' : '.') : 'not run yet.');
     set('version', m.version);
-    set('build', m.build);
+    set('updated', m.data_updated || '?');
+    set('updatedDate', m.data_updated ? new Date(m.data_updated * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : '?');
     set('built', fmt(m.built));
     document.getElementById('groupList').innerHTML = Object.entries(m.group_subjects).map(([g, subs]) =>
       '<li><b>' + esc(g) + ':</b> ' + subs.map(esc).join('; ') + '</li>').join('');
