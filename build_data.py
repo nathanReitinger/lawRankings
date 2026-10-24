@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import re
+import io
 import subprocess
 import time
 import unicodedata
@@ -146,6 +147,18 @@ def display_name(hein_name):
     return ' '.join(given + [last] + suffix)
 
 
+def raw_last(url):
+    '''last name with its spaces, hyphens and apostrophes kept as breaks ("d'Avis" -> "d avis", "Davis" -> "davis")'''
+    raw = unquote(parse_qs(urlparse(str(url)).query).get('search_name', [''])[0]).split(',')[0]
+    folded = ''.join(c for c in unicodedata.normalize('NFKD', raw.lower()) if not unicodedata.combining(c))
+    return ' '.join(w for w in re.sub(r'[^\w]', ' ', folded).split() if w not in NAME_SUFFIXES)
+
+
+def joined_prefix(a, b):
+    '''the two raw last names differ, and one of them starts with a one-letter particle (d', l', o')'''
+    return a != b and any(len(x.split()) > 1 and len(x.split()[0]) == 1 for x in (a, b))
+
+
 def middles_compatible(a, b):
     return not a or not b or a[0] == b[0]
 
@@ -161,8 +174,9 @@ def load_papers():
     rows, coverage = [], []
     for f in sorted(glob.glob(os.path.join(SCRAPE_DIR, js.STORE_DIR, 'j___*.csv'))):
         journal = os.path.basename(f)[len('j___'):-len('.csv')]
-        df, state = js.load_store(journal)     # each volume's current copy (the scraper appends new copies)
+        df, state = js.load_store(journal, repair=False)   # current copies; read-only (a run may be appending)
         df = df[(df['title'] != '') & (df['author'] != '')].copy()
+        df = df[~df['volume'].str.contains(js.INDEX_LABEL)]   # index volumes (a few editors' notes, not articles)
         if df.empty:
             continue
         df['title_key'] = df['title'].map(js.title_key)
@@ -188,16 +202,25 @@ def load_papers():
     return papers, pd.DataFrame(coverage)
 
 
+def read_csv_safely(path, **kw):
+    '''a CSV that a run may have left with half a line at the end (killed mid-append): that line is dropped'''
+    with open(path, 'rb') as f:
+        raw = f.read()
+    if raw and not raw.endswith(b'\n'):
+        raw = raw[:raw.rfind(b'\n') + 1]
+    return pd.read_csv(io.BytesIO(raw), **kw)
+
+
 def load_roster():
     '''newest faculty list for each school, from get_authors_from_v3 runs (faculty_runs/) and the older authors_latest.csv'''
     sources = []   # oldest first
     old = os.path.join(SCRAPE_DIR, 'authors_latest.csv')
     if os.path.exists(old):
-        sources.append(('authors_latest', pd.read_csv(old).rename(columns={'name': 'author'}), True))
+        sources.append(('authors_latest', read_csv_safely(old).rename(columns={'name': 'author'}), True))
     for f in sorted(glob.glob(os.path.join(SCRAPE_DIR, 'faculty_runs', 'authors_*.csv'))):
         run = os.path.basename(f)[:-len('.csv')]
         complete = os.path.exists(f[:-len('.csv')] + '.done')
-        sources.append((run, pd.read_csv(f), complete))
+        sources.append((run, read_csv_safely(f), complete))
 
     # the newest finished run decides which schools exist (Hein drops schools too);
     # runs after it are still in progress and replace the lists for the schools they reached
@@ -226,13 +249,26 @@ def load_roster():
     # 2026-10-23 (stress test t9 g): a person who moved shows up at the old school (an older list) and the new one
     # (a newer list, e.g. a run in progress); only the newest list that names them counts. People listed at two
     # schools in the same list (joint appointments) keep both.
+    # (review, 2026-10-23) An older listing is kept when that older list also named the person at the school where the
+    # newer list has them: a joint appointment, not a move (while a faculty run is unfinished, the other school may
+    # simply not have been reached yet).
     order = {run: i for i, (run, _, _) in enumerate(sources)}
     df['_run'] = df['run'].map(order)
-    newest_run = df.groupby(['last', 'first', 'middle'])['_run'].transform('max')
-    moved = df[df['_run'] < newest_run]
-    if len(moved):
-        print(f'  {len(moved)} faculty listings dropped: the person is on a newer list at another school')
-    df = df[df['_run'] == newest_run].drop(columns='_run').reset_index(drop=True)
+    person = list(zip(df['last'], df['first'], df['middle']))
+    df['_person'] = person
+    newest_run = df.groupby('_person')['_run'].transform('max')
+    newest_schools = df[df['_run'] == newest_run].groupby('_person')['school'].agg(set)
+    listed = {}
+    for src, sdf, _ in sources:            # every school each source list names each person at
+        p = sdf['link'].map(parse_hein_name)
+        for key, school in zip(p, sdf['school']):
+            listed.setdefault((src, key), set()).add(school)
+    keep_mask = [run_i == newest_i or bool(listed.get((run, who), set()) & newest_schools[who])
+                 for run, run_i, newest_i, who in zip(df['run'], df['_run'], newest_run, df['_person'])]
+    moved = int(len(df) - sum(keep_mask))
+    if moved:
+        print(f'  {moved} faculty listings dropped: the person is on a newer list at another school')
+    df = df[keep_mask].drop(columns=['_run', '_person']).reset_index(drop=True)
     df['hein_name'] = df['link'].map(lambda u: unquote(parse_qs(urlparse(str(u)).query).get('search_name', [''])[0]).strip())
     stamped = pd.to_datetime(df['scraped_at'], errors='coerce') if 'scraped_at' in df.columns else pd.Series(pd.NaT, index=df.index)
     from_link = pd.to_datetime(df['link'].str.extract(r'1==(\d{10})')[0].astype(float), unit='s')
@@ -428,7 +464,11 @@ def match_authors(papers, roster):
     for link in papers['author'].unique():
         last, first, middle = parse_hein_name(link)
         if (last, first, middle) in full:
-            to_ret[link] = full[(last, first, middle)]
+            hits = full[(last, first, middle)]
+            if not middle and all(joined_prefix(raw_last(link), raw_last(roster.at[i, 'link'])) for i in hits):
+                stats['joined_name_unsure'] += 1      # "d'Avis, Ronald" vs "Davis, Ronald" (review)
+                continue
+            to_ret[link] = hits
             stats['exact'] += 1
             continue
         # match on first + last and ignore the middle name (Mayer, Connie vs Mayer, Connie Marlene),
@@ -438,10 +478,16 @@ def match_authors(papers, roster):
         how = 'first_last'
         if not people:
             # a paper that adds or leaves off "Jr." etc.: only when the name without it is one person
-            cands = [i for i in no_suffix.get((last.split('|')[0], first), []) if middles_compatible(middle, roster.at[i, 'middle'])]
+            cands = [i for i in no_suffix.get((last.split('|')[0], first), []) if middles_compatible(middle, roster.at[i, 'middle'])
+                     and ('|' not in last or '|' not in roster.at[i, 'last'])]   # Jr. vs III are two people (review)
             people = {(roster.at[i, 'last'], roster.at[i, 'first'], roster.at[i, 'middle']) for i in cands}
             how = 'suffix_differs'
-        if len(people) == 1:
+        if len(people) == 1 and not middle and all(joined_prefix(raw_last(link), raw_last(roster.at[i, 'link'])) for i in cands):
+            # 2026-10-23 (math check): the names only meet once a one-letter prefix is joined on ("d'Avis, Ronald"
+            # vs "Davis, Ronald B.") and the paper gives no middle initial: too weak to credit automatically.
+            # Longer joins are kept ("An-Na'im" = "An-Naim", "Du Bose" = "Dubose").
+            stats['joined_name_unsure'] += 1
+        elif len(people) == 1:
             to_ret[link] = cands
             stats[how] += 1
         elif len(people) > 1:
@@ -454,7 +500,7 @@ def match_authors(papers, roster):
 def default_ranking(data, years=10, top=30):
     '''the site's default view in Python (DEFAULT_VIEW): main law reviews of the US News top 25, last `years`
     years, US law schools'''
-    last = max(data['papers']['year'])
+    last = min(datetime.now().year, max(data['papers']['year']))   # the site's own default window (app.js)
     journals = {i for i, j in enumerate(data['journals']) if j[2] and 1 <= j[2] <= DEFAULT_FLAGSHIP_TOP}
     score, faculty = defaultdict(float), defaultdict(set)
     P = data['papers']
@@ -468,13 +514,25 @@ def default_ranking(data, years=10, top=30):
     return [[data['schools'][s][0], round(score[s] + 1, 1), len(faculty[s])] for s in order]
 
 
+def git_json(path):
+    '''the last committed copy of a JSON file in this repo, or {} if there is none'''
+    r = subprocess.run(['git', 'show', 'HEAD:' + path], cwd=HERE, capture_output=True, text=True)
+    try:
+        return json.loads(r.stdout) if r.returncode == 0 else {}
+    except ValueError:
+        return {}
+
+
 def update_history(meta, data, prev):
     '''docs/data/history.json: one entry per build, so changes between builds can be seen on the site'''
     path = os.path.join(OUT_DIR, 'history.json')
     history = []
     if os.path.exists(path):
-        with open(path, encoding='utf-8') as f:
-            history = json.load(f)
+        try:
+            with open(path, encoding='utf-8') as f:
+                history = json.load(f)
+        except ValueError:     # killed mid-write (review): fall back to the committed copy
+            history = git_json('docs/data/history.json') or []
     entry = {
         'build': meta['build'], 'version': meta['version'], 'date': meta['built'],
         'papers_scraped': meta['papers_scraped'], 'faculty_scraped': meta['faculty_scraped'],
@@ -562,20 +620,47 @@ def build():
     papers = papers[papers['journal'].isin(journal_id)]
 
     ##### authorship credit
-    papers['paper_key'] = papers['journal'] + '|' + papers['volume_key'] + '|' + papers['title_key']
-    # Hein sometimes lists the same papers under two volume numbers of the same year (Urban Lawyer 42 and 43,
-    # "Volume 58 (Supplement)" also inside vol 58): same journal, year, title and authors count once
-    authors_of = papers.groupby('paper_key')['author_key'].agg(lambda a: '|'.join(sorted(set(a))))
-    year_of = papers.groupby('paper_key')['year'].first()
-    sig = {k: (k.split('|', 1)[0], year_of[k], k.rsplit('|', 1)[1], authors_of[k]) for k in authors_of.index}
-    first = {}
-    for k in sorted(sig):
-        first.setdefault(sig[k], k)
-    same = {k: first[sig[k]] for k in sig if first[sig[k]] != k}
+    # (review, 2026-10-23) Hein can list several separate pieces under one title in a volume (a "Chairman's Page" in each
+    # issue, several tributes); each piece starts with a "first" author, so pieces are numbered, not merged into one
+    # co-authored paper (which split each author's credit)
+    starts = papers['authorship_position'].astype(str).str.startswith('first')
+    piece = starts.groupby([papers['journal'], papers['volume_key'], papers['title_key']], sort=False).cumsum().clip(lower=1)
+    papers['paper_key'] = papers['journal'] + '|' + papers['volume_key'] + '|' + papers['title_key'] + '#' + piece.astype(str)
+    # authors compared by parsed name, not Hein's raw spelling ("James A.R." / "James A. R.") (math check)
+    name_of = {u: '/'.join(parse_hein_name(u)) for u in papers['author'].unique()}
+    papers['name_key'] = papers['author'].map(name_of)
+    info = papers.groupby('paper_key').agg(journal=('journal', 'first'), volume_key=('volume_key', 'first'),
+                                           title_key=('title_key', 'first'), year=('year', 'first'))
+    info['authors'] = papers.groupby('paper_key')['name_key'].agg(lambda a: '|'.join(sorted(set(a))))
+    info['sig'] = list(zip(info['journal'], info['year'], info['title_key'], info['authors']))
+    # the same piece twice: within a volume (listed twice) always one paper; across two volume numbers of the same year
+    # (Urban Lawyer 42 and 43, "Volume 58 (Supplement)" inside vol 58) only when the two volumes duplicate each other
+    # wholesale (3+ shared papers or half the smaller one), so a recurring "Foreword" by the same editor in two volumes
+    # of one year stays two papers (review)
+    size = info.groupby(['journal', 'volume_key']).size()
+    dup_groups = [sorted(g.index) for _, g in info.groupby('sig') if len(g) > 1]
+    shared = defaultdict(int)
+    for keys in dup_groups:
+        vols = sorted({info.at[k, 'volume_key'] for k in keys})
+        for a in range(len(vols)):
+            for b in range(a + 1, len(vols)):
+                shared[(info.at[keys[0], 'journal'], vols[a], vols[b])] += 1
+    wholesale = {k for k, n in shared.items() if n >= 3 or n >= 0.5 * min(size[(k[0], k[1])], size[(k[0], k[2])])}
+    same, within, across = {}, 0, 0
+    for keys in dup_groups:
+        first = keys[0]
+        v1 = info.at[first, 'volume_key']
+        for k in keys[1:]:
+            v2 = info.at[k, 'volume_key']
+            if v2 == v1:
+                same[k], within = first, within + 1
+            elif (info.at[first, 'journal'], *sorted([v1, v2])) in wholesale:
+                same[k], across = first, across + 1
     if same:
-        print(f'  {len(same)} papers listed twice by Hein in the same year (two volume numbers); counted once')
+        print(f'  {across} papers listed twice by Hein in the same year (two volume numbers) and {within} listed twice '
+              f'in one volume; counted once')
         papers['paper_key'] = papers['paper_key'].map(lambda k: same.get(k, k))
-    n_authors = papers.groupby('paper_key')['author_key'].nunique()
+    n_authors = papers.groupby('paper_key')['name_key'].nunique()
     matched, stats = match_authors(papers, roster)
     print('  author matching:', stats)
 
@@ -671,7 +756,10 @@ def build():
     digest = hashlib.sha1(json.dumps([data, title_chunks], sort_keys=True).encode()).hexdigest()[:12]
     prev = {}
     if os.path.exists(os.path.join(OUT_DIR, 'meta.json')):
-        prev = json.load(open(os.path.join(OUT_DIR, 'meta.json'), encoding='utf-8'))
+        try:
+            prev = json.load(open(os.path.join(OUT_DIR, 'meta.json'), encoding='utf-8'))
+        except ValueError:     # a build killed while writing it (review): the build number restarts from git's copy
+            prev = git_json('docs/data/meta.json')
     meta['version'] = VERSION
     meta['build'] = prev.get('build', 0) + (0 if prev.get('digest') == digest else 1)
     meta['digest'] = digest
@@ -683,8 +771,9 @@ def build():
     outputs = [('data.json', data), ('meta.json', meta), ('history.json', history)]
     outputs += [(f'titles/{name}.json', chunk) for name, chunk in title_chunks.items()]
     for name, obj in outputs:
-        with open(os.path.join(OUT_DIR, name), 'w', encoding='utf-8') as f:
+        with open(os.path.join(OUT_DIR, name) + '.tmp', 'w', encoding='utf-8') as f:   # temp + rename (review)
             json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))
+        os.replace(os.path.join(OUT_DIR, name) + '.tmp', os.path.join(OUT_DIR, name))
         print(f'  wrote docs/data/{name} ({os.path.getsize(os.path.join(OUT_DIR, name)) / 1e6:.1f} MB)')
     print('  papers', meta['counts']['papers'], '| credits', meta['counts']['credits'],
           '| faculty with papers', meta['counts']['faculty_with_papers'],
