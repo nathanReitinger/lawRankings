@@ -406,7 +406,7 @@
     const P = DATA.papers;
     const counted = new Set(f.papers);
     const papers = (personPapers.get(person) || [])
-      .filter((p) => P.year[p] >= state.from && P.year[p] <= state.to && !(state.minor && P.minor[p]))
+      .filter((p) => P.year[p] >= state.from && P.year[p] <= state.to)
       .sort((a, b) => P.year[b] - P.year[a] || (counted.has(b) - counted.has(a)));
     titlesFor(papers).then((titles) => {
       const items = papers.map((p, i) => {
@@ -414,17 +414,29 @@
         const href = link || heinProfile(person);
         const how = link ? 'Open the article on HeinOnline' : 'Open the author\'s HeinOnline profile (article link not collected yet)';
         const cats = journalCats[P.journal[p]].map((c) => '<span class="' + (c === 0 ? 'c-general' : 'c-specialty') + '">' + esc(catShort(c)) + '</span>').join('');
-        return '<li' + (counted.has(p) ? '' : ' class="not-counted" title="Not in the journals selected for this ranking"') + '>' +
+        const skipped = state.minor && P.minor[p];
+        const why = skipped ? shortWhy(p) : '';
+        return '<li' + (counted.has(p) ? '' : ' class="not-counted" title="' + (skipped ? esc(why) : 'Not in the journals selected for this ranking') + '"') + '>' +
           '<a href="' + esc(href) + '" target="_blank" rel="noopener" title="' + how + '">' + esc(title) + '</a> ' +
           '<span class="meta">— ' + esc(DATA.journals[P.journal[p]][0]) + ', ' + P.year[p] +
           (cats ? ' <span class="areaname">' + cats + '</span>' : '') + '</span></li>';
       }).join('');
       const note = papers.length > f.papers.length
-        ? '<p class="detail-note">' + f.papers.length + ' of these ' + papers.length + ' articles are in the selected journals; the others are shown in gray.</p>' : '';
-      detailRow.firstElementChild.innerHTML = authorBars(papers) + note + '<ol class="paper-list">' + items + '</ol>';
+        ? '<p class="detail-note">' + f.papers.length + ' of these ' + papers.length + ' articles count in this ranking; the others, in gray, are outside the selected journals' +
+          (state.minor ? ' or skipped as short pieces (hover for why)' : '') + '.</p>' : '';
+      const forBars = papers.filter((p) => !(state.minor && P.minor[p]));   // bars respect "skip short pieces"
+      detailRow.firstElementChild.innerHTML = authorBars(forBars) + note + '<ol class="paper-list">' + items + '</ol>';
     }).catch(() => {
       detailRow.firstElementChild.innerHTML = '<span class="loading">Could not load the article titles.</span>';
     });
+  }
+
+  // why a piece counts as short: its measured length, or the classifier's call (the FAQ explains both)
+  function shortWhy(p) {
+    const P = DATA.papers;
+    const kind = P.kind && P.kind[p] >= 0 ? META.piece_kinds[P.kind[p]] : '';
+    if (P.length && P.length[p] >= 0) return 'Skipped as a short piece: ' + P.length[p] + ' pp.' + (kind === 'memorial or tribute' ? ' (memorial)' : '');
+    return 'Skipped as a short piece: ' + (kind || 'short') + ' (classifier)';
   }
 
   function catLabel(c) { return c === 0 ? 'Flagship' : DATA.groups[c - 1]; }

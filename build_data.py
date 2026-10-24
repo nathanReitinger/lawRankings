@@ -104,14 +104,44 @@ SUBJECT_GROUPS = {
     ],
 }
 
-# short pieces: a rough title guess the site's beta "Skip short pieces" box uses until the classifier
-# (Ollama model over title, section label, position, pages) replaces it; flagged, not dropped
-MINOR_TITLE = re.compile(
-    r'\b(foreword|afterword|preface|prologue|epilogue|in memoriam|tribute|dedication|eulogy|remembering'
-    r'|book reviews?|remarks|keynote|panel|transcript|roundtable|response|reply|rejoinder|errat(um|a))\b'
-    r'|^(an? )?introduction\b',
-    re.IGNORECASE,
-)
+# Short pieces (the owner, 2026-10-23: a real classifier, not title rules). short_pieces/ classifies every
+# credited piece with a local model (Ollama, qwen3:8b) from its title and Hein section label, journal, year, position in
+# the volume, number of authors and neighbouring titles (classify.py; scored against measured lengths by evaluate.py).
+# A piece is short when its measured length (from Hein's page numbers) is under 10 pages, or it is a memorial under 20;
+# without a measured length, when the model calls it a short kind or estimates it under 10 pages. Not classified yet:
+# counts. The site's "Skip short pieces" box leaves short pieces out.
+SHORT_DIR = os.path.join(SOURCE_DIR, 'short_pieces')
+PIECE_KINDS = ['research article', 'essay', 'book review', 'response or reply', 'foreword or introduction', 'memorial or tribute',
+               'lecture, speech or remarks', 'student note or comment', 'transcript or panel discussion',
+               'case or legislation summary', 'editorial or front matter', 'correction', 'other']
+SHORT_KINDS = {'memorial or tribute', 'foreword or introduction', 'lecture, speech or remarks', 'transcript or panel discussion',
+               'editorial or front matter', 'correction'}
+SHORT_PAGES = 10
+
+
+def load_classes():
+    '''piece key -> (kind, estimated pages, short?) . short.csv (combine.py: the language model's reading plus the
+    journal's measured statistics, threshold set by cross-validation) when it has the piece; otherwise the language
+    model's own call from cache.jsonl'''
+    out = {}
+    path = os.path.join(SHORT_DIR, 'cache.jsonl')
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                    pages = r.get('pages')
+                    out[r['key']] = (r['kind'], pages, r['kind'] in SHORT_KINDS or (pages is not None and pages < SHORT_PAGES))
+                except (ValueError, KeyError):
+                    pass
+    combined = os.path.join(SHORT_DIR, 'short.csv')
+    if os.path.exists(combined):
+        c = pd.read_csv(combined)
+        for r in c.itertuples():
+            if r.key in out:
+                out[r.key] = (out[r.key][0], out[r.key][1], bool(r.p_short >= r.threshold))
+    return out
+
 
 # no 'v': "Smith, John V." is a middle initial far more often than a fifth-generation suffix (stress test t14)
 NAME_SUFFIXES = {'jr', 'sr', 'ii', 'iii', 'iv'}
@@ -750,6 +780,14 @@ def build():
     starts = papers['authorship_position'].astype(str).str.startswith('first')
     piece = starts.groupby([papers['journal'], papers['volume_key'], papers['title_key']], sort=False).cumsum().clip(lower=1)
     papers['paper_key'] = papers['journal'] + '|' + papers['volume_key'] + '|' + papers['title_key'] + '#' + piece.astype(str)
+    # measured length of each piece, where the update script saved Hein's page numbers: the next piece's first page minus
+    # this one's, in table-of-contents (file) order within the volume; unknown for a volume's last piece
+    first_page = papers.groupby('paper_key', sort=False)['raw'].first().str.extract(r'\bPage (\d+)\b')[0].astype(float)
+    order = papers.drop_duplicates('paper_key')[['paper_key', 'journal', 'volume_key']]
+    order = order.assign(page=order['paper_key'].map(first_page))
+    order['next_page'] = order.groupby(['journal', 'volume_key'])['page'].shift(-1)
+    measured = (order['next_page'] - order['page']).where(lambda x: x >= 0)
+    length_of = dict(zip(order['paper_key'], measured))
     # authors compared by parsed name, not Hein's raw spelling ("James A.R." / "James A. R.") (math check)
     name_of = {u: '/'.join(parse_hein_name(u)) for u in papers['author'].unique()}
     papers['name_key'] = papers['author'].map(name_of)
@@ -863,6 +901,22 @@ def build():
     print(f'  faculty tags: {tagged} people tagged by where they publish among specialty journals')
 
     p = first_rows.loc[paper_keys]
+    classes = load_classes()
+    short_flags = []
+    for k in paper_keys:
+        length = length_of.get(k)
+        kind, pages, model_short = classes.get(k, (None, None, False))
+        if length is not None and length == length and length >= 1:
+            short = length < SHORT_PAGES or (kind == 'memorial or tribute' and length < 20)
+        else:
+            short = bool(model_short)  # the classifier's call; not classified yet: it counts
+        short_flags.append(1 if short else 0)
+    os.makedirs(SHORT_DIR, exist_ok=True)
+    with open(os.path.join(SHORT_DIR, 'credited_keys.txt'), 'w', encoding='utf-8') as f:   # what the classifier does next
+        f.write('\n'.join(paper_keys))
+    print(f'  short pieces: {sum(short_flags)} of {len(paper_keys)} credited pieces; '
+          f'{sum(1 for k in paper_keys if k in classes)} classified, '
+          f'{sum(1 for k in paper_keys if length_of.get(k) == length_of.get(k) and length_of.get(k) is not None)} with a measured length')
     data = {
         'schools': [[s, s in us or s in aba, us.get(s, (None, None))[1]] for s in schools],
         'people': people,
@@ -873,7 +927,10 @@ def build():
             'journal': [journal_id[j] for j in p['journal']],
             'year': [int(y) for y in p['year']],
             'authors': [int(n_authors[k]) for k in paper_keys],
-            'minor': [1 if MINOR_TITLE.search(t) else 0 for t in p['title']],
+            'minor': short_flags,
+            # [kind index (-1 unknown), measured length in pages (-1 unknown)] for the drop-downs' "skipped: ..." notes
+            'kind': [PIECE_KINDS.index(classes[k][0]) if k in classes else -1 for k in paper_keys],
+            'length': [int(length_of[k]) if k in length_of and length_of[k] == length_of[k] else -1 for k in paper_keys],
         },
         'credits': {'paper': credit_paper, 'person': credit_person},
     }
@@ -909,7 +966,10 @@ def build():
         'default_view': DEFAULT_VIEW,
         'years': {'min': int(min(data['papers']['year'])), 'max': int(max(data['papers']['year']))},
         'counts': {'papers': len(paper_keys), 'credits': len(credit_paper), 'faculty_with_papers': len(people),
-                   'minor_papers': int(sum(1 for m in data['papers']['minor'] if m))},
+                   'minor_papers': int(sum(1 for m in data['papers']['minor'] if m)),
+                   'classified_papers': int(sum(1 for k in data['papers']['kind'] if k >= 0)),
+                   'measured_papers': int(sum(1 for k in data['papers']['length'] if k >= 0))},
+        'piece_kinds': PIECE_KINDS,
         'matching': stats,
         'group_subjects': {g: [s for s in subjects if subject_to_group[s] == g] for g in groups},
         'coverage': [{k: (None if isinstance(v, float) and v != v else v) for k, v in r.items()}

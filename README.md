@@ -49,3 +49,14 @@ and an entry in `docs/data/history.json`, shown on `history.html`.
 - Specialty groups: edit `SUBJECT_GROUPS` in `build_data.py`. New W&L subjects that aren't listed go to "Other" and are printed.
 
 The old Flask app (`r.py`, `templates/`, `author/auth.csv`) is untouched and no longer needed by the static site.
+
+## Versions, the faculty list, short pieces (2026-10-24)
+
+- **Versions** `major.data.site` (shown as "Volume 2.1.0"): `build_data.py` hashes the substantive data and the
+  site's own files; a data change bumps the middle number and sets the "data updated" Unix timestamp in the
+  masthead; a site-only change bumps the last number; `MAJOR` in `build_data.py` is set by hand.
+- **Faculty list**: `faculty/list-<letter>.csv` is the list each build used (Hein's lists plus corrections), and
+  `faculty/edits.csv` holds corrections anyone can propose by pull request (`faculty/README.md` explains). Builds
+  commit both with `docs/`.
+- **Short pieces**: classified by a local model in `short_pieces/` (see `PATCHES.md`, Patch 14);
+  the build reads `short_pieces/cache.jsonl` and writes `credited_keys.txt` for the next classification run.
