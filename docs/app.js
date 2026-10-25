@@ -22,7 +22,6 @@
   let DATA, META, state, groupSubjects;
   let journalCats, personPapers;   // journal -> [0 = flagship, 1+g = specialty group g]; person -> their papers
   let current = { areas: [], rows: [] };
-  const titleChunks = {};
   const openSchools = new Set();
   const openPeople = new Set();
 
@@ -35,6 +34,8 @@
   const snap = (x) => Math.round(x * 1e9) / 1e9;
   const one = (x) => (Math.round(snap(x) * 10 + 1e-7) / 10).toFixed(1);
   const heinProfile = (person) => HEIN_PROFILE + encodeURIComponent(DATA.people[person][2] || '');
+  // (stress test, 2026-10-24) a group named in a link is looked up as an own key only: "#s=constructor" crashed the page
+  const subjectsOf = (g) => (Object.prototype.hasOwnProperty.call(groupSubjects, g) ? groupSubjects[g] : null);
 
   ////////////////////////////////////////////// state: URL hash > localStorage > defaults
 
@@ -51,11 +52,13 @@
   function cleanState(s) {
     const d = defaultState();
     const out = Object.assign({}, d, s || {});
+    if (!out.groups || typeof out.groups !== 'object' || Array.isArray(out.groups)) out.groups = {};
+    delete out.latest;                                   // a stored view's marker, not part of the state
     out.bands = (Array.isArray(out.bands) ? out.bands : d.bands).filter((b) => BANDS.some((x) => x.id === b));
     const groups = {};
     Object.entries(out.groups || {}).forEach(([g, subs]) => {
-      if (!groupSubjects[g]) return;
-      const ok = (Array.isArray(subs) ? subs : []).filter((x) => groupSubjects[g].includes(x));
+      if (!subjectsOf(g)) return;
+      const ok = (Array.isArray(subs) ? subs : []).filter((x) => subjectsOf(g).includes(x));
       if (ok.length) groups[g] = ok;
     });
     out.groups = groups;
@@ -74,7 +77,7 @@
     const groups = {};
     (h.get('s') || '').split('|').filter(Boolean).forEach((part) => {
       const [g, subs] = part.split(':');
-      groups[g] = subs ? subs.split(';') : (groupSubjects[g] || []).slice();
+      groups[g] = subs ? subs.split(';') : (subjectsOf(g) || []).slice();
     });
     const years = (h.get('y') || '').split('-');
     return { bands: (h.get('f') || '').split('.').filter(Boolean), groups, cutoff: h.get('c'),
@@ -92,7 +95,23 @@
     h.set('r', state.region);
     if (state.minor) h.set('m', '1');
     history.replaceState(null, '', '#' + h.toString());
-    store(STORAGE_KEY, JSON.stringify(state));
+    // (stress test, 2026-10-24) the untouched default view was stored on the first visit, so that visitor's year
+    // window never moved on with new data: only a view that differs from the default is stored, and a window that
+    // ends at the latest year is stored as "the latest N years"
+    const d = defaultState();
+    const same = JSON.stringify(cleanState(state)) === JSON.stringify(d);
+    if (same) { try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* private mode */ } return; }
+    store(STORAGE_KEY, JSON.stringify(Object.assign({}, state, state.to === d.to ? { latest: state.to - state.from } : {})));
+  }
+
+  // a stored view: a window that ended at the latest year then ends at the latest year now
+  function restoreSaved(saved) {
+    if (!saved || typeof saved !== 'object') return null;
+    if (typeof saved.latest === 'number' && saved.latest >= 0) {
+      const d = defaultState();
+      saved = Object.assign({}, saved, { to: d.to, from: d.to - saved.latest });
+    }
+    return saved;
   }
 
   ////////////////////////////////////////////// ranking
@@ -344,7 +363,7 @@
   function facultyRows(r) {
     const people = [...r.faculty].sort((a, b) => b[1].adj - a[1].adj || DATA.people[a[0]][0].localeCompare(DATA.people[b[0]][0]));
     let html = '<tr class="faculty"><td></td><td colspan="3"><table class="faculty-table"><thead><tr><th class="indent"></th>' +
-      '<th><abbr title="Click a name to see the articles">Faculty</abbr></th>' +
+      '<th><abbr title="Click a name to see where they publish">Faculty</abbr></th>' +
       '<th class="num"><abbr title="Articles counted (click for the HeinOnline profile)"># Pubs</abbr></th>' +
       '<th class="num"><abbr title="Each article counts 1, split between its co-authors">Adj. #</abbr></th></tr></thead><tbody>';
     people.forEach(([person, f], i) => {
@@ -362,7 +381,7 @@
         (DATA.people[person][3] ? '<a class="icon-link home-link" href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener" title="Homepage">&#8962;</a>' : '') + '</td>' +
         '<td class="num"><a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' + f.papers.length + '</a></td>' +
         '<td class="num">' + one(f.adj) + '</td></tr>';
-      if (open) html += '<tr class="person-detail" data-key="' + key + '"><td colspan="4"><span class="loading">Loading articles…</span></td></tr>';
+      if (open) html += '<tr class="person-detail" data-key="' + key + '"><td colspan="4"></td></tr>';
     });
     return html + '</tbody></table></td></tr>';
   }
@@ -389,7 +408,7 @@
       if (next && next.classList.contains('person-detail')) next.remove();
     } else {
       openPeople.add(key);
-      tr.insertAdjacentHTML('afterend', '<tr class="person-detail" data-key="' + key + '"><td colspan="4"><span class="loading">Loading articles…</span></td></tr>');
+      tr.insertAdjacentHTML('afterend', '<tr class="person-detail" data-key="' + key + '"><td colspan="4"></td></tr>');
       fillDetail(tr.nextElementSibling);
     }
     tr.querySelector('.hovertip').innerHTML = openPeople.has(key) ? '&#9660;' : '&#9658;';
@@ -397,46 +416,22 @@
   }
 
   // the drop-down under a faculty member: where they publish (bars, all their articles in the chosen years,
-  // whatever journals are selected) and the article list with HeinOnline links
+  // whatever journals are selected), and how many of those articles count in this ranking (no article list: the
+  // owner, 2026-10-24, "i don't need paper links")
   function fillDetail(detailRow) {
     const [s, person] = detailRow.dataset.key.split(':').map(Number);
     const r = current.rows.find((x) => x.school === s);
     const f = r && r.faculty.get(person);
     if (!f) return;
     const P = DATA.papers;
-    const counted = new Set(f.papers);
-    const papers = (personPapers.get(person) || [])
-      .filter((p) => P.year[p] >= state.from && P.year[p] <= state.to)
-      .sort((a, b) => P.year[b] - P.year[a] || (counted.has(b) - counted.has(a)));
-    titlesFor(papers).then((titles) => {
-      const items = papers.map((p, i) => {
-        const [title, link] = titles[i] || ['(title unavailable)', ''];
-        const href = link || heinProfile(person);
-        const how = link ? 'Open the article on HeinOnline' : 'Open the author\'s HeinOnline profile (article link not collected yet)';
-        const cats = journalCats[P.journal[p]].map((c) => '<span class="' + (c === 0 ? 'c-general' : 'c-specialty') + '">' + esc(catShort(c)) + '</span>').join('');
-        const skipped = state.minor && P.minor[p];
-        const why = skipped ? shortWhy(p) : '';
-        return '<li' + (counted.has(p) ? '' : ' class="not-counted" title="' + (skipped ? esc(why) : 'Not in the journals selected for this ranking') + '"') + '>' +
-          '<a href="' + esc(href) + '" target="_blank" rel="noopener" title="' + how + '">' + esc(title) + '</a> ' +
-          '<span class="meta">— ' + esc(DATA.journals[P.journal[p]][0]) + ', ' + P.year[p] +
-          (cats ? ' <span class="areaname">' + cats + '</span>' : '') + '</span></li>';
-      }).join('');
-      const note = papers.length > f.papers.length
-        ? '<p class="detail-note">' + f.papers.length + ' of these ' + papers.length + ' articles count in this ranking; the others, in gray, are outside the selected journals' +
-          (state.minor ? ' or skipped as short pieces (hover for why)' : '') + '.</p>' : '';
-      const forBars = papers.filter((p) => !(state.minor && P.minor[p]));   // bars respect "skip short pieces"
-      detailRow.firstElementChild.innerHTML = authorBars(forBars) + note + '<ol class="paper-list">' + items + '</ol>';
-    }).catch(() => {
-      detailRow.firstElementChild.innerHTML = '<span class="loading">Could not load the article titles.</span>';
-    });
-  }
-
-  // why a piece counts as short: its measured length, or the classifier's call (the FAQ explains both)
-  function shortWhy(p) {
-    const P = DATA.papers;
-    const kind = P.kind && P.kind[p] >= 0 ? META.piece_kinds[P.kind[p]] : '';
-    if (P.length && P.length[p] >= 0) return 'Skipped as a short piece: ' + P.length[p] + ' pp.' + (kind === 'memorial or tribute' ? ' (memorial)' : '');
-    return 'Skipped as a short piece: ' + (kind || 'short') + ' (classifier)';
+    const papers = (personPapers.get(person) || []).filter((p) => P.year[p] >= state.from && P.year[p] <= state.to);
+    const skipped = state.minor ? papers.filter((p) => P.minor[p]).length : 0;
+    const forBars = papers.filter((p) => !(state.minor && P.minor[p]));   // bars respect "skip short pieces"
+    const note = '<p class="detail-note">' + f.papers.length + ' of ' + papers.length + ' article' + (papers.length === 1 ? '' : 's') +
+      ' (' + state.from + '–' + state.to + ') count in this ranking' +
+      (papers.length > f.papers.length ? '; the others are outside the selected journals' + (skipped ? ' or skipped as short pieces (' + skipped + ')' : '') : '') +
+      '. <a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener">HeinOnline profile</a></p>';
+    detailRow.firstElementChild.innerHTML = authorBars(forBars) + note;
   }
 
   function catLabel(c) { return c === 0 ? 'Flagship' : DATA.groups[c - 1]; }
@@ -462,30 +457,6 @@
           '<span class="bar-track"><span class="bar ' + (c === 0 ? 'bg-general' : 'bg-specialty') + '" style="width:' + (100 * n.get(c) / max).toFixed(1) + '%"></span></span>' +
           '<span class="bar-value">' + n.get(c) + '</span></div>';
       }).join('') + '</div>';
-  }
-
-  ////////////////////////////////////////////// titles: per-decade files, fetched on first use
-
-  function loadChunk(name) {
-    if (!titleChunks[name]) {
-      titleChunks[name] = fetch('data/titles/' + name + '.json').then((r) => {
-        if (!r.ok) throw new Error('titles ' + name + ': ' + r.status);
-        return r.json();
-      });
-    }
-    return titleChunks[name];
-  }
-
-  function chunkOf(p) { return DATA.title_chunks.find(([, start, end]) => p >= start && p < end); }
-
-  function titlesFor(papers) {
-    return Promise.all(papers.map((p) => {
-      const [name, start] = chunkOf(p);
-      return loadChunk(name).then((list) => {
-        const t = list[p - start];
-        return Array.isArray(t) ? t : [t, ''];
-      });
-    }));
   }
 
   ////////////////////////////////////////////// page
@@ -528,6 +499,8 @@
     const sticky = () => document.documentElement.style.setProperty('--controls-h', $('controlsSticky').offsetHeight + 'px');
     sticky();
     window.addEventListener('resize', sticky);
+    // (stress test, 2026-10-24) the bar grows when its summary wraps after a recompute; the header then hid under it
+    if (window.ResizeObserver) new ResizeObserver(sticky).observe($('controlsSticky'));
     window.addEventListener('hashchange', () => {
       const h = readHash();
       if (h) { state = cleanState(h); syncPanel(); current = compute(); renderRanking(); }
@@ -553,7 +526,7 @@
     });
     let saved = null;
     try { saved = JSON.parse(recall(STORAGE_KEY) || 'null'); } catch (e) { saved = null; }
-    state = cleanState(readHash() || saved);
+    state = cleanState(readHash() || restoreSaved(saved));
     renderMeta();
     buildPanel();
     wire();

@@ -16,71 +16,97 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 
 .container { margin: 0 auto; padding: 0 15px; max-width: 1170px; }
 
-/* ---------- masthead: the Harvard Law Review's boxed wordmark, cyberpunk edition (2026-10-24) ----------
-   Same proportions as before (measured from 139 Harv. L. Rev. 1; sizes scale with the wordmark): the box, the
-   line above it (version on the left, data timestamp on the right) and the About button. The box is now a night
-   panel with a neon edge, a techno face (Orbitron), a chromatic split and faint scan lines. */
-.lsr-mast-wrap { container-type: inline-size; display: flex; justify-content: center; padding: 22px 0 16px; }
+/* ---------- masthead: the Harvard Law Review's boxed wordmark, under frosted glass (2026-10-24) ----------
+   The print masthead as before (measured from 139 Harv. L. Rev. 1; all sizes scale with the wordmark's cap height;
+   Alegreya 450 for the wordmark, Noto Serif 700 for Century Bold), with a little cyberpunk in a glassmorphism way:
+   a faint cyan/magenta aurora behind the box, the box itself a pane of frosted glass with a fine grain, a hairline
+   highlight on its top edge, and the letters' edges barely split into cyan and magenta. */
+.lsr-mast-wrap {
+  container-type: inline-size; position: relative; isolation: isolate; display: flex; justify-content: center; padding: 22px 0 16px;
+}
+.lsr-mast-wrap::before {                 /* the aurora the glass sits on */
+  content: ""; position: absolute; z-index: -1; inset: 4px 6% 0; pointer-events: none; filter: blur(16px); opacity: .9;
+  background:
+    radial-gradient(38% 60% at 22% 55%, rgba(0, 229, 255, .45), transparent 70%),
+    radial-gradient(34% 58% at 78% 45%, rgba(255, 43, 214, .38), transparent 70%),
+    radial-gradient(30% 50% at 50% 70%, rgba(106, 0, 255, .22), transparent 70%);
+}
 .lsr-mast {
-  --ink: #0b0820; --paper: #fff; --neon: #00e5ff; --neon2: #ff2bd6; --night: #0b0820; --fi: max(11px, 0.42em);
-  font-size: clamp(12px, 4vw, 2.5rem);
-  font-size: clamp(12px, calc(100cqi / 19.5), 2.5rem);   /* Orbitron is wider than the old serif */
+  --ink: #000; --paper: #fff; --fi: max(11px, 0.486em);
+  font-size: clamp(15px, 5.6vw, 3rem);
+  font-size: clamp(15px, calc(100cqi / 16.4), 3rem);
   display: inline-grid; grid-template-columns: minmax(0, max-content); max-width: 100%; margin: 0; color: var(--ink);
 }
 .lsr-issue {
   display: flex; justify-content: space-between; align-items: baseline; gap: 0.6em; margin: 0;
-  font-family: 'Share Tech Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; font-weight: 400;
-  font-size: var(--fi); line-height: 1; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;
+  font-family: 'Noto Serif', 'Century Schoolbook', 'New Century Schoolbook', Georgia, serif; font-weight: 700;
+  font-size: var(--fi); line-height: 1; letter-spacing: 0; word-spacing: 0.15em; text-transform: uppercase; white-space: nowrap;
 }
 .lsr-issue a { color: inherit; }
-.lsr-issue a:hover { text-decoration: underline; color: #6a00ff; }
-.lsr-stamp { font-variant-numeric: tabular-nums; letter-spacing: 0.06em; cursor: help; }
-.lsr-stamp::before { content: "\25B8\00A0"; color: var(--neon2); }
+.lsr-issue a:hover { text-decoration: underline; }
+.lsr-stamp { font-variant-numeric: tabular-nums; cursor: help; }
 .lsr-mark {
-  --ls: 0.11em;
+  --ls: 0.170em;
   position: relative; overflow: hidden;
   margin: calc(0.4315em - 0.112 * var(--fi)) 0 0;
-  padding: 0.30em 0.80em 0.28em 0.80em;
-  border: max(1.5px, 0.06em) solid var(--neon);
+  padding: 0.256em 0.855em 0.261em 0.833em;
+  border: max(1.5px, 0.069em) solid rgba(0, 0, 0, .88);
   background:
-    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
-    linear-gradient(135deg, #12082e 0%, var(--night) 55%, #04121c 100%);
-  box-shadow: 0 0 0 1px rgba(0,229,255,.25), 0 0 0.18em rgba(0,229,255,.9), 0 0 0.6em rgba(0,229,255,.35), inset 0 0 0.5em rgba(0,229,255,.18);
-  color: #effcff;
-  font-family: 'Orbitron', 'Eurostile', 'Bank Gothic', system-ui, sans-serif; font-weight: 800; font-style: normal;
-  font-size: 1em; line-height: 1; letter-spacing: var(--ls); word-spacing: 0.05em; text-transform: uppercase;
-  text-shadow: -0.035em 0 rgba(255,43,214,.85), 0.035em 0 rgba(0,229,255,.85), 0 0 0.28em rgba(0,229,255,.75);
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"),
+    linear-gradient(160deg, rgba(255, 255, 255, .70) 0%, rgba(255, 255, 255, .42) 48%, rgba(240, 250, 255, .55) 100%);
+  background-size: 140px 140px, auto;
+  -webkit-backdrop-filter: blur(10px) saturate(1.5); backdrop-filter: blur(10px) saturate(1.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 -1px 0 rgba(0, 229, 255, .18),
+              0 0 0 1px rgba(255, 255, 255, .5), 0 6px 22px -8px rgba(106, 0, 255, .28), 0 0 18px -6px rgba(0, 229, 255, .35);
+  font-family: 'Alegreya', 'Libre Caslon Text', Georgia, 'Times New Roman', serif; font-weight: 450; font-style: normal;
+  font-size: 1em; line-height: 1; letter-spacing: var(--ls); word-spacing: 0.015em; text-transform: uppercase;
+  text-shadow: -0.014em 0 rgba(255, 43, 214, .32), 0.014em 0 rgba(0, 229, 255, .38);
   font-kerning: normal; font-variant-ligatures: none; text-align: center; white-space: nowrap;
 }
-.lsr-mark::after {                       /* a neon tick in the corner, like a HUD bracket */
-  content: ""; position: absolute; right: 0.18em; bottom: 0.18em; width: 0.42em; height: 0.42em;
-  border-right: 2px solid var(--neon2); border-bottom: 2px solid var(--neon2); opacity: .9; pointer-events: none;
+.lsr-mark::before {                      /* a sheen across the glass */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .55) 45%, transparent 58%);
+  transform: translateX(-60%); transition: transform .9s ease;
 }
-.lsr-mark::before {
-  content: ""; position: absolute; left: 0.18em; top: 0.18em; width: 0.42em; height: 0.42em;
-  border-left: 2px solid var(--neon2); border-top: 2px solid var(--neon2); opacity: .9; pointer-events: none;
+.lsr-mark:hover::before { transform: translateX(60%); }
+.lsr-mark > a { position: relative; display: inline-block; margin-right: calc(-1 * var(--ls)); color: inherit; }
+.lsr-mark > a:hover { text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .lsr-mark::before { transition: none; } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lsr-mark { background-color: rgba(255, 255, 255, .9); }
 }
-.lsr-mark > a { display: inline-block; margin-right: calc(-1 * var(--ls)); color: inherit; }
-.lsr-mark > a:hover { text-decoration: none; animation: lsr-glitch .45s steps(2, end) 1; }
-@keyframes lsr-glitch {
-  0%   { text-shadow: -0.06em 0 rgba(255,43,214,.9), 0.06em 0 rgba(0,229,255,.9), 0 0 0.3em rgba(0,229,255,.8); transform: translateX(0.02em); }
-  50%  { text-shadow: 0.05em 0 rgba(255,43,214,.9), -0.05em 0 rgba(0,229,255,.9), 0 0 0.3em rgba(255,43,214,.6); transform: translateX(-0.02em); }
-  100% { text-shadow: -0.035em 0 rgba(255,43,214,.85), 0.035em 0 rgba(0,229,255,.85), 0 0 0.28em rgba(0,229,255,.75); transform: none; }
-}
-@media (prefers-reduced-motion: reduce) { .lsr-mark > a:hover { animation: none; } }
 .lsr-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.32em; }
-.lsr-note { margin-left: auto; font-family: 'Share Tech Mono', ui-monospace, Menlo, monospace; font-size: max(12px, 0.3em); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; }
+.lsr-note { margin-left: auto; font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: max(12px, 0.323em); letter-spacing: 0.04em; text-align: right; }
 .lsr-about {
   display: inline-flex; align-items: center; gap: 0.45em; min-height: 32px; padding: 0 0.85em 0 0.95em;
-  font-family: 'Share Tech Mono', ui-monospace, Menlo, monospace; font-weight: 400; font-size: max(13px, 0.3em); line-height: 1;
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); text-decoration: none;
-  background: var(--paper); border: 1px solid currentColor; border-radius: 2px; cursor: pointer; transition: background-color .15s, color .15s, box-shadow .15s;
+  font-family: 'Noto Serif', Georgia, serif; font-weight: 700; font-size: max(12px, 0.27em); line-height: 1;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-decoration: none;
+  background: rgba(255, 255, 255, .6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: 1px solid currentColor; border-radius: 2px; cursor: pointer; transition: background-color .15s, color .15s, box-shadow .15s;
 }
 .lsr-about::after { content: "\2192"; letter-spacing: 0; font-weight: 400; }
 .lsr-about.back::after { content: none; }
 .lsr-about.back::before { content: "\2190"; letter-spacing: 0; font-weight: 400; }
-.lsr-about:hover { background: var(--night); color: var(--neon); box-shadow: 0 0 0.4em rgba(0,229,255,.5); text-decoration: none; }
-.lsr-about:focus-visible { outline: 2px solid var(--neon2); outline-offset: 2px; }
+.lsr-about:hover { background: var(--ink); color: var(--paper); box-shadow: 0 0 0 1px rgba(0, 229, 255, .35), 0 0 14px -3px rgba(255, 43, 214, .45); text-decoration: none; }
+.lsr-about:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ---------- YaleNew for the intro box and explanatory text (the owner, 2026-10-24) ----------
+   local() uses the copy installed on this Mac; the url() files are served only once they are added to docs/fonts/
+   (YaleNew is Yale's licensed typeface; the owner decides whether to publish the files). Until then other visitors get Alegreya. */
+@font-face { font-family: 'YaleNew'; font-style: normal; font-weight: 400; font-display: swap;
+  src: local('YaleNew'), local('YaleNew-Roman'), local('YaleNew Roman'), url('fonts/yalenew-roman.woff2') format('woff2'); }
+@font-face { font-family: 'YaleNew'; font-style: italic; font-weight: 400; font-display: swap;
+  src: local('YaleNew Italic'), local('YaleNew-Italic'), url('fonts/yalenew-italic.woff2') format('woff2'); }
+@font-face { font-family: 'YaleNew'; font-style: normal; font-weight: 700; font-display: swap;
+  src: local('YaleNew Bold'), local('YaleNew-Bold'), url('fonts/yalenew-bold.woff2') format('woff2'); }
+@font-face { font-family: 'YaleNew'; font-style: italic; font-weight: 700; font-display: swap;
+  src: local('YaleNew Bold Italic'), local('YaleNew-BoldItalic'), url('fonts/yalenew-bolditalic.woff2') format('woff2'); }
+.intro-panel, .prose, .detail-note, .loading, .area-head small, .page-footer p {
+  font-family: 'YaleNew', 'Alegreya', Georgia, 'Times New Roman', serif;
+}
+.intro-panel { font-size: 15.5px; line-height: 1.45; }
+.prose { font-size: 16px; line-height: 1.55; }
+.prose h2 { font-family: 'YaleNew', 'Alegreya', Georgia, serif; font-weight: 700; }
 
 /* footer buttons: report a flaw (email), the faculty list on GitHub */
 .foot-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0 6px; }
@@ -179,10 +205,6 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: point
 .bar-value { color: #333; text-align: right; font-variant-numeric: tabular-nums; }
 .bar-row:hover .bar { filter: brightness(1.12); }
 .detail-note { font-size: 12px; color: #777; margin: 0 0 4px; }
-.paper-list li.not-counted, .paper-list li.not-counted a { color: #888; }
-.paper-list { margin: 4px 0 0; padding: 0 0 0 1.2em; font-size: 14px; line-height: 1.35; max-width: 640px; }
-.paper-list li { margin: 0 0 4px; }
-.paper-list .meta { color: #777; }
 .loading { color: #777; font-style: italic; font-size: 13px; }
 
 

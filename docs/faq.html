@@ -6,7 +6,7 @@
   <title>About Law School Rankings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&family=Orbitron:wght@700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -30,10 +30,14 @@
     <p>Just as they are on CSrankings. Each article is one credit, split evenly between its co-authors (the <em>adjusted count</em>). Every group you select is one <em>area</em>: the flagship law reviews (all the US News tiers you check, together), and each specialty group you check. A school's count is the geometric mean, across the selected areas, of its faculty's total adjusted count in that area plus one. Articles are credited to the school where the author teaches <em>now</em>, so a professor who moves brings their earlier articles along.</p>
 
     <h2>What are "flagship" law reviews?</h2>
-    <p>A school's main, general-interest law review, such as the <i>Harvard Law Review</i> or the <i>Northwestern University Law Review</i>. W&amp;L lists these in its "General" category, together with online editions (the <i>Yale Law Journal Forum</i>, for example) and a few other general journals; in the rankings those form their own tier, "Online editions &amp; other general journals", which is off by default. The other journals are specialty journals, which this site groups into nine areas. Open a faculty member on the rankings page to see bars for where they publish: one for flagship law reviews and one for each specialty group they have published in, counting all their articles in the years you chose (articles outside the selected journals are listed in gray).</p>
+    <p>A school's main, general-interest law review, such as the <i>Harvard Law Review</i> or the <i>Northwestern University Law Review</i>. W&amp;L lists these in its "General" category, together with online editions (the <i>Yale Law Journal Forum</i>, for example) and a few other general journals; in the rankings those form their own tier, "Online editions &amp; other general journals", which is off by default. The other journals are specialty journals, which this site groups into nine areas. Open a faculty member on the rankings page to see bars for where they publish: one for flagship law reviews and one for each specialty group they have published in, counting all their articles in the years you chose, with how many of them count in the current ranking. The site does not list individual articles; each name links to the person's HeinOnline author profile.</p>
 
     <h2>What do the tags next to a name mean?</h2>
     <p>Where that person publishes most among the specialty journals: the specialty group with the most of their specialty-journal articles, over all their articles and all years (an article in a journal that belongs to two groups counts half toward each), and a second group when it has at least half as many. People with fewer than two specialty-journal articles have no tag. Tags do not change with the filters; the bars in each person's drop-down show the full picture for the years you choose.</p>
+
+    <h2 id="matching">How are articles matched to faculty?</h2>
+    <p>By HeinOnline's own author profiles. The faculty come from HeinOnline's lists of faculty by school, and each person there has one HeinOnline author profile, which names every spelling HeinOnline counts as that person (for one professor: "Huq, Aziz Z.", "Huq, Aziz", "Huq, A.Z."). An article counts for a faculty member when its author, as HeinOnline lists it in the journal's table of contents, is one of those spellings (or the same name with only punctuation or capitals changed). A spelling that appears in two people's profiles counts for the person whose own profile name it is, or for no one.</p>
+    <p>The profiles are read a few hundred a day, the least certain cases first (<span data-meta="profiles"></span>). Until a person's profile has been read, their articles are matched by name: the same last and first name, with middle names or initials that do not conflict. A name that belongs to two faculty members is credited to neither, and an article whose author has a middle initial is not credited to a faculty member listed without one unless at least 85% of the articles under that name that give a middle initial give that one. If something looks wrong, please <a href="#corrections">suggest a correction</a>.</p>
 
     <h2>How are journals ranked?</h2>
     <p>Each kind of journal has one fixed source, and the site offers no other method:</p>
@@ -64,8 +68,8 @@
       </table></div>
     </details>
 
-    <h2>What counts as a "short piece"? <small class="text-muted">(pending)</small></h2>
-    <p>Being rebuilt. The new rule will count a piece as short if it runs under 10 pages, or if it is a memorial (an in memoriam or tribute piece) of any length under 20 pages, and will be explained here with examples once it is in place. Until then, "Skip short pieces" uses a rough guess from titles.</p>
+    <h2 id="short">What counts as a "short piece"? <small class="text-muted">(beta)</small></h2>
+    <p>"Skip short pieces" leaves out a piece that runs under 10 pages, or a memorial or tribute under 20 pages. The length comes from HeinOnline's page numbers (the next piece's first page minus this one's), which the site has for the pieces its current update script has read. Where the length is not known, a classifier decides from what it can see: the title with Hein's section label (Note, Book Review, Foreword, In Memoriam...), the journal, the piece's place in its volume, its co-authors and the titles around it. A piece that is neither measured nor classified yet counts as an article. Coverage is still partial, which is why the option is off by default and marked beta: <span data-meta="short"></span>.</p>
 
     <h2>What do the version numbers mean?</h2>
     <p>The volume number in the top left is a version, <i>major.data.site</i>. The middle number goes up whenever the substantive data changes (articles, faculty, schools, journals or their ranks; the site keeps a fingerprint of the data to tell), and the timestamp in the top right is the moment of that change, in Unix time. The last number goes up for changes to the site itself that leave the data alone. The first number goes up for a major update. The <a href="history.html">version history</a> lists every version.</p>
@@ -105,6 +109,11 @@
     const a = m.aba_check;
     set('aba', a ? a.on_hein + ' of the ' + a.schools + ' ABA-approved law schools (' + a.year + ') are on the faculty lists' +
       (a.missing.length ? '; not listed by HeinOnline: ' + a.missing.map((n) => n.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())).join(', ') + '.' : '.') : 'not run yet.');
+    const hp = m.hein_profiles;
+    set('profiles', hp ? hp.read.toLocaleString() + ' of ' + hp.faculty.toLocaleString() + ' faculty profiles read so far' : 'not started yet');
+    const c = m.counts || {};
+    set('short', c.papers ? (c.minor_papers || 0).toLocaleString() + ' of ' + c.papers.toLocaleString() + ' credited pieces are skipped when it is on; ' +
+      (c.measured_papers || 0).toLocaleString() + ' have a measured length and ' + (c.classified_papers || 0).toLocaleString() + ' have been classified so far' : '?');
     set('version', m.version);
     set('updated', m.data_updated || '?');
     set('updatedDate', m.data_updated ? new Date(m.data_updated * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : '?');
