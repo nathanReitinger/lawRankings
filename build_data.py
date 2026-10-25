@@ -1,12 +1,12 @@
 '''
 build the data files for the static site (docs/) from the collected metadata in the data folder two levels up
 
-1. papers per journal      journal_store/ (get_papers; see journal_store.py, the repaired incremental store)
-2. faculty per school      faculty_runs/ (get_authors_from_v3, Hein AuthorBySchool), older authors_latest.csv
-3. journal ranks           newest rankings_<year>.csv (update_WandL, Washington & Lee): specialty journals
-4. US law school list      newest usnews_<edition>.csv (update_usnews), else the hand-saved 2025_USnews.txt, plus
-                           the ABA-approved list aba_schools_<year>.csv (update_aba_schools), checked against Hein;
-                           also ranks the flagship law reviews (each school's main review gets its school's rank)
+1. papers per journal      journal_store/ (HeinOnline table-of-contents metadata; see journal_store.py)
+2. faculty per school      faculty_runs/ (HeinOnline's faculty lists by school), older authors_latest.csv
+3. journal ranks           newest rankings_<year>.csv (Washington & Lee): specialty journals
+4. US law school list      newest usnews_<edition>.csv (U.S. News, via TaxProf Blog), else the hand-saved
+                           2025_USnews.txt, plus the ABA-approved list aba_schools_<year>.csv, checked against the
+                           faculty lists; also ranks the flagship law reviews (each school's main review gets its school's rank)
 5. flagship -> school      flagship_schools.csv in the data folder: which school publishes each W&L General journal
 
 python build_data.py              # rebuild docs/data/*.json
@@ -40,11 +40,12 @@ OUT_DIR = os.path.join(HERE, 'docs', 'data')
 sys.path.insert(0, SOURCE_DIR)
 import journal_store as js   # noqa: E402  (shared volume keys, years and author keys with the collection code)
 js.STORE_DIR = os.path.join(SOURCE_DIR, 'journal_store')
-import hein_profiles as hp   # noqa: E402  (Hein's own name forms per faculty member; main.py reads the profiles)
-FACULTY_PRIORITY = os.path.join(SOURCE_DIR, 'faculty_runs', 'priority.txt')   # schools for main.py to read first
-SCHOOL_CSVS = os.path.join(SOURCE_DIR, 'faculty_runs', '*.csv_metric')      # Hein's per-school CSVs, one folder per pass (PATCH 15)
-SCHOOL_CSV_DIR = os.path.join(SOURCE_DIR, 'faculty_runs', 'school_csv')       # ... and where main.py saves them since PATCH 16
+import hein_profiles as hp   # noqa: E402  (HeinOnline's own name forms per faculty member, from its author profiles)
+FACULTY_PRIORITY = os.path.join(SOURCE_DIR, 'faculty_runs', 'priority.txt')   # schools whose metadata is updated first
+SCHOOL_CSVS = os.path.join(SOURCE_DIR, 'faculty_runs', '*.csv_metric')      # HeinOnline's per-school faculty CSVs, older layout
+SCHOOL_CSV_DIR = os.path.join(SOURCE_DIR, 'faculty_runs', 'school_csv')       # ... and the current one
 MISSING_HOMEPAGES = os.path.join(SOURCE_DIR, 'faculty_runs', 'missing_homepages.csv')
+INFERRED_HOMEPAGES = os.path.join(SOURCE_DIR, 'faculty_runs', 'inferred_homepages.csv')   # found on the schools' own sites
 
 # Versions (2026-10-24, the owner's rule): MAJOR.minor.patch, shown as "Volume 2.1.0".
 #   major: set here by hand for a major update (minor and patch go back to 0)
@@ -77,12 +78,12 @@ DEFAULT_FLAGSHIP_TOP = 25     # the site's default view: main law reviews of the
 DEFAULT_VIEW = f'flagship law reviews of the US News top {DEFAULT_FLAGSHIP_TOP} schools, last ten years, US law schools'
 
 
-# Short pieces (the owner, 2026-10-23: a real classifier, not title rules). short_pieces/ classifies every
-# credited piece with a local model (Ollama, qwen3:8b) from its title and Hein section label, journal, year, position in
-# the volume, number of authors and neighbouring titles (classify.py; scored against measured lengths by evaluate.py).
-# A piece is short when its measured length (from Hein's page numbers) is under 10 pages, or it is a memorial under 20;
-# without a measured length, when the model calls it a short kind or estimates it under 10 pages. Not classified yet:
-# counts. The site's "Skip short pieces" box leaves short pieces out.
+# Short pieces (the owner, 2026-10-23: a real classifier, not title rules; 2026-10-25: a trained model with stratified
+# k-fold validation, and page lengths for everything). A piece is short when its measured length (from HeinOnline's
+# page numbers) is under 10 pages, or it is a memorial under 20; without a measured length, when the deployed model
+# (models/ in the data folder: scikit-learn, trained on the measured pieces) says so; an older language-model call
+# (short_pieces/cache.jsonl) where the model has no prediction; otherwise it counts. The site's "Skip short pieces"
+# box leaves short pieces out.
 SHORT_DIR = os.path.join(SOURCE_DIR, 'short_pieces')
 CREDITED_KEYS = os.path.join(SHORT_DIR, 'credited_keys.txt')
 MODEL_SHORT = os.path.join(SHORT_DIR, 'model_short.csv')          # the deployed short-piece model's predictions
@@ -264,9 +265,8 @@ def hein_profile_link(hein_name):
 
 
 def load_school_csvs():
-    """Hein's per-school CSV (AuthorBySchool csv_list_metric), saved by main.py in faculty_runs/school_csv/<school>.csv
-    (PATCH 16; index.json there names the Hein school each file is for) and, before that, in
-    faculty_runs/<pass>.csv_metric/. Every file is read, oldest download first, so the newest wins. Returns
+    """HeinOnline's per-school faculty CSV, in faculty_runs/school_csv/<school>.csv (index.json there names the school
+    each file is for) and, in the older layout, faculty_runs/<pass>.csv_metric/. Every file is read, oldest download first, so the newest wins. Returns
     ({(school, norm(search_name)): {'website', 'title', 'orcid', 'school'}}, set of schools read). Its website column is
     the faculty homepage for nearly everyone (2026-10-24 sample: Northwestern 133/133, Harvard 150/150).
     Stress test (2026-10-24): the build read only the old per-pass folders, so no homepage ever reached the site; and
@@ -643,12 +643,12 @@ def school_norm(s):
 
 
 def load_aba(roster_schools):
-    '''ABA-approved law schools (newest aba_schools_<year>.csv, written by update_aba_schools() in main.py) matched to
+    '''ABA-approved law schools (newest aba_schools_<year>.csv in the data folder) matched to
     the schools on Hein's faculty lists: (roster school -> ABA name, check results for meta.json). The check is the
     point: every ABA-approved school should be on Hein's faculty lists, or the site is missing a school.'''
     files = sorted(glob.glob(os.path.join(SOURCE_DIR, 'aba_schools_[0-9][0-9][0-9][0-9].csv')))
     if not files:
-        print('  !! no aba_schools_<year>.csv yet (run main.py); skipping the ABA school check')
+        print('  !! no aba_schools_<year>.csv yet; skipping the ABA school check')
         return {}, None
     year = int(re.search(r'(\d{4})\.csv$', files[-1]).group(1))
     aba = pd.read_csv(files[-1], dtype=str)['aba_name'].tolist()
@@ -800,7 +800,7 @@ def match_authors(papers, roster):
     - an unprofiled person's own exact name is theirs (it was lost to a profiled person's punctuation twin)
     - the punctuation rule keeps the one-letter-particle guard ("d'Avis" vs "Davis" with no middle initial)
     - a spelling the name rules give a profiled person but their profile does not list is recorded in
-      hein_profiles/unexplained.json, so main.py reads that profile again (Hein adds new spellings)"""
+      hein_profiles/unexplained.json, so the next update refreshes that profile (HeinOnline adds new spellings)"""
     profiles = hp.load_good()
     pk = roster['link'].map(lambda l: hp.norm_form(hp.search_name(l)))
     rows_of = defaultdict(list)
@@ -932,7 +932,7 @@ def match_authors(papers, roster):
 
 def record_unexplained(dropped, papers):
     """PATCH 16 (review): spellings the name rules give a profiled person that their profile does not list, with when
-    each was first seen (when its earliest row was collected), merged into hein_profiles/unexplained.json. main.py reads such a
+    each was first seen (when its earliest row was collected), merged into hein_profiles/unexplained.json. The next update refreshes such a
     profile again RECHECK_DAYS later if the spelling turned up after the profile was read; once it has been read
     again, the same spelling never triggers another read (hein_profiles.due)."""
     if not dropped:
@@ -953,7 +953,7 @@ def record_unexplained(dropped, papers):
 
 
 def write_profile_wants(papers, roster, us_schools, info):
-    '''hein_profiles/wanted.txt: every faculty member's Hein search_name, in the order main.py should read their
+    '''hein_profiles/wanted.txt: every faculty member's Hein search_name, in the order the next update should refresh their
     profiles: US law schools first; within them, people whose matching by name is least certain (credited on a
     spelling that differs from their listing, or held back as unsure), then people with papers, then the rest; more
     paper rows at stake first. Also faculty_runs/priority.txt: US law schools first for the faculty-list pass.'''
@@ -1031,6 +1031,51 @@ def default_ranking(data, years=10, top=30):
     order = sorted(snap, key=lambda s: (-snap[s], data['schools'][s][0]))[:top]
     half_up = lambda x: float(Decimal(repr(round(x, 9))).quantize(Decimal('0.1'), ROUND_HALF_UP))
     return [[data['schools'][s][0], half_up(snap[s] + 1), len(faculty[s])] for s in order]
+
+
+TAXONOMY_RESEARCH = os.path.join(HERE, 'research', 'taxonomy')    # the subject-area research (taxonomy.json, sources.csv)
+
+
+def subject_tree():
+    """docs/data/taxonomy.json for the Subject areas page (the owner, 2026-10-23: "say how we got those buckets. cite
+    the sources, and put that on the web too ... drop-down classifications on where each journal fits"; 2026-10-25:
+    "at least three levels in the tree"): the research tree (area > field > topic > sub-topic, each node with its
+    description, counts and the outside schemes it matches), the approaches, and every source cited. None if the
+    research folder is missing."""
+    path = os.path.join(TAXONOMY_RESEARCH, 'taxonomy.json')
+    if not os.path.exists(path):
+        return None
+    t = json.load(open(path, encoding='utf-8'))
+    clean = lambda x: str(x or '')
+    def as_list(v):
+        if isinstance(v, str):
+            try:
+                import ast
+                v = ast.literal_eval(v)
+            except (ValueError, SyntaxError):
+                return []
+        return v if isinstance(v, (list, dict)) else []
+    def node(n):
+        c = as_list(n.get('counts')) or {}
+        out = {'n': clean(n.get('name')), 'd': clean(n.get('description')),
+               'c': [c.get('faculty_papers'), c.get('faculty_papers_2016_on'), c.get('faculty')],
+               's': [[clean(x.get('title')), x.get('url', '')] for x in as_list(n.get('sources')) if isinstance(x, dict)]}
+        also = as_list(n.get('also_listed_under'))
+        if also:
+            out['x'] = [clean(a) for a in also]
+        kids = [node(k) for k in n.get('children', [])]
+        if kids:
+            out['k'] = kids
+        return out
+    sources = []
+    sp = os.path.join(TAXONOMY_RESEARCH, 'sources.csv')
+    if os.path.exists(sp):
+        for r in pd.read_csv(sp, dtype=str).fillna('').itertuples():
+            sources.append([clean(r.title), r.url, clean(r.what_it_supports), r.verified == 'yes'])
+    return {'name': clean(t.get('name')), 'description': clean(t.get('description')), 'version': t.get('version'),
+            'generated': t.get('generated'), 'counts': t.get('counts'),
+            'areas': [node(a) for a in t.get('children', [])], 'approaches': [node(a) for a in t.get('approaches', [])],
+            'sources': sources}
 
 
 PANEL_SINCE = 1980     # insights: "the same journals throughout" = journals with articles in every five years since
@@ -1317,9 +1362,20 @@ def build():
     homepage = {parse_hein_name(hein_profile_link(r.hein_name)): r.homepage.strip()
                 for r in edits[edits['action'] == 'homepage'].itertuples() if r.homepage.strip().startswith('http')}
     school_csv, csv_schools = load_school_csvs()
+    # 2026-10-25: then the homepages faculty_links.py (data folder) found on the schools' own websites, by the school's
+    # URL naming convention or its faculty directory, for the people the school's list has no homepage for
+    inferred = {}
+    if os.path.exists(INFERRED_HOMEPAGES):
+        try:
+            for r in read_csv_safely(INFERRED_HOMEPAGES, dtype=str).fillna('').itertuples():
+                if r.homepage.startswith('http'):
+                    inferred[(r.school, r.hein_name)] = r.homepage
+        except Exception as e:
+            print(f'  !! {INFERRED_HOMEPAGES} could not be read ({e!r}); skipped')
     # the homepage from the CSV of the school that lists them (a stale CSV of a school they left never counts)
     home_of = lambda i: (homepage.get((roster.at[i, 'last'], roster.at[i, 'first'], roster.at[i, 'middle']))
-                         or school_csv.get((roster.at[i, 'school'], match_info['pk'][i]), {}).get('website', ''))
+                         or school_csv.get((roster.at[i, 'school'], match_info['pk'][i]), {}).get('website', '')
+                         or inferred.get((roster.at[i, 'school'], roster.at[i, 'hein_name']), ''))
     people = [[None, [], None, ''] for k in people_keys]
     for i in person_rows:
         p = people[person_id[person_key(i)]]
@@ -1434,7 +1490,10 @@ def build():
         'counts': {'papers': len(paper_keys), 'credits': len(credit_paper), 'faculty_with_papers': len(people),
                    'minor_papers': int(sum(1 for m in data['papers']['minor'] if m)),
                    'classified_papers': int(sum(1 for k in data['papers']['kind'] if k >= 0)),
-                   'measured_papers': int(sum(1 for k in data['papers']['length'] if k >= 0))},
+                   'measured_papers': int(sum(1 for k in data['papers']['length'] if k >= 0)),
+                   # the pieces without a measured length that the deployed short-piece model decided (audit: the FAQ
+                   # counted only the older classifier's 88)
+                   'model_papers': int(sum(1 for k, n in zip(paper_keys, data['papers']['length']) if n < 0 and k in model_flags))},
         'piece_kinds': PIECE_KINDS,
         'short_model': model_info,
         'matching': stats,
@@ -1489,6 +1548,9 @@ def build():
     print(f"  insights: co-authorship of {insights['pieces']} pieces in {len(journals)} journals, "
           f"{insights['years'][0]}-{insights['years'][-1]} ({insights['panel']['journals']} journals publishing since {insights['panel']['since']})")
     outputs = [('data.json', data), ('meta.json', meta), ('history.json', history), ('insights.json', insights)]
+    tree = subject_tree()
+    if tree:
+        outputs.append(('taxonomy.json', tree))
     for name, obj in outputs:
         with open(os.path.join(OUT_DIR, name) + '.tmp', 'w', encoding='utf-8') as f:   # temp + rename (review)
             json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))

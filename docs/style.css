@@ -89,16 +89,16 @@ html[data-mast="10"] .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15e
 .lsr-about:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* ---------- YaleNew for the intro box and explanatory text (the owner, 2026-10-24) ----------
-   local() uses the copy installed on this Mac; the url() files are served only once they are added to docs/fonts/
-   (YaleNew is Yale's licensed typeface; the owner decides whether to publish the files). Until then other visitors get Alegreya. */
+   local() uses a copy installed on the visitor's computer (YaleNew is Yale's licensed typeface; the font files are not
+   published unless the owner decides to: then add url('fonts/...') sources here). Other visitors get Alegreya. */
 @font-face { font-family: 'YaleNew'; font-style: normal; font-weight: 400; font-display: swap;
-  src: local('YaleNew'), local('YaleNew-Roman'), local('YaleNew Roman'), url('fonts/yalenew-roman.woff2') format('woff2'); }
+  src: local('YaleNew'), local('YaleNew-Roman'), local('YaleNew Roman'); }
 @font-face { font-family: 'YaleNew'; font-style: italic; font-weight: 400; font-display: swap;
-  src: local('YaleNew Italic'), local('YaleNew-Italic'), url('fonts/yalenew-italic.woff2') format('woff2'); }
+  src: local('YaleNew Italic'), local('YaleNew-Italic'); }
 @font-face { font-family: 'YaleNew'; font-style: normal; font-weight: 700; font-display: swap;
-  src: local('YaleNew Bold'), local('YaleNew-Bold'), url('fonts/yalenew-bold.woff2') format('woff2'); }
+  src: local('YaleNew Bold'), local('YaleNew-Bold'); }
 @font-face { font-family: 'YaleNew'; font-style: italic; font-weight: 700; font-display: swap;
-  src: local('YaleNew Bold Italic'), local('YaleNew-BoldItalic'), url('fonts/yalenew-bolditalic.woff2') format('woff2'); }
+  src: local('YaleNew Bold Italic'), local('YaleNew-BoldItalic'); }
 .intro-panel, .prose, .detail-note, .loading, .area-head small, .page-footer p {
   font-family: 'YaleNew', 'Alegreya', Georgia, 'Times New Roman', serif;
 }

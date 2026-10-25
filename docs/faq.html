@@ -32,14 +32,14 @@
     <p>Just as they are on CSrankings. Each article is one credit, split evenly between its co-authors (the <em>adjusted count</em>). Every group you select is one <em>area</em>: the flagship law reviews (all the US News tiers you check, together), and each specialty group you check. A school's count is the geometric mean, across the selected areas, of its faculty's total adjusted count in that area plus one. Articles are credited to the school where the author teaches <em>now</em>, so a professor who moves brings their earlier articles along.</p>
 
     <h2>What are "flagship" law reviews?</h2>
-    <p>A school's main, general-interest law review, such as the <i>Harvard Law Review</i> or the <i>Northwestern University Law Review</i>. W&amp;L lists these in its "General" category, together with online editions (the <i>Yale Law Journal Forum</i>, for example) and a few other general journals; in the rankings those form their own tier, "Online editions &amp; other general journals", which is off by default. The other journals are specialty journals, which this site groups into nine areas. Open a faculty member on the rankings page to see bars for where they publish: one for flagship law reviews and one for each specialty group they have published in, counting all their articles in the years you chose, with how many of them count in the current ranking. The site does not list individual articles; each name links to the person's HeinOnline author profile.</p>
+    <p>A school's main, general-interest law review, such as the <i>Harvard Law Review</i> or the <i>Northwestern University Law Review</i>. W&amp;L lists these in its "General" category, together with online editions (the <i>Yale Law Journal Forum</i>, for example) and a few other general journals; in the rankings those form their own tier, "Online editions &amp; other general journals", which is off by default. The other journals are specialty journals, which this site groups into thirteen subject areas (plus a group of method journals, "Interdisciplinary Methods"); see <a href="taxonomy.html">Subject areas</a> for the tree, how it was built and its sources. Open a faculty member on the rankings page to see bars for where they publish: one for flagship law reviews and one for each specialty group they have published in, counting all their articles in the years you chose, with how many of them count in the current ranking. The site does not list individual articles; each name links to the person's HeinOnline author profile.</p>
 
     <h2>What do the tags next to a name mean?</h2>
     <p>Where that person publishes most among the specialty journals: the specialty group with the most of their specialty-journal articles, over all their articles and all years (an article in a journal that belongs to two groups counts half toward each), and a second group when it has at least half as many. People with fewer than two specialty-journal articles have no tag. Tags do not change with the filters; the bars in each person's drop-down show the full picture for the years you choose.</p>
 
     <h2 id="matching">How are articles matched to faculty?</h2>
     <p>By HeinOnline's own author profiles. The faculty come from HeinOnline's lists of faculty by school, and each person there has one HeinOnline author profile, which names every spelling HeinOnline counts as that person (for one professor: "Huq, Aziz Z.", "Huq, Aziz", "Huq, A.Z."). An article counts for a faculty member when its author, as HeinOnline lists it in the journal's table of contents, is one of those spellings (or the same name with only punctuation or capitals changed). A spelling that appears in two people's profiles counts for the person whose own profile name it is, or for no one.</p>
-    <p>The profiles are read a few hundred a day, the least certain cases first (<span data-meta="profiles"></span>). Until a person's profile has been read, their articles are matched by name: the same last and first name, with middle names or initials that do not conflict. A name that belongs to two faculty members is credited to neither, and an article whose author has a middle initial is not credited to a faculty member listed without one unless at least 85% of the articles under that name that give a middle initial give that one. If something looks wrong, please <a href="#corrections">suggest a correction</a>.</p>
+    <p>Profiles are added with each data update, the least certain cases first (<span data-meta="profiles"></span>). Until a person's profile is in, their articles are matched by name: the same last and first name, with middle names or initials that do not conflict. A name that belongs to two faculty members is credited to neither, and an article whose author has a middle initial is not credited to a faculty member listed without one unless at least 85% of the articles under that name that give a middle initial give that one. If something looks wrong, please <a href="#corrections">suggest a correction</a>.</p>
 
     <h2>How are journals ranked?</h2>
     <ul>
@@ -49,10 +49,12 @@
     <p>These ranks only decide which journals are counted. Schools themselves are ordered by the count described above.</p>
 
     <h2>What is in each specialty area?</h2>
+    <p>The fields of each area are below; the <a href="taxonomy.html">Subject areas</a> page has the full tree (areas, fields, topics, sub-topics), which journals sit where, how the areas were chosen, and the 1,200+ sources behind them.</p>
     <ul id="groupList"></ul>
 
     <h2 id="data">How recent is the data?</h2>
     <ul>
+      <li>Where it comes from: article and faculty metadata from HeinOnline (journal tables of contents, faculty lists by school, author profiles); faculty homepages from HeinOnline's faculty lists and the schools' own websites; specialty-journal ranks from the Washington &amp; Lee Law Journal Rankings; school ranks from <i>U.S. News</i> (overall and peer reputation, as published on TaxProf Blog); the list of law schools checked against the ABA's list of approved law schools.</li>
       <li>Journal tables of contents: collected <span data-meta="papers"></span>.</li>
       <li>Faculty lists by school: collected <span data-meta="faculty"></span>.</li>
       <li>Check against the ABA: <span data-meta="aba"></span></li>
@@ -69,8 +71,13 @@
       </table></div>
     </details>
 
-    <h2 id="short">What counts as a "short piece"? <small class="text-muted">(beta)</small></h2>
-    <p>"Skip short pieces" leaves out a piece that runs under 10 pages, or a memorial or tribute under 20 pages. The length comes from page numbers in HeinOnline's metadata: the next entry's first page minus this one's, counting every entry in the volume's table of contents. Where a piece's length is not known yet, a trained classifier decides. It learns from the pieces whose length is measured (their titles, the journal, the piece's place in its volume, its co-authors and the titles around it) and is scored by stratified cross-validation on pieces it did not see: <span data-meta="shortModel"></span>. So far: <span data-meta="short"></span>.</p>
+    <h2 id="short">What counts as a "short piece"?</h2>
+    <p>"Skip short pieces" leaves out a piece that runs under 10 pages, or a memorial or tribute under 20 pages. The length comes from page numbers in HeinOnline's metadata: the next entry's first page minus this one's, counting every entry in the volume's table of contents. Lengths are being added volume by volume (<span data-meta="measured"></span>). Where a piece's length is not known yet, a trained classifier decides. It learns from the pieces whose length is measured (their titles, the journal, the piece's place in its volume, its co-authors and the titles around it) and is scored by stratified cross-validation on pieces it did not see: <span data-meta="shortModel"></span>. So far: <span data-meta="short"></span>.</p>
+    <p>Some examples, all measured:</p>
+    <ul>
+      <li>Skipped: a dean's 2-page foreword; a 3-page reply to two other authors in a law review's online companion; a 6-page book review; a 2-page tribute to a judge's twenty years on the bench (any tribute or memorial under 20 pages is skipped); 2-page opening remarks at a symposium.</li>
+      <li>Counted: a 12-page response essay; a 13-page essay in an online companion; a 20-page book review; every full article.</li>
+    </ul>
 
     <h2>What do the version numbers mean?</h2>
     <p>The volume number in the top left is a version, <i>major.data.site</i>. The middle number goes up whenever the substantive data changes (articles, faculty, schools, journals or their ranks; the site keeps a fingerprint of the data to tell), and the timestamp in the top right is the moment of that change, in Unix time. The last number goes up for changes to the site itself that leave the data alone. The first number goes up for a major update. The <a href="history.html">version history</a> lists every version.</p>
@@ -114,7 +121,9 @@
     set('profiles', hp ? hp.read.toLocaleString() + ' of ' + hp.faculty.toLocaleString() + ' faculty profiles read so far' : 'not started yet');
     const c = m.counts || {};
     set('short', c.papers ? (c.minor_papers || 0).toLocaleString() + ' of ' + c.papers.toLocaleString() + ' credited pieces are skipped when it is on; ' +
-      (c.measured_papers || 0).toLocaleString() + ' have a measured length and ' + (c.classified_papers || 0).toLocaleString() + ' have been classified so far' : '?');
+      (c.measured_papers || 0).toLocaleString() + ' pieces have a measured length, and the classifier decides ' + (c.model_papers || 0).toLocaleString() + ' others' : '?');
+    set('measured', c.papers ? (c.measured_papers || 0).toLocaleString() + ' of ' + c.papers.toLocaleString() + ' credited pieces, ' +
+      Math.round(100 * (c.measured_papers || 0) / c.papers) + '%, so far' : '?');
     const sm = m.short_model;
     set('shortModel', sm ? sm.folds + '-fold, ' + sm.trained_rows.toLocaleString() + ' measured pieces; precision ' + sm.precision + ', recall ' + sm.recall +
       ', F1 ' + sm.f1 + ' (a journal-only guess: F1 ' + sm.baseline_f1 + ')' : 'not trained yet');

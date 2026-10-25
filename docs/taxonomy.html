@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Subject Areas · Law School Rankings</title>
+  <meta name="description" content="The subject areas of law-faculty scholarship used to group specialty journals: the tree, how it was built, and its sources.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;0,700;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="insights.css">
+  <script>/* the masthead for this visit: one of ten (style.css, html[data-mast]); the next one on the next visit */(function(){var F=['','EB+Garamond:wght@500','Cormorant+Garamond:wght@600','Crimson+Pro:wght@500','Libre+Caslon+Text','Playfair+Display+SC','Cinzel:wght@500','Zilla+Slab:wght@600','EB+Garamond:ital,wght@1,500','Source+Serif+4:wght@600'],v;try{v=sessionStorage.getItem('lsr.mast');if(!v){var n=+(localStorage.getItem('lsr.mastN')||Math.floor(Math.random()*10));v=String(n%10+1);localStorage.setItem('lsr.mastN',String(n+1));sessionStorage.setItem('lsr.mast',v);}}catch(e){v=String(1+Math.floor(Math.random()*10));}var q=/[?&]mast=(10|[1-9])\b/.exec(location.search);if(q)v=q[1];document.documentElement.setAttribute('data-mast',v);if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
+</head>
+<body class="ins">
+<div class="container">
+  <div class="lsr-mast-wrap">
+    <header class="lsr-mast">
+      <p class="lsr-issue"><a href="history.html" title="Version history (major.data.site)">Volume <span id="mhVolume">&nbsp;</span></a><span class="lsr-stamp" id="mhStamp" title="Last substantive data update (Unix time)">&nbsp;</span></p>
+      <h1 class="lsr-mark"><a href="./">Law School Rankings</a></h1>
+      <div class="lsr-foot">
+        <a class="lsr-about back" href="./">Rankings</a>
+        <span class="lsr-note">Subject areas</span>
+      </div>
+    </header>
+  </div>
+
+  <div class="ins-hero">
+    <p class="ins-kicker">Subject areas</p>
+    <h2 class="ins-title">How the specialty journals are grouped</h2>
+    <p class="ins-dek">Thirteen subject areas of law-faculty scholarship, each split into fields, topics and, where the work is large enough, sub-topics. Every specialty journal sits in one field. This page shows the tree, how it was built, the close calls, and every source behind it.</p>
+    <nav class="ins-toc" aria-label="Sections">
+      <a href="#tree"><span>1</span>The tree</a>
+      <a href="#how"><span>2</span>How it was built</a>
+      <a href="#sources"><span>3</span>Sources</a>
+    </nav>
+  </div>
+
+  <p class="loading ins-loading" id="loading">Loading the tree…</p>
+
+  <section class="ins-section" id="tree" hidden>
+    <header class="ins-head">
+      <p class="ins-q">1</p>
+      <h2>The tree</h2>
+      <p class="ins-lede">Open an area to see its fields, a field to see its topics and the specialty journals placed there (with their W&amp;L rank and the school that publishes them). Counts are papers by current faculty whose titles fall under the node (<span id="snapshot"></span>); one paper can fall under several nodes.</p>
+    </header>
+    <div class="ins-filters" role="search">
+      <label>Find <input type="search" id="find" class="ctl-select tx-find" placeholder="a topic or a journal, e.g. privacy" aria-label="Find a topic or journal"></label>
+      <button type="button" class="ins-chip" id="openAll">Open all</button>
+      <button type="button" class="ins-chip" id="closeAll">Close all</button>
+      <span class="text-muted" id="findNote"></span>
+    </div>
+    <div class="tx-tree" id="areas"></div>
+
+    <h3 class="tx-sub" id="approaches-head">Approaches: a second set of tags, not more areas</h3>
+    <p class="tx-p">Empirical legal studies, law and economics, law and psychology, law and society, legal history and critical theory are real communities, but they cut across subjects: only about 11% of papers carry an approach signal, and 91% of those also have a subject. So they are not areas. Their journals (the Journal of Empirical Legal Studies, the Journal of Legal Studies and the like) form the rankings' "Interdisciplinary Methods" group, kept apart from the thirteen subject areas; each approach below opens onto the subject fields where it is most over-represented.</p>
+    <div class="tx-tree" id="approaches"></div>
+  </section>
+
+  <section class="ins-section prose tx-prose" id="how" hidden>
+    <header class="ins-head">
+      <p class="ins-q">2</p>
+      <h2>How it was built</h2>
+    </header>
+    <p>We started from how law professors divide their own field, checked that against library and research classifications, and tested the result against this site's own data: the titles of about 107,000 papers by current faculty, and which fields the same people publish in. Where the three agreed, we followed them. Where they disagreed, we usually followed the professors' own lists when the data margin was small, and the data when the lists were silent or split.</p>
+
+    <h3>1. How professors divide their own field</h3>
+    <p>Fourteen schemes that law professors or law faculties wrote down: <a href="https://leiterreports.com/2022/02/17/citation-counts-vary-by-field-2016-2020-edition/">Brian Leiter's most-cited-by-specialty lists</a>, <a href="https://jotwell.com/">Jotwell's sections</a>, the <i>U.S. News</i> specialty list, the "areas of study" pages at <a href="https://hls.harvard.edu/academics/programs-of-study/">Harvard</a>, <a href="https://www.law.nyu.edu/areasofstudy">NYU</a>, <a href="https://www.law.columbia.edu/faculty-and-scholarship/all-faculty">Columbia</a>, <a href="https://law.stanford.edu/directory/">Stanford</a>, <a href="https://www.law.berkeley.edu/academics/areas-of-study/">Berkeley</a> and <a href="https://www.law.georgetown.edu/academics/areas-of-study/">Georgetown</a>, <a href="https://digitalcommons.wayne.edu/slisfrp/148">Peter Hook's map</a> of which courses the same teacher teaches, the field coding in <a href="https://appext.hks.harvard.edu/publications/getFile.aspx?Id=1543">Bonica, Chilton, Rozema and Sen (2018)</a>, and the areas new law teachers list together in <a href="https://www.lawskyprojects.org/explore">Sarah Lawsky's hiring data</a> (1,645 hires, 2011–2026). Two more (<a href="https://michigan.law.umich.edu/faculty-and-scholarship/our-faculty">Michigan's faculty areas</a> and the <a href="https://fedsoc.org/practice-groups">Federalist Society practice groups</a>) were seen only in search snippets and are marked unverified. A field became an area if it stands alone in at least 7 of the 14 schemes. That rule gives 13 areas: constitutional law and criminal law stand alone in all 14, health law in 7.</p>
+
+    <h3>2. Library and research classifications</h3>
+    <p>The areas, fields and topics were matched node by node against 11 classification schemes: the <a href="https://www.loc.gov/aba/cataloging/classification/lcco/lcco_k.pdf">Library of Congress classification for law</a>, <a href="http://web.archive.org/web/20231102001836/https://www.ssrn.com/index.cfm/en/lsn/lsn-ejournals/">SSRN's Legal Scholarship Network</a> (an archived copy), the <a href="https://aals.org/app/uploads/2024/12/Mailing-List-Codes.pdf">AALS subject codes</a>, the <a href="https://www.abs.gov.au/statistics/classifications/australian-and-new-zealand-standard-research-classification-anzsrc/latest-release">Australian and New Zealand research classification</a>, the economists' <a href="https://www.aeaweb.org/econlit/jelCodes.php?view=jel">JEL codes</a>, the <a href="https://static.helpjuice.com/helpjuice_production/uploads/upload/image/15882/6567884/Disciplines_taxonomy_2026-06.pdf">bepress Digital Commons disciplines</a>, Jotwell, Leiter's lists, the West Key Number System's top headings, and <a href="https://api.openalex.org/topics?filter=subfield.id:3308&amp;per-page=200">OpenAlex topics</a> (machine-made, for contrast only). These schemes agree closely on fields (roughly 20 to 25 recognizable units) and much less on how to group them into a handful of areas, which is why the professors' own groupings set the top level. Every node in the tree above lists the scheme nodes it matches; a node with none rests on the title data alone (mostly the finer topics).</p>
+
+    <h3>3. This site's own data</h3>
+    <p>Each faculty paper title was tagged with topics by a fixed dictionary (in a 200-tag audit, about 88% of tags were correct). To see whether two fields belong together, we asked whether the <em>same people</em> publish in both more often than chance predicts (each person's own papers not counted toward their own field). 64 of the 68 fields are closest to their own area by one measure (cosine) and 45 by both (cosine and lift). A standard community-detection score (modularity) is 0.0517 for this tree; the best 13-area arrangement we tried scored 0.0523, and the one following the professors' lists most literally 0.0500.</p>
+
+    <h3>What was merged, split or moved, and why</h3>
+    <ul>
+      <li><b>Trusts &amp; estates join Tax</b> rather than Property: trusts-and-estates scholars publish with tax scholars about six times more often than chance, Hook's teaching map has a "Taxation/Wealth Preservation" cluster, and the AALS codes cross-reference the two.</li>
+      <li><b>Property joins Environment and Natural Resources</b>: property stands alone in only 5 of the 14 schemes, its most frequent partner in the hiring data is environmental law, and so is its strongest publishing link after the constitutional-law hub.</li>
+      <li><b>Family law joins Civil Rights &amp; Equality</b>: family, gender and antidiscrimination scholars form one publishing community, and NYU and Columbia both use "Family, Gender &amp; Sexuality". Cross-listed with Health through reproduction.</li>
+      <li><b>Evidence, juries and trials sit in Criminal Law</b>: their scholars publish (narrowly) more with criminal-law than with civil-procedure scholars, and new teachers list criminal procedure and evidence together. Cross-listed under Courts.</li>
+      <li><b>Disability, mental health and elder law join Health</b>, where their scholars publish most.</li>
+      <li><b>Law &amp; religion sits in Constitutional &amp; Public Law</b>, as in the Library of Congress and AALS schemes; cross-listed under Legal Theory.</li>
+      <li><b>Immigration sits in Civil Rights &amp; Equality</b>, the closest call in the tree; cross-listed under International (human rights).</li>
+      <li><b>Science sits with technology</b> in "Science, Technology &amp; IP", following the Australian and New Zealand classification, bepress and W&amp;L's own subject list; biotechnology and genetics are cross-listed under Health.</li>
+      <li><b>Intellectual property sits under Science, Technology &amp; IP</b>: IP and technology journals share the same authors in every test (NYU's "Antitrust, IP &amp; Information", Georgetown's "Technology, Communication, and IP").</li>
+      <li><b>Privacy is its own field</b> under Science, Technology &amp; IP: data-protection regulation, government surveillance (cross-linked to the Fourth Amendment), health and genetic privacy, privacy theory and torts.</li>
+      <li><b>Federal Indian law sits in Property, Environment &amp; Natural Resources</b>, its nearest area by both measures; cross-listed under Civil Rights and International.</li>
+      <li><b>Legal education is kept apart from education law</b>; <b>torts and remedies sit in Courts, Litigation &amp; Dispute Resolution</b>; <b>antitrust stays in Business</b>, cross-listed under Science, Technology &amp; IP.</li>
+    </ul>
+
+    <h3>How journals are placed</h3>
+    <p>Each specialty journal sits on one primary field (plus secondary ones), from the share of its faculty papers in each field, mostly papers since 2016, checked against the journal's own description of its scope; about 40 hand decisions (mostly ties and scope questions) each record why. A few generalist policy journals count for nothing toward a field, forums and online companions count half, and the method journals define an approach rather than a subject. Two independent mappings agree on 180 of 193 journals. Journals ranked by W&amp;L after the mapping was made take the field of their W&amp;L subject until they are placed by hand.</p>
+
+    <h3>Known limits</h3>
+    <ul>
+      <li><b>Titles only.</b> Topics come from paper titles: about 9% of papers get no subject, and roughly one tag in nine is wrong.</li>
+      <li><b>Approach counts are floors</b>, from title cues and their own journals; legal history rests on title cues alone.</li>
+      <li><b>Thin venue coverage for some fields</b>: no collected specialty journal centres on jurisprudence, legal history or law and religion, so those are measured from titles in general law reviews.</li>
+      <li><b>Current faculty only</b>: older years show today's faculty's early work, not the field as it was.</li>
+      <li><b>Close calls are close.</b> Immigration, science, law and religion, evidence and juries, antitrust, education law and family law could each defensibly sit elsewhere; each is cross-listed in its runner-up area.</li>
+      <li><b>One snapshot.</b> Counts come from the data of <span class="snap"></span>; they shift a little as the data grow.</li>
+    </ul>
+  </section>
+
+  <section class="ins-section" id="sources" hidden>
+    <header class="ins-head">
+      <p class="ins-q">3</p>
+      <h2>Sources</h2>
+      <p class="ins-lede">Every outside source cited in the tree, with what it supports. "Unverified" marks sources seen only in search snippets or behind blocked pages.</p>
+    </header>
+    <div class="ins-filters">
+      <label>Find <input type="search" id="findSource" class="ctl-select tx-find" placeholder="e.g. Leiter, SSRN, privacy" aria-label="Find a source"></label>
+      <span class="text-muted" id="sourceNote"></span>
+    </div>
+    <div class="tx-sources" id="sourceList"></div>
+  </section>
+
+  <footer class="page-footer" id="footer"></footer>
+</div>
+<script src="masthead.js"></script>
+<script src="taxonomy.js"></script>
+</body>
+</html>
