@@ -19,12 +19,12 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 /* ---------- masthead: ten professional wordmarks, a different one on each visit (2026-10-25) ----------
    The owner: "come up with 10 different versions of the header logo. Cycle through them. None should be cyberpunk.
    All should look very professional. A user gets a different one on each visit." A one-line script in each page's
-   <head> sets html[data-mast="1".."10"] (one per visit, the next one on the next visit) and loads only that
+   <head> sets [data-mast="1".."10"] (one per visit, the next one on the next visit) and loads only that
    variant's font. All keep the law-review layout measured from 139 Harv. L. Rev. 1: the version line above, the
    framed wordmark, the About button below; sizes scale with the wordmark, --k fits wider faces to the same width. */
-.lsr-mast-wrap { container-type: inline-size; display: flex; justify-content: center; padding: 22px 0 16px; }
+.lsr-mast-wrap { container-type: inline-size; display: flex; justify-content: center; padding: 22px 0 16px; overflow-x: clip; }
 .lsr-mast {
-  --ink: #000; --paper: #fff; --fi: max(11px, 0.486em); --k: 1; --ls: 0.170em; --face: 'Alegreya', 'Libre Caslon Text', Georgia, serif; --weight: 450;
+  --ink: #000; --paper: #fff; --fi: max(11px, calc(0.486em / var(--k))); --k: 1; --ls: 0.170em; --face: 'Alegreya', 'Libre Caslon Text', Georgia, serif; --weight: 450;
   font-size: clamp(15px, 5.6vw, 3rem);
   font-size: clamp(15px, calc(var(--k) * 100cqi / 16.4), calc(var(--k) * 3rem));
   display: inline-grid; grid-template-columns: minmax(0, max-content); max-width: 100%; margin: 0; color: var(--ink);
@@ -48,37 +48,137 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 .lsr-mark > a { display: inline-block; margin-right: calc(-1 * var(--ls)); color: inherit; }
 .lsr-mark > a:hover { text-decoration: none; }
 /* 2. double rule, Garamond */
-html[data-mast="2"] .lsr-mast { --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.16em; }
-html[data-mast="2"] .lsr-mark { border: max(3px, 0.11em) double var(--ink); }
+[data-mast="2"] .lsr-mast { --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.16em; }
+[data-mast="2"] .lsr-mark { border: max(3px, 0.11em) double var(--ink); }
 /* 3. Oxford blue: rules above and below, no sides */
-html[data-mast="3"] .lsr-mast { --ink: #14213d; --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --k: 0.99; --ls: 0.15em; }
-html[data-mast="3"] .lsr-mark { border-width: max(2px, 0.08em) 0; box-shadow: inset 0 0.07em 0 var(--paper), inset 0 0.1em 0 var(--ink), inset 0 -0.07em 0 var(--paper), inset 0 -0.1em 0 var(--ink); }
+[data-mast="3"] .lsr-mast { --ink: #14213d; --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --k: 0.99; --ls: 0.15em; }
+[data-mast="3"] .lsr-mark { border-width: max(2px, 0.08em) 0; box-shadow: inset 0 0.07em 0 var(--paper), inset 0 0.1em 0 var(--ink), inset 0 -0.07em 0 var(--paper), inset 0 -0.1em 0 var(--ink); }
 /* 4. cardinal, a fine frame */
-html[data-mast="4"] .lsr-mast { --ink: #8c1515; --face: 'Crimson Pro', Georgia, serif; --weight: 500; --k: 1.07; --ls: 0.15em; }
-html[data-mast="4"] .lsr-mark { border-width: max(1px, 0.04em); }
+[data-mast="4"] .lsr-mast { --ink: #8c1515; --face: 'Crimson Pro', Georgia, serif; --weight: 500; --k: 1.07; --ls: 0.15em; }
+[data-mast="4"] .lsr-mark { border-width: max(1px, 0.04em); }
 /* 5. ink panel, letters reversed out */
-html[data-mast="5"] .lsr-mast { --ink: #1f2a37; --face: 'Libre Caslon Text', Georgia, serif; --weight: 400; --k: 0.9; --ls: 0.16em; }
-html[data-mast="5"] .lsr-mark { background: var(--ink); color: #fff; }
+[data-mast="5"] .lsr-mast { --ink: #1f2a37; --face: 'Libre Caslon Text', Georgia, serif; --weight: 400; --k: 0.9; --ls: 0.16em; }
+[data-mast="5"] .lsr-mark { background: var(--ink); color: #fff; }
 /* 6. small caps with an inner hairline */
-html[data-mast="6"] .lsr-mast { --face: 'Playfair Display SC', Georgia, serif; --weight: 400; --k: 1.03; --ls: 0.12em; }
-html[data-mast="6"] .lsr-mark { outline: 1px solid var(--ink); outline-offset: calc(-1 * max(5px, 0.2em)); }
+[data-mast="6"] .lsr-mast { --face: 'Playfair Display SC', Georgia, serif; --weight: 400; --k: 1.03; --ls: 0.12em; }
+[data-mast="6"] .lsr-mark { outline: 1px solid var(--ink); outline-offset: calc(-1 * max(5px, 0.2em)); }
 /* 7. engraved capitals, bronze ink, frame within a frame */
-html[data-mast="7"] .lsr-mast { --ink: #5b4520; --face: 'Cinzel', 'Trajan Pro', Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.14em; }
-html[data-mast="7"] .lsr-mark { border-width: max(1px, 0.04em); box-shadow: inset 0 0 0 max(3px, 0.12em) var(--paper), inset 0 0 0 max(4px, 0.16em) var(--ink); }
+[data-mast="7"] .lsr-mast { --ink: #5b4520; --face: 'Cinzel', 'Trajan Pro', Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.14em; }
+[data-mast="7"] .lsr-mark { border-width: max(1px, 0.04em); box-shadow: inset 0 0 0 max(3px, 0.12em) var(--paper), inset 0 0 0 max(4px, 0.16em) var(--ink); }
 /* 8. slab serif, heavy frame */
-html[data-mast="8"] .lsr-mast { --ink: #26282b; --face: 'Zilla Slab', Rockwell, Georgia, serif; --weight: 600; --k: 1.04; --ls: 0.11em; }
-html[data-mast="8"] .lsr-mark { border-width: max(2.5px, 0.1em); }
+[data-mast="8"] .lsr-mast { --ink: #26282b; --face: 'Zilla Slab', Rockwell, Georgia, serif; --weight: 600; --k: 1.04; --ls: 0.11em; }
+[data-mast="8"] .lsr-mark { border-width: max(2.5px, 0.1em); }
 /* 9. Garamond italic, title case, burgundy */
-html[data-mast="9"] .lsr-mast { --ink: #6d1a2b; --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 1.35; --ls: 0.02em; }
-html[data-mast="9"] .lsr-mark { font-style: italic; text-transform: none; }
+[data-mast="9"] .lsr-mast { --ink: #6d1a2b; --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 1.35; --ls: 0.02em; }
+[data-mast="9"] .lsr-mark { font-style: italic; text-transform: none; }
 /* 10. modern serif, small capitals between a hairline and a heavy rule */
-html[data-mast="10"] .lsr-mast { --face: 'Source Serif 4', Georgia, serif; --weight: 600; --k: 0.98; --ls: 0.14em; }
-html[data-mast="10"] .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15em); }
+[data-mast="10"] .lsr-mast { --face: 'Source Serif 4', Georgia, serif; --weight: 600; --k: 0.98; --ls: 0.14em; }
+[data-mast="10"] .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15em); }
+
+/* ---------- 11-30 (2026-10-25, the owner: "Have like 20-30 versions of the logo. Some inspired by minimalism. Some by
+   glassmorphism. Some colorful. Some Gaussian blur. Basically i want expressiveness in the logo") ----------
+   11-15 minimal, 16-20 glass, 21-25 colorful, 26-30 soft blur. The words sit in spans (.w1-.w3) for the variants that
+   color them one by one. --k (calibrated) fits each face to the same width as 1. */
+.lsr-mark > a > span { display: inline; }
+
+/* 11. minimal: hairline sans, wide tracking, one rule under it */
+[data-mast="11"] .lsr-mast { --ink: #111; --face: 'Montserrat', Helvetica, Arial, sans-serif; --weight: 200; --ls: 0.3em; --k: 0.88; }
+[data-mast="11"] .lsr-mark { border: 0; border-bottom: 1px solid var(--ink); padding: 0.16em 0 0.24em; }
+/* 12. minimal: a lowercase Didone and a red full stop */
+[data-mast="12"] .lsr-mast { --ink: #151515; --face: 'Bodoni Moda', Didot, 'Bodoni 72', Georgia, serif; --weight: 500; --ls: 0.005em; --k: 1.4; }
+[data-mast="12"] .lsr-mark { border: 0; padding: 0.04em 0.1em 0.12em; text-transform: lowercase; font-style: italic; }
+[data-mast="12"] .lsr-mark > a::after { content: "."; color: #c8102e; font-style: normal; }
+/* 13. minimal: monospace in brackets */
+[data-mast="13"] .lsr-mast { --ink: #1b1b1b; --face: 'IBM Plex Mono', Menlo, Consolas, monospace; --weight: 400; --ls: 0.04em; --k: 1.08; }
+[data-mast="13"] .lsr-mark { border: 0; padding: 0.1em 0; text-transform: lowercase; }
+[data-mast="13"] .lsr-mark > a::before { content: "[\00a0"; color: #a3a3a3; }
+[data-mast="13"] .lsr-mark > a::after { content: "\00a0]"; color: #a3a3a3; }
+/* 14. minimal: Swiss, heavy grotesque, a red square */
+[data-mast="14"] .lsr-mast { --ink: #111; --face: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif; --weight: 400; --ls: -0.01em; --k: 1.26; }
+[data-mast="14"] .lsr-mark { position: relative; border: 0; padding: 0.06em 0 0.08em 0.92em; text-transform: none; }
+[data-mast="14"] .lsr-mark::before { content: ""; position: absolute; left: 0; top: 0.27em; width: 0.6em; height: 0.6em; background: #e30613; }
+/* 15. minimal: light serif, airy tracking, two vertical rules */
+[data-mast="15"] .lsr-mast { --ink: #2a2a2a; --face: 'Cormorant', 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 300; --ls: 0.4em; --k: 0.79; }
+[data-mast="15"] .lsr-mark { border: 0; border-left: 1px solid var(--ink); border-right: 1px solid var(--ink); padding: 0.04em 0.75em 0.08em; }
+
+/* glass: a frosted pane (translucent, backdrop blur, light edge) over soft color behind it */
+[data-mast="16"] .lsr-mast, [data-mast="17"] .lsr-mast, [data-mast="18"] .lsr-mast, [data-mast="19"] .lsr-mast, [data-mast="20"] .lsr-mast,
+[data-mast="27"] .lsr-mast, [data-mast="29"] .lsr-mast, [data-mast="30"] .lsr-mast { isolation: isolate; }
+[data-mast="16"] .lsr-mark, [data-mast="17"] .lsr-mark, [data-mast="18"] .lsr-mark, [data-mast="19"] .lsr-mark, [data-mast="20"] .lsr-mark {
+  position: relative; border: 1px solid rgba(255, 255, 255, 0.75); border-radius: 0.42em; background: rgba(255, 255, 255, 0.34);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
+  box-shadow: 0 0.28em 0.9em rgba(31, 38, 105, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+[data-mast="16"] .lsr-mark::before, [data-mast="17"] .lsr-mark::before, [data-mast="18"] .lsr-mark::before, [data-mast="19"] .lsr-mark::before,
+[data-mast="20"] .lsr-mark::before { content: ""; position: absolute; z-index: -1; inset: -0.32em -0.55em; border-radius: 0.8em; filter: blur(9px); }
+/* 16. glass over pink, blue and lilac */
+[data-mast="16"] .lsr-mast { --ink: #1d2340; --face: 'Plus Jakarta Sans', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0.13em; --k: 0.98; }
+[data-mast="16"] .lsr-mark::before { background: radial-gradient(38% 80% at 14% 40%, #ff8fc4 0, transparent 70%), radial-gradient(42% 90% at 86% 60%, #6ec3ff 0, transparent 72%), radial-gradient(34% 70% at 52% 20%, #c2a3ff 0, transparent 70%); }
+/* 17. dark glass at dusk */
+[data-mast="17"] .lsr-mast { --ink: #16203a; --face: 'DM Serif Display', Georgia, serif; --weight: 400; --ls: 0.06em; --k: 1.3; }
+[data-mast="17"] .lsr-mark { color: #fff; text-transform: none; border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.1); box-shadow: 0 0.3em 1em rgba(10, 14, 40, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+[data-mast="17"] .lsr-mark::before { filter: none; inset: -0.22em -0.4em; background: radial-gradient(30% 90% at 72% 30%, rgba(255, 179, 71, 0.85) 0, transparent 70%), linear-gradient(115deg, #0f2027, #203a43 45%, #2c5364); }
+/* 18. glass under an aurora */
+[data-mast="18"] .lsr-mast { --ink: #0c2d3e; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.1em; --k: 0.96; }
+[data-mast="18"] .lsr-mark { border-radius: 0.6em; }
+[data-mast="18"] .lsr-mark::before { background: linear-gradient(100deg, #43e7c4 0%, #3aa3ff 38%, #8a5cff 70%, #ff7ad9 100%); opacity: 0.85; }
+/* 19. a glass pill over peach and lilac */
+[data-mast="19"] .lsr-mast { --ink: #3d2241; --face: 'Fraunces', Georgia, serif; --weight: 600; --ls: 0.02em; --k: 1.27; }
+[data-mast="19"] .lsr-mark { border-radius: 999px; padding-left: 1.1em; padding-right: 1.1em; text-transform: none; font-style: italic; }
+[data-mast="19"] .lsr-mark::before { border-radius: 999px; background: radial-gradient(45% 100% at 20% 50%, #ffb38a 0, transparent 70%), radial-gradient(45% 100% at 80% 50%, #c7a0ff 0, transparent 70%); }
+/* 20. two panes of glass, offset, over mint and sky */
+[data-mast="20"] .lsr-mast { --ink: #12343b; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.16em; --k: 0.98; }
+[data-mast="20"] .lsr-mark { box-shadow: 0.3em 0.3em 0 -1px rgba(255, 255, 255, 0.45), 0.3em 0.3em 0 0 rgba(18, 52, 59, 0.12), 0 0.3em 1em rgba(18, 52, 59, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+[data-mast="20"] .lsr-mark::before { background: radial-gradient(40% 90% at 25% 45%, #8ff0c8 0, transparent 70%), radial-gradient(45% 90% at 78% 55%, #8fd3ff 0, transparent 70%); }
+
+/* 21. colorful: a sunset gradient in the letters */
+[data-mast="21"] .lsr-mast { --ink: #3b1a4a; --face: 'Poppins', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.01em; --k: 1.4; }
+[data-mast="21"] .lsr-mark { border: 0; padding: 0.02em 0 0.08em; text-transform: none; }
+[data-mast="21"] .lsr-mark > a { background: linear-gradient(90deg, #ff7a18, #ff3d77 45%, #7b2ff7); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* 22. colorful: Bauhaus, one primary color a word */
+[data-mast="22"] .lsr-mast { --ink: #111; --face: 'Bricolage Grotesque', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0; --k: 1.4; }
+[data-mast="22"] .lsr-mark { border: 0; padding: 0.04em 0 0.1em; text-transform: none; }
+[data-mast="22"] .lsr-mark .w1 { color: #d62828; } [data-mast="22"] .lsr-mark .w2 { color: #0047ab; }
+[data-mast="22"] .lsr-mark .w3 { color: #111; box-shadow: inset 0 -0.28em 0 #ffc300; }
+/* 23. colorful: risograph, two inks slightly out of register */
+[data-mast="23"] .lsr-mast { --ink: #1a1a1a; --face: 'Space Grotesk', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.05em; --k: 1.24; --paper: #fbf6ea; }
+[data-mast="23"] .lsr-mark { border: 0; padding: 0.14em 0.4em; background: #fbf6ea; color: #ff4f9a; text-shadow: 0.045em 0.04em 0 #0078bf; }
+/* 24. colorful: a block of color behind each word */
+[data-mast="24"] .lsr-mast { --ink: #1c1c1c; --face: 'Syne', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.02em; --k: 0.87; }
+[data-mast="24"] .lsr-mark { border: 0; padding: 0.12em 0 0.16em; text-transform: none; }
+[data-mast="24"] .lsr-mark > a > span { color: #fff; padding: 0.02em 0.16em 0.06em; border-radius: 0.12em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+[data-mast="24"] .lsr-mark .w1 { background: #ff5a5f; } [data-mast="24"] .lsr-mark .w2 { background: #00a6a6; } [data-mast="24"] .lsr-mark .w3 { background: #5b4bdb; }
+/* 25. colorful: pop, yellow card, hard shadow */
+[data-mast="25"] .lsr-mast { --ink: #111; --face: 'Anton', Impact, 'Arial Narrow', sans-serif; --weight: 400; --ls: 0.04em; --k: 1.25; }
+[data-mast="25"] .lsr-mark { background: #ffde21; border: max(2px, 0.06em) solid #111; box-shadow: 0.12em 0.12em 0 #111; color: #111; text-shadow: 0.05em 0.05em 0 #ff3d7f; }
+
+/* 26. soft blur: a dreamy glow around italic letters */
+[data-mast="26"] .lsr-mast { --ink: #2d1b4e; --face: 'Playfair Display', Georgia, serif; --weight: 400; --ls: 0.03em; --k: 1.4; }
+[data-mast="26"] .lsr-mark { border: 0; padding: 0.06em 0.2em 0.12em; text-transform: none; font-style: italic; text-shadow: 0 0 0.3em rgba(255, 112, 180, 0.55), 0 0 0.9em rgba(110, 120, 255, 0.45); }
+/* 27. soft blur: crisp letters before blurred orbs */
+[data-mast="27"] .lsr-mast { --ink: #14213d; --face: 'Manrope', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0.12em; --k: 1.03; }
+[data-mast="27"] .lsr-mark { position: relative; border: 0; background: transparent; }
+[data-mast="27"] .lsr-mark::before { content: ""; position: absolute; z-index: -1; inset: -0.2em -0.3em; filter: blur(16px); opacity: 0.8;
+  background: radial-gradient(22% 70% at 15% 55%, #ff9e6d 0, transparent 70%), radial-gradient(24% 80% at 50% 35%, #78e3c9 0, transparent 70%), radial-gradient(22% 70% at 85% 60%, #9d8cff 0, transparent 70%); }
+/* 28. soft blur: a motion trail */
+[data-mast="28"] .lsr-mast { --ink: #101820; --face: 'Unbounded', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.04em; --k: 0.97; }
+[data-mast="28"] .lsr-mark { border: 0; padding: 0.06em 0 0.1em 0.3em;
+  text-shadow: -0.06em 0 0.04em rgba(16, 24, 32, 0.28), -0.16em 0 0.1em rgba(16, 24, 32, 0.15), -0.3em 0 0.18em rgba(16, 24, 32, 0.08), -0.48em 0 0.26em rgba(16, 24, 32, 0.04); }
+/* 29. soft blur: depth of field, the letters sharp, the frame out of focus */
+[data-mast="29"] .lsr-mast { --ink: #2b2118; --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 500; --ls: 0.16em; --k: 0.98; }
+[data-mast="29"] .lsr-mark { position: relative; border-color: transparent; background: transparent; }
+[data-mast="29"] .lsr-mark::before { content: ""; position: absolute; z-index: -1; inset: -0.12em; border: max(2px, 0.07em) solid #8b6b4a; filter: blur(2.5px); opacity: 0.75; }
+[data-mast="29"] .lsr-mark::after { content: ""; position: absolute; z-index: -1; inset: 0.14em; border: 1px solid rgba(139, 107, 74, 0.35); filter: blur(1px); }
+/* 30. soft blur: letters out of a morning fog */
+[data-mast="30"] .lsr-mast { --ink: #23384a; --face: 'Quicksand', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.14em; --k: 1.0; }
+[data-mast="30"] .lsr-mark { position: relative; border: 0; background: transparent; text-shadow: 0 0 0.14em rgba(35, 56, 74, 0.35); }
+[data-mast="30"] .lsr-mark::before { content: ""; position: absolute; z-index: -1; inset: -0.1em -0.4em; filter: blur(12px);
+  background: radial-gradient(60% 90% at 50% 50%, rgba(176, 205, 228, 0.85) 0, rgba(176, 205, 228, 0.35) 55%, transparent 75%); }
 .lsr-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.32em; }
-.lsr-note { margin-left: auto; font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: max(12px, 0.323em); letter-spacing: 0.04em; text-align: right; }
+.lsr-note { margin-left: auto; font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: max(12px, calc(0.323em / var(--k))); letter-spacing: 0.04em; text-align: right; }
 .lsr-about {
   display: inline-flex; align-items: center; gap: 0.45em; min-height: 32px; padding: 0 0.85em 0 0.95em;
-  font-family: 'Noto Serif', Georgia, serif; font-weight: 700; font-size: max(12px, 0.27em); line-height: 1;
+  font-family: 'Noto Serif', Georgia, serif; font-weight: 700; font-size: max(12px, calc(0.27em / var(--k))); line-height: 1;
   letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-decoration: none;
   background: var(--paper); border: 1px solid currentColor; border-radius: 2px; cursor: pointer; transition: background-color .15s, color .15s;
 }
@@ -252,4 +352,3 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: point
 .works-lede { margin: 0 0 4px; color: #333; }
 .works-list { margin: 0; padding-left: 1.1em; }
 .works-list li { margin: 2px 0; line-height: 1.35; }
-.works-more { margin-left: 4px; font-size: 11px; font-variant: small-caps; letter-spacing: .04em; color: #337ab7; }

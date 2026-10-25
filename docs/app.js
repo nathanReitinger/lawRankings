@@ -513,7 +513,7 @@
     return n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' in ' + DATA.subjects[fi] + ', all years (' +
       js.map(([ji, k]) => DATA.journals[ji][0] + (k > 1 ? ' ×' + k : '')).join(', ') + (listed < n ? ', …' : '') + ')';
   }
-  // the field a journal's articles count toward (build_data.py: data.field_of; -1 none), as on "Who works on what"
+  // the field a journal's articles count toward (build_data.py: data.field_of; -1 none), as in the tags
   const fieldOfJournal = (ji) => (DATA.field_of ? DATA.field_of[ji] : (DATA.journals[ji][3] && DATA.journals[ji][3].length ? DATA.journals[ji][3][0][0] : -1));
 
   // the drop-down's "What they work on": their articles in specialty journals in the chosen years, by field, with the
@@ -540,12 +540,9 @@
         state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') + '.</p></div>';
     }
     const top = DATA.subjects[fields[0][0]];
-    // (review) the link carries the person and the filters, so the other page shows the same numbers
-    const more = (f) => 'scholars.html#f=' + encodeURIComponent(DATA.subjects[f]) + '&p=' + encodeURIComponent(DATA.people[person][0]) +
-      '&y=' + state.from + '-' + state.to + '&r=' + state.region + '&m=' + (state.minor ? 1 : 0);
     const lines = fields.map(([f, n, js]) => '<li><b>' + esc(DATA.subjects[f]) + '</b> <span class="text-muted">' + n + '</span> · ' +
       js.slice(0, 3).map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') +
-      (js.length > 3 ? ', …' : '') + ' <a class="works-more" href="' + esc(more(f)) + '" title="Others who publish in this field">others</a></li>').join('');
+      (js.length > 3 ? ', …' : '') + '</li>').join('');
     return '<div class="works"><div class="bars-title">What they work on, from specialty journals (' + state.from + '–' + state.to + ')</div>' +
       '<p class="works-lede">' + who + ' publishes most on <b>' + esc(top) + '</b>: ' + fields[0][1] + ' of ' + specialty + ' specialty-journal article' +
       (specialty === 1 ? '' : 's') + (flagship ? ', besides ' + flagship + ' in flagship law reviews' : '') + '.</p><ul class="works-list">' + lines + '</ul></div>';

@@ -10,14 +10,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;0,700;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="insights.css">
-  <script>/* the masthead for this visit: one of ten (style.css, html[data-mast]); the next one on the next visit */(function(){var F=['','EB+Garamond:wght@500','Cormorant+Garamond:wght@600','Crimson+Pro:wght@500','Libre+Caslon+Text','Playfair+Display+SC','Cinzel:wght@500','Zilla+Slab:wght@600','EB+Garamond:ital,wght@1,500','Source+Serif+4:wght@600'],v;try{v=sessionStorage.getItem('lsr.mast');if(!v){var n=+(localStorage.getItem('lsr.mastN')||Math.floor(Math.random()*10));v=String(n%10+1);localStorage.setItem('lsr.mastN',String(n+1));sessionStorage.setItem('lsr.mast',v);}}catch(e){v=String(1+Math.floor(Math.random()*10));}var q=/[?&]mast=(10|[1-9])\b/.exec(location.search);if(q)v=q[1];document.documentElement.setAttribute('data-mast',v);if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
+  <script>/* the masthead: one of thirty (style.css, [data-mast]), a new one on each visit and again after twenty minutes, in an order that moves between the families (minimal, glass, colorful, soft blur, classic) */(function(){var F=["","EB+Garamond:wght@500","Cormorant+Garamond:wght@600","Crimson+Pro:wght@500","Libre+Caslon+Text","Playfair+Display+SC","Cinzel:wght@500","Zilla+Slab:wght@600","EB+Garamond:ital,wght@1,500","Source+Serif+4:wght@600","Montserrat:wght@200","Bodoni+Moda:ital,wght@1,500","IBM+Plex+Mono","Archivo+Black","Cormorant:wght@300","Plus+Jakarta+Sans:wght@600","DM+Serif+Display","Sora:wght@500","Fraunces:ital,wght@1,600","Outfit:wght@500","Poppins:wght@800","Bricolage+Grotesque:wght@700","Space+Grotesk:wght@700","Syne:wght@800","Anton","Playfair+Display:ital@1","Manrope:wght@600","Unbounded:wght@500","Cormorant+Garamond:wght@500","Quicksand:wght@500"],O=[11,16,21,26,1,6,12,17,22,27,2,7,13,18,23,28,3,8,14,19,24,29,4,9,15,20,25,30,5,10],N=30,v,now=Date.now();try{var s=JSON.parse(localStorage.getItem('lsr.mast3')||'null');if(!s||!sessionStorage.getItem('lsr.mastOn')||now-s.t>12e5){var n=s?s.n+1:Math.floor(Math.random()*N);s={n:n,v:O[n%N],t:now};localStorage.setItem('lsr.mast3',JSON.stringify(s));sessionStorage.setItem('lsr.mastOn','1');}v=s.v;}catch(e){v=O[Math.floor(Math.random()*N)];}var q=/[?&]mast=([1-9]|[12][0-9]|30)\b/.exec(location.search);if(q)v=+q[1];document.documentElement.setAttribute('data-mast',v);if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
 </head>
 <body class="ins">
 <div class="container">
   <div class="lsr-mast-wrap">
     <header class="lsr-mast">
       <p class="lsr-issue"><a href="history.html" title="Version history (major.data.site)">Volume <span id="mhVolume">&nbsp;</span></a><span class="lsr-stamp" id="mhStamp" title="Last substantive data update (Unix time)">&nbsp;</span></p>
-      <h1 class="lsr-mark"><a href="./">Law School Rankings</a></h1>
+      <h1 class="lsr-mark"><a href="./"><span class="w1">Law</span> <span class="w2">School</span> <span class="w3">Rankings</span></a></h1>
       <div class="lsr-foot">
         <a class="lsr-about back" href="./">Rankings</a>
         <span class="lsr-note">Insights</span>
@@ -58,10 +58,13 @@
     <figure class="ins-card" id="figJournal">
       <figcaption>
         <h3>Who publishes in a journal</h3>
-        <p>Pick a journal. Around it are the institutions whose faculty published there in the years chosen above, and around each institution, its authors: the bigger the dot and the thicker the line, the more articles. Find the institutions that publish there most, then their most prolific authors. Tap an institution to focus on it; tap an author for their faculty page.</p>
+        <p>Pick a journal. Its institutions come first: every school whose faculty published there in the years chosen above, the bigger the dot and the thicker the line, the more articles. Click an institution to open its authors, and an author for their faculty page. The sunburst shows the same three levels as rings; click a ring to drill down, the path above it to go back.</p>
       </figcaption>
       <div class="ins-row">
         <label class="ins-pick">Journal <select id="jnJournal" class="ctl-select" aria-label="Journal"></select></label>
+        <span class="ins-seg jn-view" id="jnView" role="radiogroup" aria-label="View">
+          <button type="button" data-view="tree" aria-pressed="true">Tree</button><button type="button" data-view="sunburst" aria-pressed="false">Sunburst</button>
+        </span>
         <label class="ins-pick">Show <select id="jnTop" class="ctl-select" aria-label="How many institutions">
           <option value="10">top 10 institutions</option><option value="20" selected>top 20 institutions</option><option value="40">top 40 institutions</option>
         </select></label>
@@ -173,6 +176,11 @@
   <footer class="page-footer" id="footer"></footer>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/highcharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/treemap.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/treegraph.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/sunburst.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/accessibility.js"></script>
 <script src="masthead.js"></script>
 <script src="insights.js"></script>
 </body>

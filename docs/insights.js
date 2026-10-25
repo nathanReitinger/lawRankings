@@ -246,7 +246,7 @@
   // hunting for high publishing institutions and then within that high publishing authors.")
   // Articles by current faculty in the journal in the chosen years; an institution's count is its distinct articles
   // (one with two of its authors counts once), an author's is theirs; every institution, US or not.
-  const jn = { journal: null, top: 20, focus: null, fromList: null };
+  const jn = { journal: null, top: 20, focus: null, fromList: null, view: null, open: new Set() };   // open: institutions whose authors show
 
   function computeJournal() {
     const P = DATA.papers, C = DATA.credits, people = DATA.people;
@@ -308,129 +308,10 @@
       lede.append(' of them.');
     }
 
-    // ---- the graph: the journal in the middle, institutions on an inner ring, their authors fanned out on an outer one
-    const box = $('jnGraph');
-    const W = box.clientWidth;
-    const wide = W >= 560;
-    const S = Math.round(Math.min(W, wide ? 780 : 520));
-    const pad = wide ? 150 : 14;                  // (review) room for an author's name (up to 20 characters) beyond the ring
-    const R2 = S / 2 - pad, R1 = R2 * (wide ? 0.56 : 0.52);
-    const cx = W / 2, cy = S / 2;
-    const AUTH = wide ? 14 : 8;                   // authors drawn per institution (the list has them all)
-    const slots = shown.map((o) => Math.max(1, Math.min(AUTH, o.authors.length)) + 0.8);
-    const total = d3.sum(slots) || 1;
-    let a0 = -Math.PI / 2;
-    const maxN = shown.length ? shown[0].n : 1;
-    const maxA = d3.max(shown, (o) => (o.authors[0] ? o.authors[0][1] : 1)) || 1;
-    const accent = css('--accent');
-    const nodes = [];
-    shown.forEach((o, k) => {
-      const span = (2 * Math.PI * slots[k]) / total;
-      const mid = a0 + span / 2;
-      o.angle = mid;
-      o.x = cx + R1 * Math.cos(mid); o.y = cy + R1 * Math.sin(mid);
-      const drawn = o.authors.slice(0, AUTH);
-      o.drawn = drawn.map(([person, n], i) => {
-        const t = drawn.length === 1 ? mid : a0 + span * (0.4 + i) / (slots[k]);
-        return { person: person, n: n, angle: t, x: cx + R2 * Math.cos(t), y: cy + R2 * Math.sin(t) };
-      });
-      a0 += span;
-      nodes.push(o);
-    });
-    box.replaceChildren();
-    const svg = d3.select(box).append('svg').attr('width', W).attr('height', S).attr('viewBox', [0, 0, W, S].join(' '))
-      .attr('role', 'img').attr('aria-label', 'Institutions and authors publishing in ' + jname + ', ' + st.from + '–' + st.to);
-    const gEdges = svg.append('g'), gNodes = svg.append('g'), gLabels = svg.append('g');
-    const wInst = (n) => 1.2 + 9 * Math.sqrt(n / maxN);
-    const wAuth = (n) => 0.8 + 3.2 * Math.sqrt(n / maxA);
-    const rInst = (n) => 4 + 11 * Math.sqrt(n / maxN);
-    const rAuth = (n) => 2.6 + 3.4 * Math.sqrt(n / maxA);
-    const focusOn = (s) => (jn.focus == null || jn.focus === s);
-    const labelWanted = [];
-    const instBoxes = [];
-    let tapped = null;                            // touch: the author whose name a first tap showed
-    nodes.forEach((o) => {
-      const on = focusOn(o.s);
-      // journal -> institution
-      gEdges.append('path').attr('d', 'M' + cx + ',' + cy + 'L' + o.x + ',' + o.y).attr('stroke', accent).attr('stroke-opacity', on ? 0.45 : 0.08)
-        .attr('stroke-width', wInst(o.n)).attr('stroke-linecap', 'round').attr('fill', 'none');
-      // institution -> its authors
-      o.drawn.forEach((a) => {
-        const mx = cx + (R1 + R2) / 2 * Math.cos(a.angle), my = cy + (R1 + R2) / 2 * Math.sin(a.angle);
-        gEdges.append('path').attr('d', 'M' + o.x + ',' + o.y + 'Q' + mx + ',' + my + ' ' + a.x + ',' + a.y).attr('fill', 'none')
-          .attr('stroke', accent).attr('stroke-opacity', on ? 0.35 : 0.05).attr('stroke-width', wAuth(a.n));
-      });
-    });
-    // the journal
-    // the journal: its article count inside (its name is in the line above the graph)
-    gNodes.append('circle').attr('cx', cx).attr('cy', cy).attr('r', wide ? 26 : 19).attr('fill', css('--ink'))
-      .append('title').text(jname + ': ' + num(R.articles) + ' articles');
-    gNodes.append('text').attr('x', cx).attr('y', cy).attr('dy', '0.35em').attr('text-anchor', 'middle').attr('fill', '#fff')
-      .attr('font-size', wide ? 14 : 12).attr('font-weight', 700).attr('pointer-events', 'none').text(num(R.articles));
-    nodes.forEach((o, k) => {
-      const on = focusOn(o.s);
-      o.drawn.forEach((a) => {
-        const dot = gNodes.append('circle').attr('cx', a.x).attr('cy', a.y).attr('r', rAuth(a.n)).attr('fill', '#7fa9e3').attr('fill-opacity', on ? 1 : 0.25)
-          .attr('stroke', '#fff').attr('stroke-width', 1.5).style('cursor', DATA.people[a.person][3] ? 'pointer' : 'default');
-        const show = (evt) => showTip(evt, (t) => {
-          t.appendChild(el('div', { class: 'tt' }, DATA.people[a.person][0]));
-          t.appendChild(el('div', null, DATA.schools[o.s][0]));
-          tipLine(t, 'Articles in ' + shortName(jname, 26), String(a.n));
-          if (DATA.people[a.person][3]) t.appendChild(el('div', { class: 'text-muted' }, 'Tap for their faculty page'));
-        });
-        dot.on('pointermove', show).on('pointerleave', hideTip).on('pointerdown', (evt) => {
-          if (evt.pointerType === 'touch' && tapped !== a.person) { tapped = a.person; show(evt); dot.attr('data-first-tap', '1'); }
-        }).on('click', (evt) => {
-          // (review) on a touch screen the first tap names the author; the second opens their page
-          if (dot.attr('data-first-tap') === '1') { dot.attr('data-first-tap', null); evt.stopPropagation(); return; }
-          const url = DATA.people[a.person][3];
-          if (url) window.open(url, '_blank', 'noopener');
-        });
-        // author names (wide screens): the focused institution's authors, or authors with 2+ articles while nothing is
-        // focused; placed below, thinned so they never collide
-        if (wide && (jn.focus === o.s || (jn.focus == null && a.n >= 2))) labelWanted.push(a);
-      });
-      const dot = gNodes.append('circle').attr('cx', o.x).attr('cy', o.y).attr('r', rInst(o.n)).attr('fill', accent).attr('fill-opacity', on ? 1 : 0.3)
-        .attr('stroke', '#fff').attr('stroke-width', 2).style('cursor', 'pointer');
-      const show = (evt) => showTip(evt, (t) => {
-        t.appendChild(el('div', { class: 'tt' }, DATA.schools[o.s][0]));
-        tipLine(t, 'Articles', num(o.n));
-        tipLine(t, 'Authors', num(o.authors.length));
-        tipLine(t, 'Most', DATA.people[o.authors[0][0]][0] + ' (' + o.authors[0][1] + ')');
-      });
-      dot.on('pointermove', show).on('pointerleave', hideTip).on('click', () => { jn.focus = jn.focus === o.s ? null : o.s; renderJournal(); });
-      // institution names, outward along the spoke from the dot: the top ones always (wide: 12, phones: 4), the
-      // focused one too
-      if (k < (wide ? 12 : 4) || jn.focus === o.s) {
-        const c = Math.cos(o.angle), sn = Math.sin(o.angle), off = rInst(o.n) + 5;
-        const lab = gLabels.append('text').attr('class', 'jn-label inst').attr('x', o.x + c * off).attr('y', o.y + sn * off).attr('dy', '0.32em')
-          .attr('text-anchor', Math.abs(c) < 0.2 ? 'middle' : c > 0 ? 'start' : 'end')
-          .text(instLabel(DATA.schools[o.s][0], wide ? 16 : 12));
-        // (review) kept inside the card on narrow screens
-        let bb = lab.node().getBBox();
-        if (bb.x < 2) lab.attr('x', +lab.attr('x') + (2 - bb.x));
-        if (bb.x + bb.width > W - 2) lab.attr('x', +lab.attr('x') - (bb.x + bb.width - (W - 2)));
-        // a lower-ranked institution's name gives way when it would cover one already placed (the focused one never)
-        bb = lab.node().getBBox();
-        const hit = instBoxes.some((b) => bb.x < b.x + b.width + 3 && b.x < bb.x + bb.width + 3 && bb.y < b.y + b.height && b.y < bb.y + bb.height);
-        if (hit && jn.focus !== o.s) lab.remove(); else instBoxes.push(bb);
-      }
-    });
-    // author names, the more prolific first, none closer than 13px along the arc to one already placed
-    const minGap = 13 / (R2 + 9);
-    const placed = [];
-    labelWanted.sort((a, b) => b.n - a.n).forEach((a) => {
-      if (placed.some((t) => Math.abs(Math.atan2(Math.sin(t - a.angle), Math.cos(t - a.angle))) < minGap)) return;
-      placed.push(a.angle);
-      const deg = a.angle * 180 / Math.PI;
-      const flip = Math.cos(a.angle) < 0;
-      gLabels.append('text').attr('class', 'jn-label').attr('transform', 'translate(' + a.x + ',' + a.y + ') rotate(' + (flip ? deg + 180 : deg) + ')')
-        .attr('x', flip ? -9 : 9).attr('dy', '0.32em').attr('text-anchor', flip ? 'end' : 'start')
-        .text(shortName(DATA.people[a.person][0], 20) + (a.n > 1 ? ' ' + a.n : ''));
-    });
-    // clicking the background clears the focus
-    svg.on('click', (evt) => { if (evt.target === svg.node() && jn.focus != null) { jn.focus = null; renderJournal(); } });
-
+    // ---- the chart (Highcharts; 2026-10-25, the owner: "multiple level with first journal. Then schools of authors who
+    // publish there. Then authors themselves. You can use drill downs. Look to high charts"): a tree, journal ->
+    // institutions -> authors, an institution's authors opening when it is clicked; or a sunburst of the same levels
+    drawJournalChart(R, shown, jname);
     // ---- the list: every institution, most articles first; open one for its authors
     const listBox = $('jnList');
     listBox.replaceChildren();
@@ -470,6 +351,138 @@
       const btn = [...listBox.querySelectorAll('.jn-inst > button')].find((x) => x.dataset.s === String(jn.fromList));
       if (btn) btn.focus({ preventScroll: true });
       jn.fromList = null;
+    }
+  }
+
+  // the Highcharts view of one journal: a tree (wide screens) or a sunburst (phones, or by choice). Node sizes and line
+  // widths follow article counts: an institution's distinct articles, an author's articles there.
+  let jnChart = null;
+  function drawJournalChart(R, shown, jname) {
+    const box = $('jnGraph');
+    if (jnChart) { jnChart.destroy(); jnChart = null; }
+    box.replaceChildren();
+    if (typeof Highcharts === 'undefined') { box.appendChild(el('p', { class: 'text-muted' }, 'The chart library did not load; the list has every institution and author.')); return; }
+    const W = box.clientWidth;
+    const view = jn.view || (W >= 560 ? 'tree' : 'sunburst');
+    document.querySelectorAll('#jnView button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+    const maxN = shown.length ? d3.max(shown, (o) => o.n) : 1;
+    const maxA = d3.max(shown, (o) => (o.authors[0] ? o.authors[0][1] : 1)) || 1;
+    const ink = css('--ink'), accent = css('--accent');
+    const rS = (n) => 4 + 6 * Math.sqrt(n / maxN), rA = (n) => 3 + 3.5 * Math.sqrt(n / maxA);
+    const wS = (n) => 1 + 8 * Math.sqrt(n / maxN), wA = (n) => 1 + 3.5 * Math.sqrt(n / maxA);
+    const schoolName = (s) => (W >= 900 ? DATA.schools[s][0] : instLabel(DATA.schools[s][0], W >= 560 ? 22 : 14));
+    const data = [{ id: 'J', name: jname, custom: { kind: 'journal', n: R.articles, schools: R.list.length } }];
+    shown.forEach((o, k) => {
+      const blue = d3.interpolateRgb('#1c5cab', '#86b6ef')(shown.length > 1 ? k / (shown.length - 1) : 0);   // one hue, darker = more articles
+      const open = jn.open.has(o.s) || jn.focus === o.s;
+      // value: Highcharts orders siblings by it (an opened institution's authors would otherwise move it to the top)
+      data.push({ id: 's' + o.s, parent: 'J', name: schoolName(o.s), value: o.n, color: blue,
+        marker: { radius: rS(o.n), fillColor: blue }, link: { lineWidth: wS(o.n) },
+        custom: { kind: 'school', s: o.s, full: DATA.schools[o.s][0], n: o.n, authors: o.authors.length, top: o.authors[0], open: open } });
+      // the tree has an institution's authors only while it is open (closed ones have none, so the order stays the
+      // ranking's); the sunburst has every author
+      // a closed institution keeps an invisible placeholder child, so the tree keeps its three columns (and does not
+      // jump) as institutions open and close
+      if (view === 'tree' && !open) {
+        data.push({ id: 'p' + o.s, parent: 's' + o.s, name: '', marker: { radius: 0.01, lineWidth: 0, fillColor: 'transparent' },
+          link: { lineWidth: 0 }, dataLabels: { enabled: false }, custom: { kind: 'pad' } });
+        return;
+      }
+      o.authors.forEach(([person, n]) => {
+        data.push({ id: 'a' + person + '_' + o.s, parent: 's' + o.s, name: DATA.people[person][0], value: n, color: d3.interpolateRgb(blue, '#ffffff')(0.35),
+          marker: { radius: rA(n), fillColor: d3.interpolateRgb(blue, '#ffffff')(0.35) }, link: { lineWidth: wA(n) },
+          custom: { kind: 'author', n: n, url: DATA.people[person][3], school: DATA.schools[o.s][0], label: shortName(DATA.people[person][0], W >= 560 ? 26 : 14) } });
+      });
+    });
+    const tooltip = {
+      useHTML: false, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)', borderRadius: 8, shadow: { opacity: 0.08 },
+      style: { fontSize: '12.5px', color: css('--ink-2') },
+      formatter() {
+        const c = this.point.custom || this.custom || {};
+        if (c.kind === 'journal') return '<b>' + jname + '</b><br>' + num(c.n) + ' articles by current faculty at ' + num(c.schools) + ' institutions';
+        if (c.kind === 'school') return '<b>' + c.full + '</b><br>' + num(c.n) + ' article' + (c.n === 1 ? '' : 's') + ' by ' + c.authors + ' author' + (c.authors === 1 ? '' : 's') +
+          (c.top ? '<br>Most: ' + DATA.people[c.top[0]][0] + ' (' + c.top[1] + ')' : '') + '<br><span style="color:#898781">Click to ' + (view === 'tree' ? 'open or close its authors' : 'drill down') + '</span>';
+        if (c.kind === 'pad') return false;
+        if (c.kind === 'author') return '<b>' + this.point.name + '</b><br>' + c.school + '<br>' + c.n + ' article' + (c.n === 1 ? '' : 's') + ' in ' + jname +
+          (c.url ? '<br><span style="color:#898781">Click for their faculty page</span>' : '');
+        return false;
+      },
+    };
+    const openAuthor = function () { if (this.custom && this.custom.kind === 'author' && this.custom.url) window.open(this.custom.url, '_blank', 'noopener'); };
+    const font = { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' };
+    const base = { chart: { backgroundColor: 'transparent', style: font, spacing: [8, 8, 8, 8] }, title: { text: null }, credits: { enabled: true, style: { fontSize: '9px' } },
+      exporting: { enabled: false }, accessibility: { enabled: true, description: 'Institutions and authors publishing in ' + jname + ', ' + st.from + '–' + st.to } };
+    if (view === 'tree') {
+      // the tree's height follows the rows on screen: the institutions, plus the authors of those opened
+      const heightFor = (r) => Math.max(400, Math.min(5200, r * 26 + 50));
+      const initial = shown.reduce((a, o) => a + (jn.open.has(o.s) || jn.focus === o.s ? Math.max(1, o.authors.length) : 1), 0);
+      jnChart = Highcharts.chart(box, Highcharts.merge(base, {
+        chart: { height: heightFor(initial), marginLeft: W >= 560 ? 24 : 8, marginRight: W >= 560 ? 200 : 96 },
+        tooltip: tooltip,
+        series: [{
+          type: 'treegraph', data: data, name: jname, turboThreshold: 0, cursor: 'pointer', animation: { duration: 350 },
+          fillSpace: true, reversed: true,             // the whole width while authors are closed; the most articles on top
+          marker: { symbol: 'circle', lineWidth: 2, lineColor: '#ffffff' },
+          link: { type: 'curved', color: accent, lineWidth: 1 },
+          collapseButton: { enabled: false },
+          states: { hover: { link: { color: ink } }, inactive: { opacity: 0.35, link: { opacity: 0.25 } } },
+          dataLabels: { enabled: true, crop: false, overflow: 'allow', align: 'left', x: 10, useHTML: false,
+            style: { fontSize: '12px', fontWeight: '400', color: css('--ink-2'), textOutline: '3px #ffffff', whiteSpace: 'nowrap' },
+            formatter() {
+              const c = this.point.custom || {};
+              if (c.kind === 'journal' || c.kind === 'pad') return '';
+              return (c.label || this.point.name) + ' · ' + c.n + (c.kind === 'school' && c.authors ? (c.open ? '  −' : '  +') : '');
+            } },
+          levels: [
+            { level: 1, marker: { radius: W >= 560 ? 18 : 13, fillColor: ink }, color: ink,
+              dataLabels: { enabled: true, align: 'left', x: -8, y: W >= 560 ? -26 : -20, verticalAlign: 'bottom', formatter() { return shortName(jname, W >= 560 ? 34 : 22); },
+                style: { fontSize: '13px', fontWeight: '700', color: ink, textOutline: '3px #ffffff' } } },
+            { level: 2, dataLabels: { style: { fontWeight: '600', color: ink } } },
+            { level: 3, dataLabels: { style: { fontSize: '11.5px' } } },
+          ],
+          // drill down: a click on an institution opens or closes its authors. The chart is drawn again in the same
+          // order, at the height its rows need (Highcharts' own toggle moved an opened institution to the top)
+          point: { events: { click: function () {
+            const c = this.custom || {};
+            if (c.kind === 'school') {
+              if (jn.open.has(c.s) || jn.focus === c.s) { jn.open.delete(c.s); if (jn.focus === c.s) jn.focus = null; } else jn.open.add(c.s);
+              setTimeout(() => drawJournalChart(R, shown, jname), 0);
+              return false;
+            }
+            return openAuthor.call(this);
+          } } },
+        }],
+      }));
+    } else {
+      // the sunburst: the journal in the middle, institutions around it, their authors outside; click to drill down
+      // (an institution's ring is the sum of its authors' articles: Highcharts sizes a parent by its children)
+      const sdata = data.map((d) => Object.assign({}, d, { marker: undefined, link: undefined,
+        value: d.custom && d.custom.kind === 'school' ? undefined : d.value }));
+      const S = Math.round(Math.min(W, 640));
+      jnChart = Highcharts.chart(box, Highcharts.merge(base, {
+        chart: { height: S },
+        tooltip: tooltip,
+        series: [{
+          type: 'sunburst', data: sdata, name: jname, turboThreshold: 0, allowTraversingTree: true, cursor: 'pointer',
+          borderColor: '#ffffff', borderWidth: 1.2, animation: { duration: 350 }, rootId: jn.focus != null ? 's' + jn.focus : 'J',
+          breadcrumbs: { showFullPath: false, format: '◂ Back to {level.name}', buttonTheme: { style: { fontSize: '12px', color: accent } } },
+          levels: [
+            // a small centre, institutions in the middle ring, a deep outer ring for authors' names read along the radius
+            { level: 1, levelIsConstant: false, levelSize: { unit: 'percentage', value: 16 }, color: ink,
+              dataLabels: { formatter() { return this.point.custom && this.point.custom.kind === 'journal' ? shortName(jname, 14) : instLabel(this.point.custom.full, 14); },
+                style: { fontSize: '11px', fontWeight: '700', color: '#ffffff', textOutline: 'none' } } },
+            { level: 2, levelSize: { unit: 'percentage', value: 34 },
+              dataLabels: { rotationMode: 'parallel', formatter() { return this.point.custom ? instLabel(this.point.custom.full, 16) : this.point.name; },
+                style: { fontSize: '11px', fontWeight: '600', textOutline: 'none', color: '#ffffff' },
+                filter: { property: 'outerArcLength', operator: '>', value: 28 } } },
+            { level: 3, levelSize: { unit: 'percentage', value: 50 },
+              dataLabels: { rotationMode: 'perpendicular', formatter() { return shortName(this.point.name, 22) + (this.point.custom && this.point.custom.n > 1 ? ' · ' + this.point.custom.n : ''); },
+                style: { fontSize: '10px', fontWeight: '400', textOutline: 'none', color: ink },
+                filter: { property: 'outerArcLength', operator: '>', value: 11 } } },
+          ],
+          point: { events: { click: openAuthor } },
+        }],
+      }));
     }
   }
 
@@ -1244,8 +1257,9 @@
     fillSchoolSelect('coSchool');
     fillJournalSelect();
     fillJournalPicker();
-    $('jnJournal').addEventListener('change', () => { jn.journal = +$('jnJournal').value; jn.focus = null; renderJournal(); });
+    $('jnJournal').addEventListener('change', () => { jn.journal = +$('jnJournal').value; jn.focus = null; jn.open.clear(); renderJournal(); });
     $('jnTop').addEventListener('change', () => { jn.top = +$('jnTop').value; renderJournal(); });
+    document.querySelectorAll('#jnView button').forEach((b) => b.addEventListener('click', () => { jn.view = b.dataset.view; renderJournal(); }));
     $('netSchool').addEventListener('change', () => setSelection($('netSchool').value === '' ? null : +$('netSchool').value, null));
     $('coSchool').addEventListener('change', () => setSelection($('coSchool').value === '' ? null : +$('coSchool').value, null));
     $('netJournal').addEventListener('change', () => setSelection(null, $('netJournal').value === '' ? null : +$('netJournal').value));
