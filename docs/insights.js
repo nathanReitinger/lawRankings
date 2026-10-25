@@ -238,6 +238,262 @@
     }
   }
 
+
+  ////////////////////////////////////////////////////////////////////////// question 1: one journal's institutions and authors
+
+  // (2026-10-25, the owner: "the user picks Harvard law review and then we see who (author and author institution,
+  // grouped by author institution) published there. Network graph showing thicker lines for more connections. I'm
+  // hunting for high publishing institutions and then within that high publishing authors.")
+  // Articles by current faculty in the journal in the chosen years; an institution's count is its distinct articles
+  // (one with two of its authors counts once), an author's is theirs; every institution, US or not.
+  const jn = { journal: null, top: 20, focus: null, fromList: null };
+
+  function computeJournal() {
+    const P = DATA.papers, C = DATA.credits, people = DATA.people;
+    const inst = new Map();          // school -> {papers: Set, authors: Map(person -> n)}
+    const all = new Set();
+    for (let i = 0; i < C.paper.length; i++) {
+      const p = C.paper[i];
+      if (P.journal[p] !== jn.journal) continue;
+      const y = P.year[p];
+      if (y < st.from || y > st.to || (st.skipShort && P.minor[p])) continue;
+      all.add(p);
+      const person = C.person[i];
+      people[person][1].forEach((s) => {
+        let o = inst.get(s);
+        if (!o) { o = { s: s, papers: new Set(), authors: new Map() }; inst.set(s, o); }
+        o.papers.add(p);
+        o.authors.set(person, (o.authors.get(person) || 0) + 1);
+      });
+    }
+    const list = [...inst.values()].map((o) => ({ s: o.s, n: o.papers.size, authors: [...o.authors.entries()].sort((a, b) => b[1] - a[1] ||
+      DATA.people[a[0]][0].localeCompare(DATA.people[b[0]][0])) }))
+      .sort((a, b) => b.n - a.n || b.authors.length - a.authors.length || DATA.schools[a.s][0].localeCompare(DATA.schools[b.s][0]));
+    return { articles: all.size, list: list };
+  }
+
+  function renderJournal() {
+    if (jn.journal == null) return;
+    const R = computeJournal();
+    if (jn.focus != null && !R.list.some((o) => o.s === jn.focus)) jn.focus = null;     // (review) gone after a filter change
+    const shown = R.list.slice(0, jn.top);
+    // (review) an institution focused from the list below the top N is drawn too, so the focus shows something
+    if (jn.focus != null && !shown.some((o) => o.s === jn.focus)) shown.push(R.list.find((o) => o.s === jn.focus));
+    // the lede: how concentrated the journal's faculty authorship is
+    const lede = $('jnLede');
+    lede.replaceChildren();
+    const jname = DATA.journals[jn.journal][0];
+    if (!R.articles) {
+      lede.append('No articles by current faculty in ' + jname + ' from ' + st.from + ' to ' + st.to + '.');
+      $('jnGraph').replaceChildren();
+      $('jnList').replaceChildren();
+      return;
+    }
+    const top5 = R.list.slice(0, 5);
+    const top5papers = new Set();
+    // distinct articles with an author from the top five institutions
+    const P = DATA.papers, C = DATA.credits;
+    const topSet = new Set(top5.map((o) => o.s));
+    for (let i = 0; i < C.paper.length; i++) {
+      const p = C.paper[i];
+      if (P.journal[p] !== jn.journal || P.year[p] < st.from || P.year[p] > st.to || (st.skipShort && P.minor[p])) continue;
+      if (DATA.people[C.person[i]][1].some((s) => topSet.has(s))) top5papers.add(p);
+    }
+    lede.appendChild(el('b', null, jname));
+    lede.append(', ' + st.from + '–' + st.to + ': ' + num(R.articles) + ' article' + (R.articles === 1 ? '' : 's') + ' by current faculty at ' +
+      num(R.list.length) + ' institution' + (R.list.length === 1 ? '' : 's') + ' (any institution on the faculty lists, courts and non-US schools included).');
+    if (R.list.length > 5) {
+      lede.append(' The top five (' + top5.map((o) => shortName(DATA.schools[o.s][0], 22)).join(', ') + ') had an author on ');
+      lede.appendChild(el('b', null, pct(top5papers.size / R.articles)));
+      lede.append(' of them.');
+    }
+
+    // ---- the graph: the journal in the middle, institutions on an inner ring, their authors fanned out on an outer one
+    const box = $('jnGraph');
+    const W = box.clientWidth;
+    const wide = W >= 560;
+    const S = Math.round(Math.min(W, wide ? 780 : 520));
+    const pad = wide ? 150 : 14;                  // (review) room for an author's name (up to 20 characters) beyond the ring
+    const R2 = S / 2 - pad, R1 = R2 * (wide ? 0.56 : 0.52);
+    const cx = W / 2, cy = S / 2;
+    const AUTH = wide ? 14 : 8;                   // authors drawn per institution (the list has them all)
+    const slots = shown.map((o) => Math.max(1, Math.min(AUTH, o.authors.length)) + 0.8);
+    const total = d3.sum(slots) || 1;
+    let a0 = -Math.PI / 2;
+    const maxN = shown.length ? shown[0].n : 1;
+    const maxA = d3.max(shown, (o) => (o.authors[0] ? o.authors[0][1] : 1)) || 1;
+    const accent = css('--accent');
+    const nodes = [];
+    shown.forEach((o, k) => {
+      const span = (2 * Math.PI * slots[k]) / total;
+      const mid = a0 + span / 2;
+      o.angle = mid;
+      o.x = cx + R1 * Math.cos(mid); o.y = cy + R1 * Math.sin(mid);
+      const drawn = o.authors.slice(0, AUTH);
+      o.drawn = drawn.map(([person, n], i) => {
+        const t = drawn.length === 1 ? mid : a0 + span * (0.4 + i) / (slots[k]);
+        return { person: person, n: n, angle: t, x: cx + R2 * Math.cos(t), y: cy + R2 * Math.sin(t) };
+      });
+      a0 += span;
+      nodes.push(o);
+    });
+    box.replaceChildren();
+    const svg = d3.select(box).append('svg').attr('width', W).attr('height', S).attr('viewBox', [0, 0, W, S].join(' '))
+      .attr('role', 'img').attr('aria-label', 'Institutions and authors publishing in ' + jname + ', ' + st.from + '–' + st.to);
+    const gEdges = svg.append('g'), gNodes = svg.append('g'), gLabels = svg.append('g');
+    const wInst = (n) => 1.2 + 9 * Math.sqrt(n / maxN);
+    const wAuth = (n) => 0.8 + 3.2 * Math.sqrt(n / maxA);
+    const rInst = (n) => 4 + 11 * Math.sqrt(n / maxN);
+    const rAuth = (n) => 2.6 + 3.4 * Math.sqrt(n / maxA);
+    const focusOn = (s) => (jn.focus == null || jn.focus === s);
+    const labelWanted = [];
+    const instBoxes = [];
+    let tapped = null;                            // touch: the author whose name a first tap showed
+    nodes.forEach((o) => {
+      const on = focusOn(o.s);
+      // journal -> institution
+      gEdges.append('path').attr('d', 'M' + cx + ',' + cy + 'L' + o.x + ',' + o.y).attr('stroke', accent).attr('stroke-opacity', on ? 0.45 : 0.08)
+        .attr('stroke-width', wInst(o.n)).attr('stroke-linecap', 'round').attr('fill', 'none');
+      // institution -> its authors
+      o.drawn.forEach((a) => {
+        const mx = cx + (R1 + R2) / 2 * Math.cos(a.angle), my = cy + (R1 + R2) / 2 * Math.sin(a.angle);
+        gEdges.append('path').attr('d', 'M' + o.x + ',' + o.y + 'Q' + mx + ',' + my + ' ' + a.x + ',' + a.y).attr('fill', 'none')
+          .attr('stroke', accent).attr('stroke-opacity', on ? 0.35 : 0.05).attr('stroke-width', wAuth(a.n));
+      });
+    });
+    // the journal
+    // the journal: its article count inside (its name is in the line above the graph)
+    gNodes.append('circle').attr('cx', cx).attr('cy', cy).attr('r', wide ? 26 : 19).attr('fill', css('--ink'))
+      .append('title').text(jname + ': ' + num(R.articles) + ' articles');
+    gNodes.append('text').attr('x', cx).attr('y', cy).attr('dy', '0.35em').attr('text-anchor', 'middle').attr('fill', '#fff')
+      .attr('font-size', wide ? 14 : 12).attr('font-weight', 700).attr('pointer-events', 'none').text(num(R.articles));
+    nodes.forEach((o, k) => {
+      const on = focusOn(o.s);
+      o.drawn.forEach((a) => {
+        const dot = gNodes.append('circle').attr('cx', a.x).attr('cy', a.y).attr('r', rAuth(a.n)).attr('fill', '#7fa9e3').attr('fill-opacity', on ? 1 : 0.25)
+          .attr('stroke', '#fff').attr('stroke-width', 1.5).style('cursor', DATA.people[a.person][3] ? 'pointer' : 'default');
+        const show = (evt) => showTip(evt, (t) => {
+          t.appendChild(el('div', { class: 'tt' }, DATA.people[a.person][0]));
+          t.appendChild(el('div', null, DATA.schools[o.s][0]));
+          tipLine(t, 'Articles in ' + shortName(jname, 26), String(a.n));
+          if (DATA.people[a.person][3]) t.appendChild(el('div', { class: 'text-muted' }, 'Tap for their faculty page'));
+        });
+        dot.on('pointermove', show).on('pointerleave', hideTip).on('pointerdown', (evt) => {
+          if (evt.pointerType === 'touch' && tapped !== a.person) { tapped = a.person; show(evt); dot.attr('data-first-tap', '1'); }
+        }).on('click', (evt) => {
+          // (review) on a touch screen the first tap names the author; the second opens their page
+          if (dot.attr('data-first-tap') === '1') { dot.attr('data-first-tap', null); evt.stopPropagation(); return; }
+          const url = DATA.people[a.person][3];
+          if (url) window.open(url, '_blank', 'noopener');
+        });
+        // author names (wide screens): the focused institution's authors, or authors with 2+ articles while nothing is
+        // focused; placed below, thinned so they never collide
+        if (wide && (jn.focus === o.s || (jn.focus == null && a.n >= 2))) labelWanted.push(a);
+      });
+      const dot = gNodes.append('circle').attr('cx', o.x).attr('cy', o.y).attr('r', rInst(o.n)).attr('fill', accent).attr('fill-opacity', on ? 1 : 0.3)
+        .attr('stroke', '#fff').attr('stroke-width', 2).style('cursor', 'pointer');
+      const show = (evt) => showTip(evt, (t) => {
+        t.appendChild(el('div', { class: 'tt' }, DATA.schools[o.s][0]));
+        tipLine(t, 'Articles', num(o.n));
+        tipLine(t, 'Authors', num(o.authors.length));
+        tipLine(t, 'Most', DATA.people[o.authors[0][0]][0] + ' (' + o.authors[0][1] + ')');
+      });
+      dot.on('pointermove', show).on('pointerleave', hideTip).on('click', () => { jn.focus = jn.focus === o.s ? null : o.s; renderJournal(); });
+      // institution names, outward along the spoke from the dot: the top ones always (wide: 12, phones: 4), the
+      // focused one too
+      if (k < (wide ? 12 : 4) || jn.focus === o.s) {
+        const c = Math.cos(o.angle), sn = Math.sin(o.angle), off = rInst(o.n) + 5;
+        const lab = gLabels.append('text').attr('class', 'jn-label inst').attr('x', o.x + c * off).attr('y', o.y + sn * off).attr('dy', '0.32em')
+          .attr('text-anchor', Math.abs(c) < 0.2 ? 'middle' : c > 0 ? 'start' : 'end')
+          .text(instLabel(DATA.schools[o.s][0], wide ? 16 : 12));
+        // (review) kept inside the card on narrow screens
+        let bb = lab.node().getBBox();
+        if (bb.x < 2) lab.attr('x', +lab.attr('x') + (2 - bb.x));
+        if (bb.x + bb.width > W - 2) lab.attr('x', +lab.attr('x') - (bb.x + bb.width - (W - 2)));
+        // a lower-ranked institution's name gives way when it would cover one already placed (the focused one never)
+        bb = lab.node().getBBox();
+        const hit = instBoxes.some((b) => bb.x < b.x + b.width + 3 && b.x < bb.x + bb.width + 3 && bb.y < b.y + b.height && b.y < bb.y + bb.height);
+        if (hit && jn.focus !== o.s) lab.remove(); else instBoxes.push(bb);
+      }
+    });
+    // author names, the more prolific first, none closer than 13px along the arc to one already placed
+    const minGap = 13 / (R2 + 9);
+    const placed = [];
+    labelWanted.sort((a, b) => b.n - a.n).forEach((a) => {
+      if (placed.some((t) => Math.abs(Math.atan2(Math.sin(t - a.angle), Math.cos(t - a.angle))) < minGap)) return;
+      placed.push(a.angle);
+      const deg = a.angle * 180 / Math.PI;
+      const flip = Math.cos(a.angle) < 0;
+      gLabels.append('text').attr('class', 'jn-label').attr('transform', 'translate(' + a.x + ',' + a.y + ') rotate(' + (flip ? deg + 180 : deg) + ')')
+        .attr('x', flip ? -9 : 9).attr('dy', '0.32em').attr('text-anchor', flip ? 'end' : 'start')
+        .text(shortName(DATA.people[a.person][0], 20) + (a.n > 1 ? ' ' + a.n : ''));
+    });
+    // clicking the background clears the focus
+    svg.on('click', (evt) => { if (evt.target === svg.node() && jn.focus != null) { jn.focus = null; renderJournal(); } });
+
+    // ---- the list: every institution, most articles first; open one for its authors
+    const listBox = $('jnList');
+    listBox.replaceChildren();
+    const maxL = R.list.length ? R.list[0].n : 1;
+    R.list.slice(0, Math.max(jn.top, 40)).forEach((o, k) => {
+      const item = el('div', { class: 'jn-inst' + (jn.focus === o.s ? ' on' : '') });
+      const b = el('button', { type: 'button', 'aria-expanded': String(jn.focus === o.s), 'data-s': String(o.s) });
+      b.appendChild(el('span', { class: 'jn-rank' }, String(k + 1)));
+      b.appendChild(el('span', { class: 'jn-iname' }, DATA.schools[o.s][0]));
+      b.appendChild(el('span', { class: 'jn-inum' }, num(o.n) + ' · ' + o.authors.length + ' author' + (o.authors.length === 1 ? '' : 's')));
+      const bar = el('span', { class: 'jn-ibar' });
+      bar.style.width = Math.max(3, Math.round(100 * o.n / maxL)) + '%';
+      b.appendChild(bar);
+      b.addEventListener('click', () => { jn.focus = jn.focus === o.s ? null : o.s; jn.fromList = o.s; renderJournal(); });
+      item.appendChild(b);
+      const ul = el('ul', { class: 'jn-authors' });
+      o.authors.forEach(([person, n]) => {
+        const li = el('li');
+        const url = DATA.people[person][3];
+        const nm = url ? el('a', { href: url, target: '_blank', rel: 'noopener' }, DATA.people[person][0]) : el('span', null, DATA.people[person][0]);
+        li.appendChild(nm);
+        li.appendChild(el('span', null, String(n)));
+        ul.appendChild(li);
+      });
+      item.appendChild(ul);
+      listBox.appendChild(item);
+    });
+    if (R.list.length > Math.max(jn.top, 40)) listBox.appendChild(el('div', { class: 'jn-other' }, num(R.list.length - Math.max(jn.top, 40)) + ' more institutions with as many or fewer articles'));
+    // (review) never scroll the page: only the list's own box (two-column layout), and keyboard focus stays on the
+    // institution the reader opened
+    const focused = listBox.querySelector('.jn-inst.on');
+    if (focused && listBox.scrollHeight > listBox.clientHeight + 2) {
+      const top = focused.offsetTop - listBox.offsetTop;
+      if (top < listBox.scrollTop || top > listBox.scrollTop + listBox.clientHeight - 40) listBox.scrollTop = Math.max(0, top - 40);
+    }
+    if (jn.fromList != null) {
+      const btn = [...listBox.querySelectorAll('.jn-inst > button')].find((x) => x.dataset.s === String(jn.fromList));
+      if (btn) btn.focus({ preventScroll: true });
+      jn.fromList = null;
+    }
+  }
+
+  function fillJournalPicker() {
+    const sel = $('jnJournal');
+    sel.replaceChildren();
+    const jr = journalRanks();
+    const groups = [['Flagship law reviews', (ji) => journalColumn(ji, jr) <= 4], ['Specialty journals', (ji) => journalColumn(ji, jr) === 6],
+                    ['Online editions & other general journals', (ji) => journalColumn(ji, jr) === 5]];
+    groups.forEach(([label, test]) => {
+      const og = document.createElement('optgroup');
+      og.label = label;
+      const ids = DATA.journals.map((j, ji) => ji).filter(test);
+      ids.sort((a, b) => (label.startsWith('Flagship') ? ((jr[a] > 0 ? jr[a] : 1e9) - (jr[b] > 0 ? jr[b] : 1e9)) : 0) || DATA.journals[a][0].localeCompare(DATA.journals[b][0]));
+      ids.forEach((ji) => og.appendChild(new Option(DATA.journals[ji][0], String(ji))));
+      sel.appendChild(og);
+    });
+    if (jn.journal == null) {
+      const h = DATA.journals.findIndex((j) => j[0] === 'Harvard Law Review');
+      jn.journal = h >= 0 ? h : 0;
+    }
+    sel.value = String(jn.journal);
+  }
+
   ////////////////////////////////////////////////////////////////////////// question 1: the network
 
   function renderNetwork() {
@@ -389,8 +645,21 @@
     return v;
   }
 
+  // an institution's name on the journal graph: the short form people use (the list beside it has the full name)
+  const INST_SHORT = { 'New York University': 'NYU', 'University of California, Los Angeles': 'UCLA', 'University of California, Berkeley': 'UC Berkeley',
+    'University of Pennsylvania': 'Penn', 'University of Texas at Austin': 'UT Austin', 'University of Southern California': 'USC',
+    'George Washington University': 'GW', 'Columbia University School of Law': 'Columbia', 'Massachusetts Institute of Technology': 'MIT',
+    'University of North Carolina at Chapel Hill': 'UNC', 'Washington University': 'WashU', 'U.S. Supreme Court': 'Supreme Court' };
+  function instLabel(name, n) {
+    const t = INST_SHORT[name] || name.replace(/^The /, '').replace(/ School of Law$| Law School$/, '').replace(/^University of (California, )?/, '')
+      .replace(/ University$/, '');
+    return t.length > n ? t.slice(0, n - 1) + '…' : t;
+  }
+
   function shortName(s, n) {
-    s = s.replace(/^The /, '').replace(/University/g, 'Univ.').replace(/ Law Review$/, ' L. Rev.').replace(/ Law Journal$/, ' L.J.');
+    s = s.replace(/^University of California, Los Angeles$/, 'UCLA').replace(/^University of California, /, 'UC ')
+      .replace(/ School of Law$| Law School$/, '').replace(/^The /, '').replace(/University/g, 'Univ.')
+      .replace(/ Law Review$/, ' L. Rev.').replace(/ Law Journal$/, ' L.J.');
     return s.length > n ? s.slice(0, n - 1) + '…' : s;
   }
 
@@ -907,6 +1176,7 @@
   function renderWhere() {
     W1 = computeWhere();
     renderWhereText();
+    renderJournal();
     renderNetwork();
     renderNetDetail();
     renderMatrix();
@@ -956,7 +1226,7 @@
     };
     $('wFrom').addEventListener('change', yearChange);
     $('wTo').addEventListener('change', yearChange);
-    $('wSrc').addEventListener('change', () => { st.src = $('wSrc').value; fillSchoolSelect('netSchool'); fillSchoolSelect('coSchool'); fillJournalSelect(); renderWhere(); });
+    $('wSrc').addEventListener('change', () => { st.src = $('wSrc').value; fillSchoolSelect('netSchool'); fillSchoolSelect('coSchool'); fillJournalSelect(); fillJournalPicker(); renderWhere(); });
     $('wShort').addEventListener('change', () => { st.skipShort = $('wShort').checked; renderWhere(); });
 
     const chips = $('netChips');
@@ -973,6 +1243,9 @@
     fillSchoolSelect('netSchool');
     fillSchoolSelect('coSchool');
     fillJournalSelect();
+    fillJournalPicker();
+    $('jnJournal').addEventListener('change', () => { jn.journal = +$('jnJournal').value; jn.focus = null; renderJournal(); });
+    $('jnTop').addEventListener('change', () => { jn.top = +$('jnTop').value; renderJournal(); });
     $('netSchool').addEventListener('change', () => setSelection($('netSchool').value === '' ? null : +$('netSchool').value, null));
     $('coSchool').addEventListener('change', () => setSelection($('coSchool').value === '' ? null : +$('coSchool').value, null));
     $('netJournal').addEventListener('change', () => setSelection(null, $('netJournal').value === '' ? null : +$('netJournal').value));
@@ -999,7 +1272,7 @@
       if (Math.abs(w - lastW) < 2) return;
       lastW = w;
       clearTimeout(timer);
-      timer = setTimeout(() => { hideTip(); renderNetwork(); renderMatrix(); renderScatter(); renderTrend(); renderTeams(); renderViolin(); }, 120);
+      timer = setTimeout(() => { hideTip(); renderJournal(); renderNetwork(); renderMatrix(); renderScatter(); renderTrend(); renderTeams(); renderViolin(); }, 120);
     }).observe(document.body);
     document.addEventListener('pointerdown', (e) => { if (!e.target.closest('svg, .ins-matrix')) hideTip(); });
   }

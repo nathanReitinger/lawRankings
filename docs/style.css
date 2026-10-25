@@ -246,3 +246,10 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: point
 .prose th, .prose td { padding: 3px 8px; border-bottom: 1px solid #eee; }
 .prose tbody tr:nth-of-type(odd) td { background: #f9f9f9; }
 .up { color: #2e7d32; } .down { color: #c62828; }
+
+/* "What they work on" in a faculty member's drop-down (2026-10-25) */
+.works { max-width: 620px; margin: 4px 0 10px; font-size: 13.5px; }
+.works-lede { margin: 0 0 4px; color: #333; }
+.works-list { margin: 0; padding-left: 1.1em; }
+.works-list li { margin: 2px 0; line-height: 1.35; }
+.works-more { margin-left: 4px; font-size: 11px; font-variant: small-caps; letter-spacing: .04em; color: #337ab7; }

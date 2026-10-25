@@ -19,7 +19,6 @@
   const STORAGE_KEY = 'lawRankings.v4';
   const MAINTAINER_EMAIL = 'nathan.reitinger@law.northwestern.edu';   // the owner asked for an email button (2026-10-24)
   const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers
-  const HEIN_PROFILE = 'https://heinonline.org/HOL/AuthorProfile?action=edit&collection=journals&search_name=';
   const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
 
   let DATA, META, state, groupSubjects;
@@ -36,7 +35,6 @@
   // (math check) sums of 1/n carry float noise: snap before comparing, round halves up when showing one decimal
   const snap = (x) => Math.round(x * 1e9) / 1e9;
   const one = (x) => (Math.round(snap(x) * 10 + 1e-7) / 10).toFixed(1);
-  const heinProfile = (person) => HEIN_PROFILE + encodeURIComponent(DATA.people[person][2] || '');
   // (stress test, 2026-10-24) a group named in a link is looked up as an own key only: "#s=constructor" crashed the page
   const subjectsOf = (g) => (Object.prototype.hasOwnProperty.call(groupSubjects, g) ? groupSubjects[g] : null);
   const sources = () => (DATA.rank_sources || [['usnews', 'U.S. News overall rank', '']]).map((x) => x[0]);
@@ -431,22 +429,23 @@
     const people = [...r.faculty].sort((a, b) => b[1].adj - a[1].adj || DATA.people[a[0]][0].localeCompare(DATA.people[b[0]][0]));
     let html = '<tr class="faculty"><td></td><td colspan="3"><table class="faculty-table"><thead><tr><th class="indent"></th>' +
       '<th><abbr title="Click a name to see where they publish">Faculty</abbr></th>' +
-      '<th class="num"><abbr title="Articles counted (click for the HeinOnline profile)"># Pubs</abbr></th>' +
+      '<th class="num"><abbr title="Articles counted in this ranking"># Pubs</abbr></th>' +
       '<th class="num"><abbr title="Each article counts 1, split between its co-authors">Adj. #</abbr></th></tr></thead><tbody>';
     people.forEach(([person, f], i) => {
       const key = r.school + ':' + person;
       const open = openPeople.has(key);
-      // tags: where this person publishes most among the specialty journals, all their articles and years, whatever the
-      // filters (a separate computation, done in build_data.py)
-      const tags = (DATA.people[person][4] || []).map((g) => '<span class="c-specialty" title="Publishes most in ' + esc(DATA.groups[g]) +
+      // what this person works on (2026-10-25, the owner: "I can really tell what someone does by publications in
+      // specialty journals. I want to highlight that"): their main fields among specialty journals, all their
+      // articles and years, whatever the filters (build_data.py: people[i][5]); the broad area when no field stands out
+      const tags = personFields(person).map(([fi, n, js]) => '<span class="c-specialty" title="' + esc(fieldTitle(fi, n, js)) + '">' +
+        esc(DATA.subjects[fi]) + '</span>').join('') ||
+        (DATA.people[person][4] || []).map((g) => '<span class="c-specialty" title="Publishes most in ' + esc(DATA.groups[g]) +
         ' (specialty journals, all years)">' + esc(shortName(DATA.groups[g])) + '</span>').join('');
       html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
-        '<a class="icon-link" href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' +
-        '<svg class="ico" width="10" height="11"><use href="#i-hein"/></svg></a>' +
-        (DATA.people[person][3] ? ' <a class="bio-link" href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener" title="Faculty bio page">bio</a>' : '') + '</td>' +
-        '<td class="num"><a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' + f.papers.length + '</a></td>' +
+        (DATA.people[person][3] ? ' <a class="bio-link" href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener" title="Faculty page">bio</a>' : '') + '</td>' +
+        '<td class="num">' + f.papers.length + '</td>' +
         '<td class="num">' + one(f.adj) + '</td></tr>';
       if (open) html += '<tr class="person-detail" data-key="' + key + '"><td colspan="4"></td></tr>';
     });
@@ -497,9 +496,59 @@
     const note = '<p class="detail-note">' + f.papers.length + ' of ' + papers.length + ' article' + (papers.length === 1 ? '' : 's') +
       ' (' + state.from + '–' + state.to + ') count in this ranking' +
       (papers.length > f.papers.length ? '; the others are outside the selected journals' + (skipped ? ' or skipped as short pieces (' + skipped + ')' : '') : '') +
-      '. ' + (DATA.people[person][3] ? '<a href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener">Faculty bio</a> · ' : '') +
-      '<a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener">HeinOnline profile</a></p>';
-    detailRow.firstElementChild.innerHTML = authorBars(forBars) + note;
+      '.' + (DATA.people[person][3] ? ' <a href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener">Faculty page</a>' : '') + '</p>';
+    detailRow.firstElementChild.innerHTML = worksOn(person, forBars) + authorBars(forBars) + note;
+  }
+
+  // a person's main fields: at least 2 specialty-journal articles in the field and at least a quarter of their
+  // specialty-journal articles; at most two
+  function personFields(person) {
+    const w = DATA.people[person][5] || [];
+    // (review) the base is all their field articles (people[i][6]), not only the top five fields'
+    const total = DATA.people[person][6] != null ? DATA.people[person][6] : w.reduce((a, f) => a + f[1], 0);
+    return w.filter(([, n]) => n >= 2 && n >= 0.25 * total).slice(0, 2);
+  }
+  function fieldTitle(fi, n, js) {
+    const listed = js.reduce((a, [, k]) => a + k, 0);
+    return n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' in ' + DATA.subjects[fi] + ', all years (' +
+      js.map(([ji, k]) => DATA.journals[ji][0] + (k > 1 ? ' ×' + k : '')).join(', ') + (listed < n ? ', …' : '') + ')';
+  }
+  // the field a journal's articles count toward (build_data.py: data.field_of; -1 none), as on "Who works on what"
+  const fieldOfJournal = (ji) => (DATA.field_of ? DATA.field_of[ji] : (DATA.journals[ji][3] && DATA.journals[ji][3].length ? DATA.journals[ji][3][0][0] : -1));
+
+  // the drop-down's "What they work on": their articles in specialty journals in the chosen years, by field, with the
+  // journals; flagship law reviews alongside for contrast
+  function worksOn(person, papers) {
+    const P = DATA.papers;
+    const byField = new Map();
+    let flagship = 0, specialty = 0;
+    papers.forEach((p) => {
+      const f = fieldOfJournal(P.journal[p]);
+      if (f >= 0) {
+        specialty++;
+        if (!byField.has(f)) byField.set(f, new Map());
+        const m = byField.get(f);
+        m.set(P.journal[p], (m.get(P.journal[p]) || 0) + 1);
+      }
+      if (journalCats[P.journal[p]].includes(0)) flagship++;     // (review) the same set as the "Flagship" bar below
+    });
+    const fields = [...byField.entries()].map(([f, m]) => [f, [...m.values()].reduce((a, b) => a + b, 0), [...m.entries()].sort((a, b) => b[1] - a[1])])
+      .sort((a, b) => b[1] - a[1] || DATA.subjects[a[0]].localeCompare(DATA.subjects[b[0]])).slice(0, 5);
+    const who = esc(DATA.people[person][0]);
+    if (!fields.length) {
+      return '<div class="works"><div class="bars-title">What they work on</div><p class="detail-note">' + who + ' has no specialty-journal articles in ' +
+        state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') + '.</p></div>';
+    }
+    const top = DATA.subjects[fields[0][0]];
+    // (review) the link carries the person and the filters, so the other page shows the same numbers
+    const more = (f) => 'scholars.html#f=' + encodeURIComponent(DATA.subjects[f]) + '&p=' + encodeURIComponent(DATA.people[person][0]) +
+      '&y=' + state.from + '-' + state.to + '&r=' + state.region + '&m=' + (state.minor ? 1 : 0);
+    const lines = fields.map(([f, n, js]) => '<li><b>' + esc(DATA.subjects[f]) + '</b> <span class="text-muted">' + n + '</span> · ' +
+      js.slice(0, 3).map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') +
+      (js.length > 3 ? ', …' : '') + ' <a class="works-more" href="' + esc(more(f)) + '" title="Others who publish in this field">others</a></li>').join('');
+    return '<div class="works"><div class="bars-title">What they work on, from specialty journals (' + state.from + '–' + state.to + ')</div>' +
+      '<p class="works-lede">' + who + ' publishes most on <b>' + esc(top) + '</b>: ' + fields[0][1] + ' of ' + specialty + ' specialty-journal article' +
+      (specialty === 1 ? '' : 's') + (flagship ? ', besides ' + flagship + ' in flagship law reviews' : '') + '.</p><ul class="works-list">' + lines + '</ul></div>';
   }
 
   function catLabel(c) { return c === 0 ? 'Flagship' : DATA.groups[c - 1]; }

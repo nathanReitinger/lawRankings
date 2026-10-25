@@ -373,8 +373,7 @@ def write_faculty_list(roster):
         'name': roster['author'].map(lambda a: display_name(str(a))),
         'school': roster['school'],
         'hein_name': roster['hein_name'],
-        'hein_profile': roster['hein_name'].map(hein_profile_link),
-        'source': roster['run'],
+        'source': roster['run'],      # (2026-10-25, the owner: "Drop hein links throughout"): no profile links
     }).sort_values(['hein_name', 'school'])
     letter = out['hein_name'].str.strip().str[:1].str.lower().where(lambda c: c.str.match(r'[a-z]'), 'other')
     for f in glob.glob(os.path.join(FACULTY_LIST_DIR, 'list-*.csv')):
@@ -1441,12 +1440,42 @@ def build():
     def is_short(k):
         length = length_of.get(k)
         kind, pages, llm_short = classes.get(k, (None, None, False))
+        # (review, 2026-10-25) a piece the journal itself heads "In Memoriam" or "In Tribute" (the Harvard Law Review's
+        # tributes to retiring and late Justices, signed by six colleagues each) is a memorial, whatever the classifier
+        # said: a section heading, not a guess from the title's words
+        if kind is None and k.rsplit('|', 1)[-1].startswith(('inmemoriam', 'memoriam', 'intribute')):
+            kind = 'memorial or tribute'
+        if kind == 'memorial or tribute' and not (length is not None and length == length and length >= 20):
+            return True
         if length is not None and length == length and length >= 1:
             return length < SHORT_PAGES or (kind == 'memorial or tribute' and length < 20)
         if k in model_flags:
             return bool(model_flags[k])    # the trained model's call where the length is not measured
         return bool(llm_short)             # an older classifier's call; neither: it counts
     short_flags = [1 if is_short(k) else 0 for k in paper_keys]
+
+    # "Person X does Y" (the owner, 2026-10-25: "I want to know if someone published in flagship sure, but I can
+    # really tell what someone does by publications in specialty journals. I want to highlight that. And show
+    # examples."): each person's fields, from their articles in specialty journals (each journal's field in the
+    # subject tree), all years, short pieces left out, co-authored articles counted whole: people[i][5] =
+    # [[field id, articles, [[journal id, articles], ... up to 3]], ...], most articles first, up to 5 fields
+    # (review) not the general journals W&L also lists under a subject, nor the generalist policy journals the subject
+    # tree gives weight 0 (journal_taxonomy.csv: they say nothing about a field); data['field_of'] tells the pages
+    # which journals these are
+    paper_journal = [journal_id[j] for j in first_rows.loc[paper_keys, 'journal']]
+    no_field = set(tax.loc[pd.to_numeric(tax.get('weight', pd.Series(dtype=str)), errors='coerce') == 0, 'journal']) if 'weight' in tax.columns else set()
+    field_of = {journal_id[j[0]]: j[3][0][0] for j in journals if j[3] and j[2] is None and j[0] not in no_field}
+    works = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    for pk, person_i in zip(credit_paper, credit_person):
+        f = field_of.get(paper_journal[pk])
+        if f is not None and not short_flags[pk]:
+            works[person_i][f][paper_journal[pk]] += 1
+    for person_i, entry in enumerate(people):
+        w = works.get(person_i, {})
+        top = sorted(w, key=lambda f: (-sum(w[f].values()), subjects[f]))[:5]
+        entry.append([[f, sum(w[f].values()), sorted(([ji, n] for ji, n in w[f].items()), key=lambda x: (-x[1], x[0]))[:3]] for f in top])
+        entry.append(int(sum(sum(v.values()) for v in w.values())))   # people[i][6]: all their field articles (the tag rule's base)
+    print(f'  fields: {sum(1 for e in people if e[5] and e[5][0][1] >= 2)} people with 2+ specialty-journal articles in one field')
     os.makedirs(os.path.dirname(CREDITED_KEYS), exist_ok=True)
     with open(CREDITED_KEYS + '.tmp', 'w', encoding='utf-8') as f:   # what the classifier does next
         f.write('\n'.join(paper_keys))
@@ -1476,6 +1505,8 @@ def build():
             'length': [int(length_of[k]) if k in length_of and length_of[k] == length_of[k] else -1 for k in paper_keys],
         },
         'credits': {'paper': credit_paper, 'person': credit_person},
+        # per journal: the field its articles count toward on "Who works on what" and in the tags (-1: none)
+        'field_of': [field_of.get(i, -1) for i in range(len(journal_names))],
     }
 
     # paper titles and links are no longer published (2026-10-24, the owner dropped them from the site): no
