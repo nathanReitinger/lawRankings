@@ -17,7 +17,7 @@
   function siteFooter(m) {
     const t = m.data_updated ? new Date(m.data_updated * 1000) : null;
     return '<p>Volume ' + esc(m.version) + (t ? ' · data updated ' + esc(t.toISOString().slice(0, 10)) + ' (' + m.data_updated + ')' : '') +
-      ' · <a href="history.html">version history</a> · <a href="faq.html">about &amp; method</a></p>' +
+      ' · <a href="history.html">version history</a> · <a href="faq.html">about &amp; method</a> · <a href="insights.html">insights</a></p>' +
       '<div class="foot-actions">' +
       '<a class="btn-line" href="mailto:' + MAINTAINER_EMAIL + '?subject=' + encodeURIComponent('Law School Rankings: I noticed a flaw') + '">Notice a flaw? Email Nathan</a>' +
       '<a class="btn-line" href="' + REPO + '/tree/main/faculty" target="_blank" rel="noopener">Faculty list</a>' +

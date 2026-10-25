@@ -1,0 +1,137 @@
+/* Law School Rankings: the Insights page (insights.html). Charts follow one system: thin marks, hairline solid
+   grids, text in ink tokens (never the series color), a legend for two or more series, flagship blue / specialty
+   orange as on the rankings page (validated for color-vision deficiency on white). */
+
+.ins {
+  --surface: #fff; --plane: #f7f7f5;
+  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e8e7e1; --axis: #c3c2b7; --hair: rgba(11, 11, 11, .10);
+  --flagship: #2a78d6; --specialty: #eb6834; --online: #1baf7a;
+  --accent: #2a78d6; --dim: #c9c8c0;
+  --seq-1: #86b6ef; --seq-2: #2a78d6; --seq-3: #104281;
+  --serif: 'YaleNew', 'Alegreya', Georgia, 'Times New Roman', serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--surface);
+}
+
+/* ---------- opening ---------- */
+.ins-hero { max-width: 860px; margin: 6px auto 26px; text-align: center; }
+.ins-kicker, .ins-q { font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.ins-title { font-family: var(--serif); font-weight: 700; font-size: clamp(26px, 4.2vw, 40px); line-height: 1.12; margin: 0 0 12px; color: var(--ink); letter-spacing: -.005em; }
+.ins-dek { font-family: var(--serif); font-size: clamp(16px, 2vw, 19px); line-height: 1.5; color: var(--ink-2); margin: 0 auto 18px; max-width: 720px; }
+.ins-toc { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.ins-toc a { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px 0 6px; border: 1px solid var(--hair); border-radius: 999px;
+  font-family: var(--sans); font-size: 13.5px; color: var(--ink); background: var(--surface); transition: border-color .15s, background-color .15s; }
+.ins-toc a:hover { border-color: var(--ink); text-decoration: none; background: var(--plane); }
+.ins-toc span { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; }
+.ins-loading { text-align: center; }
+
+/* ---------- sections ---------- */
+.ins-section { margin: 0 auto 56px; max-width: 1080px; scroll-margin-top: 12px; }
+.ins-head { border-top: 2px solid var(--ink); padding-top: 14px; margin-bottom: 14px; }
+.ins-head h2 { font-family: var(--serif); font-weight: 700; font-size: clamp(22px, 3.2vw, 31px); line-height: 1.15; margin: 0 0 10px; color: var(--ink); }
+.ins-lede { font-family: var(--serif); font-size: clamp(16px, 1.9vw, 18.5px); line-height: 1.5; color: var(--ink); margin: 0; max-width: 820px; }
+.ins-lede b { font-weight: 700; }
+
+.ins-filters { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 0;
+  margin-bottom: 14px; background: rgba(255, 255, 255, .94); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--hair); font-family: var(--sans); font-size: 14px; color: var(--ink-2); }
+.ins-filters label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.ins-check input { margin: 0; }
+.ins-filters .ctl-select, .ins-row .ctl-select { max-width: 62vw; }
+
+/* ---------- stat tiles ---------- */
+.ins-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.ins-tile { border: 1px solid var(--hair); border-radius: 10px; padding: 14px 16px 13px; background: var(--surface); font-family: var(--sans); }
+.ins-tile .v { font-size: clamp(28px, 4vw, 38px); font-weight: 650; line-height: 1.05; color: var(--ink); letter-spacing: -.01em; }
+.ins-tile .v small { font-size: .5em; font-weight: 500; color: var(--ink-2); margin-left: 2px; }
+.ins-tile .v .arrow { color: var(--muted); font-weight: 400; margin: 0 .12em; }
+.ins-tile .l { margin-top: 6px; font-size: 13.5px; line-height: 1.35; color: var(--ink-2); }
+
+/* ---------- chart cards ---------- */
+.ins-card { margin: 0 0 18px; padding: 18px 18px 14px; border: 1px solid var(--hair); border-radius: 12px; background: var(--surface); }
+.ins-card figcaption h3 { font-family: var(--serif); font-weight: 700; font-size: 20px; line-height: 1.2; margin: 0 0 4px; color: var(--ink); }
+.ins-card figcaption p { font-family: var(--sans); font-size: 13.5px; line-height: 1.45; color: var(--ink-2); margin: 0 0 12px; max-width: 760px; }
+.ins-foot { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: 8px 0 0; }
+.ins-chart { position: relative; width: 100%; }
+.ins-chart svg, .ins-network svg { display: block; overflow: visible; font-family: var(--sans); }
+.ins-row { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 10px; font-family: var(--sans); font-size: 13.5px; color: var(--ink-2); }
+.ins-pick { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+
+/* chips and segmented buttons */
+.ins-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+.ins-chip, .ins-seg button { min-height: 32px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; background: var(--surface);
+  font-family: var(--sans); font-size: 13px; color: var(--ink-2); cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
+.ins-chip:hover, .ins-seg button:hover { border-color: var(--ink-2); color: var(--ink); }
+.ins-chip[aria-checked="true"], .ins-seg button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.ins-chip:focus-visible, .ins-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ins-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+
+/* legend: a swatch that mirrors the mark beside ink text */
+.ins-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 6px; font-family: var(--sans); font-size: 13px; color: var(--ink-2); }
+.ins-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.ins-legend i { display: inline-block; width: 18px; height: 2px; border-radius: 2px; }
+.ins-legend i.box { width: 12px; height: 12px; border-radius: 3px; }
+
+/* the network: a canvas of every line, an svg on top for axes, highlights and hit areas */
+.ins-network { position: relative; width: 100%; touch-action: pan-y; }
+.ins-network canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ins-network svg { position: relative; }
+.ins-detail { min-height: 64px; margin-top: 10px; padding: 12px 14px; border-radius: 8px; background: var(--plane); font-family: var(--sans); font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.ins-detail b { color: var(--ink); }
+.ins-detail ol { margin: 6px 0 0; padding-left: 1.4em; }
+.ins-detail li { margin: 1px 0; }
+.ins-detail .n { font-variant-numeric: tabular-nums; color: var(--ink); }
+
+/* the matrix */
+.ins-matrix-wrap { width: 100%; }
+.ins-matrix { width: 100%; table-layout: fixed; font-family: var(--sans); font-size: 13px; border-collapse: separate; border-spacing: 2px; }
+.ins-matrix th { font-weight: 600; color: var(--ink-2); font-size: 12px; line-height: 1.2; padding: 4px 3px; vertical-align: bottom; text-align: center; }
+.ins-matrix th.row { text-align: right; vertical-align: middle; padding-right: 8px; width: 7.6em; }
+.ins-matrix th.corner { text-align: right; color: var(--muted); font-weight: 500; }
+.ins-matrix td { height: 46px; text-align: center; vertical-align: middle; border-radius: 4px; font-variant-numeric: tabular-nums; font-size: 13.5px; font-weight: 600; cursor: default; transition: outline-color .1s; outline: 2px solid transparent; outline-offset: -2px; }
+.ins-matrix td:hover, .ins-matrix td:focus { outline-color: var(--ink); }
+.ins-matrix td.total { background: transparent !important; color: var(--muted); font-weight: 500; font-size: 12px; }
+.ins-matrix .group-sep { border-left: 8px solid transparent; }
+
+/* tooltip */
+.ins-tip { position: fixed; z-index: 500; pointer-events: none; max-width: 280px; padding: 9px 11px; border-radius: 8px; background: rgba(255, 255, 255, .97);
+  border: 1px solid var(--hair); box-shadow: 0 6px 24px rgba(0, 0, 0, .12); font-family: var(--sans); font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.ins-tip .tv { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ins-tip .tt { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+.ins-tip .row { display: flex; align-items: center; gap: 7px; }
+.ins-tip .row i { display: inline-block; width: 12px; height: 2px; border-radius: 2px; flex: none; }
+.ins-tip .row b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* axes */
+.ins .tick text { fill: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.ins .tick line { stroke: var(--grid); }
+.ins .domain { stroke: var(--axis); }
+.ins .axis-label { fill: var(--muted); font-size: 11.5px; }
+.ins .halo { paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; fill: var(--ink-2); }
+.ins .direct { fill: var(--ink-2); font-size: 12px; font-weight: 600; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+
+/* tables behind the charts */
+.ins-table { margin-top: 10px; font-family: var(--sans); font-size: 13px; }
+.ins-table summary { cursor: pointer; color: #337ab7; }
+.ins-table table { width: 100%; margin-top: 8px; font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.ins-table th, .ins-table td { padding: 3px 6px; border-bottom: 1px solid var(--grid); text-align: right; }
+.ins-table th:first-child, .ins-table td:first-child { text-align: left; }
+.ins-table > div { max-height: 340px; overflow-y: auto; }
+
+.ins-method { max-width: 860px; }
+.ins-method code { font-size: 13px; background: var(--plane); padding: 1px 4px; border-radius: 3px; }
+
+@media (max-width: 767px) {
+  .ins-tiles { grid-template-columns: 1fr; gap: 8px; }
+  .ins-tile { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 12px; padding: 11px 13px; }
+  .ins-tile .l { margin-top: 0; }
+  .ins-card { padding: 14px 12px 10px; border-radius: 10px; margin-left: -2px; margin-right: -2px; }
+  .ins-filters { position: static; gap: 6px 12px; font-size: 13.5px; background: var(--surface); }
+  .ins-matrix { font-size: 12px; border-spacing: 1.5px; }
+  .ins-matrix th { font-size: 10.5px; padding: 3px 1px; }
+  .ins-matrix th.row { width: 5.4em; padding-right: 5px; }
+  .ins-matrix td { height: 40px; font-size: 12px; }
+  .ins-section { margin-bottom: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .ins * { transition: none !important; } }

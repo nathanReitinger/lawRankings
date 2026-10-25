@@ -43,6 +43,12 @@
   // the rank a journal is tiered or filtered by, under the chosen source: a flagship review's school rank, a
   // specialty journal's host school rank
   const rankOf = (ji) => (DATA.journal_ranks && DATA.journal_ranks[state.src] ? DATA.journal_ranks[state.src][ji] : DATA.journals[ji][2]);
+  // (audit, 2026-10-25) a journal's flagship tier: general journals only (data built before host_ranks existed kept
+  // each specialty journal's host-school rank in journal_ranks, which put specialty journals into the flagship tiers)
+  const flagshipRank = (ji) => (DATA.journals[ji][2] === null || DATA.journals[ji][2] === undefined ? null
+    : DATA.host_ranks ? rankOf(ji) : DATA.journals[ji][2]);
+  // a specialty journal's host school's rank, for the host filter
+  const hostRankOf = (ji) => (DATA.host_ranks ? (DATA.host_ranks[state.src] || DATA.host_ranks.usnews)[ji] : rankOf(ji));
   const bandLabel = (b) => (b.other ? b.label : (SOURCE_SHORT[state.src] || 'US News') + ' ' + b.range);
 
   ////////////////////////////////////////////// state: URL hash > localStorage > defaults
@@ -138,7 +144,7 @@
   // a specialty group's journals: in any checked subject, re-ranked by their best W&L score in those subjects
   function hostOk(ji) {
     if (state.host === 'any') return true;
-    const r = rankOf(ji);
+    const r = hostRankOf(ji);
     return r > 0 && r <= +state.host;
   }
 
@@ -163,7 +169,7 @@
     if (state.bands.length) {
       const bands = BANDS.filter((b) => state.bands.includes(b.id));
       const set = new Set();
-      DATA.journals.forEach((j, ji) => { if (bands.some((b) => inBand(rankOf(ji), b))) set.add(ji); });
+      DATA.journals.forEach((j, ji) => { if (bands.some((b) => inBand(flagshipRank(ji), b))) set.add(ji); });
       list.push({ label: 'Flagship', short: 'flagship', color: COLORS.general, cls: 'c-general', journals: set });
     }
     DATA.groups.forEach((g) => {
@@ -316,8 +322,8 @@
 
   function bandJournals(id) {
     const band = BANDS.find((b) => b.id === id);
-    const ids = DATA.journals.map((j, ji) => ji).filter((ji) => inBand(rankOf(ji), band))
-      .sort((a, b) => ((rankOf(a) || 999) - (rankOf(b) || 999)) || DATA.journals[a][0].localeCompare(DATA.journals[b][0]));
+    const ids = DATA.journals.map((j, ji) => ji).filter((ji) => inBand(flagshipRank(ji), band))
+      .sort((a, b) => ((flagshipRank(a) || 999) - (flagshipRank(b) || 999)) || DATA.journals[a][0].localeCompare(DATA.journals[b][0]));
     const head = band.other
       ? '<p>general journals that are not a school\'s main law review</p>'
       : '<p>school\'s ' + esc(sourceName()) + '</p>';
@@ -325,7 +331,7 @@
       const j = DATA.journals[ji];
       const [, , kind] = j[5] || ['', '', 'unmapped'];
       if (band.other) return esc(j[0]) + ' <span class="text-muted">(' + esc(KIND[kind] || kind) + ')</span>';
-      const r = rankOf(ji);
+      const r = flagshipRank(ji);
       return (r > 0 ? '#' + r + ' ' : 'unranked ') + esc(j[0]);
     };
     return head + (ids.length ? ids.map((ji) => '<div class="jrnl">' + line(ji) + '</div>').join('') : '<div class="jrnl">none</div>');
@@ -350,7 +356,7 @@
       const j = DATA.journals[ji];
       const wl = j[3][0][1] ? 'W&amp;L #' + j[3][0][1] : 'W&amp;L NR';
       const [school, , , publisher] = j[5] || ['', '', '', ''];
-      const r = rankOf(ji);
+      const r = hostRankOf(ji);
       const host = school ? esc(school) + ' <span class="text-muted">(' + (SOURCE_SHORT[state.src] || 'US News') + ' ' + (r > 0 ? '#' + r : 'unranked') + ')</span>'
         : (publisher ? '<span class="text-muted">' + esc(publisher) + '</span>' : '<span class="text-muted">publisher not recorded yet</span>');
       return '<div class="jrnl' + (hostOk(ji) ? '' : ' not-counted') + '">' + wl + ' · ' + esc(j[0]) + ' — ' + host + '</div>';

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Insights · Law School Rankings</title>
+  <meta name="description" content="Who publishes where, and with whom: law school faculty and the law reviews they publish in, and how co-authorship has grown.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;0,700;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="insights.css">
+  <script>/* the masthead for this visit: one of ten (style.css, html[data-mast]); the next one on the next visit */(function(){var F=['','EB+Garamond:wght@500','Cormorant+Garamond:wght@600','Crimson+Pro:wght@500','Libre+Caslon+Text','Playfair+Display+SC','Cinzel:wght@500','Zilla+Slab:wght@600','EB+Garamond:ital,wght@1,500','Source+Serif+4:wght@600'],v;try{v=sessionStorage.getItem('lsr.mast');if(!v){var n=+(localStorage.getItem('lsr.mastN')||Math.floor(Math.random()*10));v=String(n%10+1);localStorage.setItem('lsr.mastN',String(n+1));sessionStorage.setItem('lsr.mast',v);}}catch(e){v=String(1+Math.floor(Math.random()*10));}var q=/[?&]mast=(10|[1-9])\b/.exec(location.search);if(q)v=q[1];document.documentElement.setAttribute('data-mast',v);if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
+</head>
+<body class="ins">
+<div class="container">
+  <div class="lsr-mast-wrap">
+    <header class="lsr-mast">
+      <p class="lsr-issue"><a href="history.html" title="Version history (major.data.site)">Volume <span id="mhVolume">&nbsp;</span></a><span class="lsr-stamp" id="mhStamp" title="Last substantive data update (Unix time)">&nbsp;</span></p>
+      <h1 class="lsr-mark"><a href="./">Law School Rankings</a></h1>
+      <div class="lsr-foot">
+        <a class="lsr-about back" href="./">Rankings</a>
+        <span class="lsr-note">Insights</span>
+      </div>
+    </header>
+  </div>
+
+  <div class="ins-hero">
+    <p class="ins-kicker">Insights</p>
+    <h2 class="ins-title">Who publishes where, and with whom</h2>
+    <p class="ins-dek">Two questions about legal scholarship, answered from the same HeinOnline metadata as the rankings: where faculty at each law school publish, and whether law professors write alone less often than they used to.</p>
+    <nav class="ins-toc" aria-label="Sections">
+      <a href="#where"><span>1</span>Who publishes where</a>
+      <a href="#coauthor"><span>2</span>Co-authorship over time</a>
+      <a href="#method"><span>3</span>How these are computed</a>
+    </nav>
+  </div>
+
+  <p class="loading ins-loading" id="loading">Loading the data…</p>
+
+  <!-- ===================================================== 1. who publishes where -->
+  <section class="ins-section" id="where" hidden>
+    <header class="ins-head">
+      <p class="ins-q">Question 1</p>
+      <h2>Do faculty at top law schools publish only in top law reviews?</h2>
+      <p class="ins-lede" id="whereLede"></p>
+    </header>
+
+    <div class="ins-filters" role="group" aria-label="Filters for question 1">
+      <label>Articles from <select id="wFrom" class="ctl-select" aria-label="From year"></select></label>
+      <label>to <select id="wTo" class="ctl-select" aria-label="To year"></select></label>
+      <label>Rank by <select id="wSrc" class="ctl-select" aria-label="Which school ranking"></select></label>
+      <label class="ins-check"><input type="checkbox" id="wShort" checked> Skip short pieces</label>
+    </div>
+
+    <div class="ins-tiles" id="whereTiles"></div>
+
+    <figure class="ins-card" id="figNetwork">
+      <figcaption>
+        <h3>Every law school, every flagship law review</h3>
+        <p>Each line joins a law school (left, by its rank) to a flagship law review (right, by its school's rank); the thicker the line, the more articles the school's faculty published there. Lines that run flat stay at their own level; lines that climb or fall cross the ranking. Pick a group or a school, or tap either axis.</p>
+      </figcaption>
+      <div class="ins-chips" id="netChips" role="radiogroup" aria-label="Highlight a group of schools"></div>
+      <div class="ins-row">
+        <label class="ins-pick">School <select id="netSchool" class="ctl-select" aria-label="Highlight one school"></select></label>
+        <label class="ins-pick">Law review <select id="netJournal" class="ctl-select" aria-label="Highlight one law review"></select></label>
+      </div>
+      <div class="ins-network" id="network">
+        <canvas id="netCanvas" aria-hidden="true"></canvas>
+        <svg id="netSvg" role="img" aria-labelledby="netDesc"><desc id="netDesc">Lines from law schools ranked by U.S. News to the flagship law reviews their faculty published in.</desc></svg>
+      </div>
+      <div class="ins-detail" id="netDetail" aria-live="polite"></div>
+    </figure>
+
+    <figure class="ins-card" id="figMatrix">
+      <figcaption>
+        <h3 id="matrixTitle">Where each group of schools publishes</h3>
+        <p id="matrixNote"></p>
+      </figcaption>
+      <div class="ins-seg" role="radiogroup" aria-label="Read the table by row or by column">
+        <button type="button" data-view="row" aria-pressed="true">Where each group publishes</button>
+        <button type="button" data-view="col" aria-pressed="false">Who writes for each group of journals</button>
+      </div>
+      <div class="ins-matrix-wrap"><table class="ins-matrix" id="matrix"></table></div>
+    </figure>
+
+    <figure class="ins-card" id="figScatter">
+      <figcaption>
+        <h3>A school's rank, and the rank of the reviews its faculty publish in</h3>
+        <p>One dot per law school (at least 10 flagship-review articles in these years): across, the school's rank; up, the median rank of the flagship reviews its faculty published in. On the diagonal a school publishes at its own level; above it, in higher-ranked reviews.</p>
+      </figcaption>
+      <div class="ins-chart" id="scatter"></div>
+    </figure>
+  </section>
+
+  <!-- ===================================================== 2. co-authorship -->
+  <section class="ins-section" id="coauthor" hidden>
+    <header class="ins-head">
+      <p class="ins-q">Question 2</p>
+      <h2>Is co-authorship more common than it used to be?</h2>
+      <p class="ins-lede" id="coLede"></p>
+    </header>
+
+    <div class="ins-filters" role="group" aria-label="Filters for question 2">
+      <label class="ins-check"><input type="checkbox" id="cArticles" checked> Research articles only</label>
+      <label class="ins-check"><input type="checkbox" id="cPanel"> Same journals throughout <span class="text-muted" id="cPanelNote"></span></label>
+      <label class="ins-pick">Highlight a school <select id="coSchool" class="ctl-select" aria-label="Highlight one school"></select></label>
+    </div>
+
+    <div class="ins-tiles" id="coTiles"></div>
+
+    <figure class="ins-card" id="figTrend">
+      <figcaption>
+        <h3 id="trendTitle">Share of articles with more than one author</h3>
+        <p>Every piece in every journal collected here, whoever wrote it, by year of the volume.</p>
+      </figcaption>
+      <div class="ins-seg" id="trendMeasure" role="radiogroup" aria-label="What to plot">
+        <button type="button" data-m="2" aria-pressed="true">2 or more authors</button>
+        <button type="button" data-m="3" aria-pressed="false">3 or more</button>
+        <button type="button" data-m="mean" aria-pressed="false">Authors per article</button>
+      </div>
+      <div class="ins-legend" id="trendLegend"></div>
+      <div class="ins-chart" id="trend"></div>
+      <details class="ins-table"><summary>The numbers, by year</summary><div id="trendTable"></div></details>
+    </figure>
+
+    <figure class="ins-card" id="figTeams">
+      <figcaption>
+        <h3>And the teams are getting bigger</h3>
+        <p>Of the co-authored articles in each decade, how many had two, three, or four or more authors.</p>
+      </figcaption>
+      <div class="ins-legend" id="teamsLegend"></div>
+      <div class="ins-chart" id="teams"></div>
+    </figure>
+
+    <figure class="ins-card" id="figViolin">
+      <figcaption>
+        <h3>The rise shows up across schools, not at a few</h3>
+        <p>For each period, the spread across U.S. law schools of the share of their faculty's articles that were co-authored (schools with at least 15 articles in the period). Wider means more schools at that level; the white dot is the middle school, the dark bar the middle half.</p>
+      </figcaption>
+      <div class="ins-chart" id="violin"></div>
+      <p class="ins-foot">Current faculty only: articles are credited to where each author teaches now, so the early periods show the earlier work of today's faculty.</p>
+    </figure>
+  </section>
+
+  <!-- ===================================================== 3. method -->
+  <section class="ins-section prose ins-method" id="method" hidden>
+    <h2>How these are computed</h2>
+    <p><b>Who publishes where</b> uses the rankings' own data: the articles of current faculty at U.S. law schools, credited to the school where each author teaches now. An article counts once for each school with an author on it. Flagship law reviews (each school's main law review) are placed by their school's rank, under the ranking chosen above (<i>U.S. News</i> overall, or its peer-reputation score via TaxProf Blog); schools tied at a rank sit together, and schools listed in a range ("175–194") at its top. "Online editions &amp; other general journals" are the general journals that are not a school's main review; specialty journals are the rest.</p>
+    <p><b>Co-authorship</b> counts every piece in every journal collected here (<span id="mPieces"></span> pieces), not only those by current faculty, so the trend is not an artifact of who teaches today. A piece's authors are the names HeinOnline lists for it. "Research articles only" leaves out short pieces (under 10 pages by HeinOnline's page numbers, or a memorial under 20; where the length is not known, the short-piece classifier described on the <a href="faq.html#short">About page</a> decides). "Same journals throughout" keeps only the <span id="mPanel"></span> journals with articles in every five years since 1980, so a rise is not just newer journals joining. The latest year is partial until its volumes are complete.</p>
+    <p>The numbers behind every chart are in <code>data/data.json</code> and <code>data/insights.json</code> on <a href="https://github.com/nathanReitinger/lawRankings/tree/main/docs/data">GitHub</a>.</p>
+  </section>
+
+  <div class="ins-tip" id="tip" role="tooltip" hidden></div>
+  <footer class="page-footer" id="footer"></footer>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="masthead.js"></script>
+<script src="insights.js"></script>
+</body>
+</html>

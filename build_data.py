@@ -1033,6 +1033,47 @@ def default_ranking(data, years=10, top=30):
     return [[data['schools'][s][0], half_up(snap[s] + 1), len(faculty[s])] for s in order]
 
 
+PANEL_SINCE = 1980     # insights: "the same journals throughout" = journals with articles in every five years since
+
+
+def coauthorship(papers, n_authors, is_short, journals):
+    '''docs/data/insights.json for the Insights page (2026-10-25, the owner: "co-authorship used to happen less and
+    today it is happening more"): per year and kind of journal, how many pieces had 1, 2, 3, 4+ authors. Every piece in
+    every collected journal counts, whoever wrote it (not only current faculty, so the trend is not about who is on
+    a faculty today). Kinds: flagship law reviews, online editions and other general journals, specialty journals.
+    Each count also for research articles only (short pieces left out, as on the rankings page) and for the "panel":
+    journals with articles in every five years since PANEL_SINCE, so a trend is not just new journals coming in.'''
+    kind_of = {j[0]: ('specialty' if j[2] is None else 'online' if j[2] < 0 else 'flagship') for j in journals}
+    per = papers.groupby('paper_key', sort=False).agg(journal=('journal', 'first'), year=('year', 'first'))
+    per['n'] = n_authors.reindex(per.index).fillna(1).astype(int).clip(lower=1)
+    per['short'] = [is_short(k) for k in per.index]
+    per['kind'] = per['journal'].map(kind_of)
+    per = per[per['kind'].notna()]
+    last_bin = (datetime.now().year - 5) // 5 * 5
+    bins = per.assign(b=per['year'] // 5 * 5).groupby('journal')['b'].agg(set)
+    panel = {j for j, b in bins.items() if set(range(PANEL_SINCE, last_bin + 1, 5)) <= b}
+    years = list(range(int(per['year'].min()), int(per['year'].max()) + 1))
+    kinds = ['flagship', 'online', 'specialty']
+    out = {'kinds': kinds, 'years': years, 'pieces': int(len(per)),
+           'panel': {'since': PANEL_SINCE, 'journals': len(panel), 'names': sorted(panel)},
+           'columns': ['pieces', 'one author', 'two', 'three', 'four or more', 'authors in all']}
+    for name, rows in (('all', per), ('articles', per[~per['short']]),
+                       ('panel_all', per[per['journal'].isin(panel)]),
+                       ('panel_articles', per[per['journal'].isin(panel) & ~per['short']])):
+        b = rows['n'].clip(upper=4)
+        t = pd.DataFrame({'kind': rows['kind'], 'year': rows['year'], 'b': b, 'n': rows['n']})
+        counts = t.groupby(['kind', 'year', 'b']).size().unstack('b', fill_value=0).reindex(columns=[1, 2, 3, 4], fill_value=0)
+        total = t.groupby(['kind', 'year'])['n'].sum()
+        out[name] = {}
+        for k in kinds:
+            series = []
+            for y in years:
+                c = counts.loc[(k, y)].tolist() if (k, y) in counts.index else [0, 0, 0, 0]
+                series.append([int(sum(c))] + [int(x) for x in c] + [int(total.get((k, y), 0))])
+            out[name][k] = series
+    return out
+
+
 def git_json(path):
     '''the last committed copy of a JSON file in this repo, or {} if there is none'''
     r = subprocess.run(['git', 'show', 'HEAD:' + path], cwd=HERE, capture_output=True, text=True)
@@ -1156,11 +1197,20 @@ def build():
     collected_on = dict(zip(coverage['journal'], coverage['collected']))
     journals = []
     flagship = load_flagship(sorted(ranked.loc[ranked['journal_type'] == 'General', 'journal'].unique()), usnews_table, peer_table)
-    rank_by = {'usnews': [], 'peer': []}        # per journal: the rank the flagship tiers / host filter use
+    # per journal and source: the rank the flagship tiers use (rank_by: general journals only, None for the rest) and
+    # the host school's rank the specialty filter uses (host_by: specialty journals only). (audit, 2026-10-25) one
+    # list for both put specialty journals into the flagship tiers, and two General journals that W&L also lists
+    # under a subject (Journal of Legal Analysis, University of Chicago Legal Forum) into tier 1-25
+    rank_by = {'usnews': [], 'peer': []}
+    host_by = {'usnews': [], 'peer': []}
     for j in journal_names:
         # flagship: the school's US News rank (0 = unranked school, -1 = online edition or other general
         # journal, None = not a General journal); the W&L General rank is not used
         general_rank, host, peer_rank = flagship.get(j, [None, None, None])
+        rank_by['usnews'].append(general_rank)
+        rank_by['peer'].append(peer_rank)
+        host_by['usnews'].append(None)
+        host_by['peer'].append(None)
         subs, grps = [], []
         if j in best.index:
             area, field = area_field[j]
@@ -1172,11 +1222,8 @@ def build():
             if school or publisher:
                 lab = usnews_table.get(school) if school else ''
                 host = [school, (lab or 'Unranked') if school else '', 'specialty', publisher]
-            rank_by['usnews'].append(rank_number(usnews_table.get(school)) if school else -1)
-            rank_by['peer'].append(rank_number(peer_table.get(school)) if school else -1)
-        else:
-            rank_by['usnews'].append(general_rank)
-            rank_by['peer'].append(peer_rank)
+            host_by['usnews'][-1] = rank_number(usnews_table.get(school)) if school else -1
+            host_by['peer'][-1] = rank_number(peer_table.get(school)) if school else -1
         journals.append([j, collected_on[j], general_rank, subs, grps] + ([host] if host else []))
 
     not_ranked = sorted(set(papers['journal']) - set(journal_names))
@@ -1321,17 +1368,15 @@ def build():
     p = first_rows.loc[paper_keys]
     classes = load_classes()
     model_flags, model_info = load_short_model()
-    short_flags = []
-    for k in paper_keys:
+    def is_short(k):
         length = length_of.get(k)
         kind, pages, llm_short = classes.get(k, (None, None, False))
         if length is not None and length == length and length >= 1:
-            short = length < SHORT_PAGES or (kind == 'memorial or tribute' and length < 20)
-        elif k in model_flags:
-            short = bool(model_flags[k])   # the trained model's call where the length is not measured
-        else:
-            short = bool(llm_short)        # an older classifier's call; neither: it counts
-        short_flags.append(1 if short else 0)
+            return length < SHORT_PAGES or (kind == 'memorial or tribute' and length < 20)
+        if k in model_flags:
+            return bool(model_flags[k])    # the trained model's call where the length is not measured
+        return bool(llm_short)             # an older classifier's call; neither: it counts
+    short_flags = [1 if is_short(k) else 0 for k in paper_keys]
     os.makedirs(os.path.dirname(CREDITED_KEYS), exist_ok=True)
     with open(CREDITED_KEYS + '.tmp', 'w', encoding='utf-8') as f:   # what the classifier does next
         f.write('\n'.join(paper_keys))
@@ -1346,6 +1391,7 @@ def build():
         'rank_sources': [['usnews', 'U.S. News overall rank', us_meta['edition']]] +
                         ([['peer', 'U.S. News peer reputation rank (TaxProf Blog)', us_meta['edition']]] if us_meta.get('peer') else []),
         'journal_ranks': rank_by if us_meta.get('peer') else {'usnews': rank_by['usnews']},
+        'host_ranks': host_by if us_meta.get('peer') else {'usnews': host_by['usnews']},
         'people': people,
         'subjects': subjects,
         'groups': groups,
@@ -1439,7 +1485,10 @@ def build():
         os.remove(f)
     if os.path.isdir(os.path.join(OUT_DIR, 'titles')) and not os.listdir(os.path.join(OUT_DIR, 'titles')):
         os.rmdir(os.path.join(OUT_DIR, 'titles'))
-    outputs = [('data.json', data), ('meta.json', meta), ('history.json', history)]
+    insights = coauthorship(papers, n_authors, is_short, journals)
+    print(f"  insights: co-authorship of {insights['pieces']} pieces in {len(journals)} journals, "
+          f"{insights['years'][0]}-{insights['years'][-1]} ({insights['panel']['journals']} journals publishing since {insights['panel']['since']})")
+    outputs = [('data.json', data), ('meta.json', meta), ('history.json', history), ('insights.json', insights)]
     for name, obj in outputs:
         with open(os.path.join(OUT_DIR, name) + '.tmp', 'w', encoding='utf-8') as f:   # temp + rename (review)
             json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))
