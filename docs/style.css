@@ -113,6 +113,7 @@ html[data-mast="10"] .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15e
   color: #337ab7; background: #fff; font-size: 13px; text-decoration: none;
 }
 .btn-line:hover, .btn-line:focus { background: #337ab7; color: #fff; text-decoration: none; }
+.jrnl.not-counted { color: #999; }              /* outside the host-school rank filter */
 .bio-link { margin-left: 5px; font-size: 11px; font-variant: small-caps; letter-spacing: .04em; color: #337ab7; }
 .bio-link:hover { text-decoration: underline; }
 

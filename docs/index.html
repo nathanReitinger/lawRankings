@@ -43,7 +43,7 @@
       <span class="ctl-years">from <select id="fromYear" class="ctl-select" aria-label="From year"></select>
         to <select id="toYear" class="ctl-select" aria-label="To year"></select></span>
       <span class="ctl-pills">
-        <button type="button" class="area-pill bg-general" id="pillGeneral" title="Flagship law reviews, by their school's US News rank: turn on/off">Flagship</button>
+        <button type="button" class="area-pill bg-general" id="pillGeneral" title="Flagship law reviews, by their school's rank: turn on/off">Flagship</button>
         <button type="button" class="area-pill bg-specialty" id="pillSpecialty" title="Specialty journals, by W&amp;L rank: turn on/off">Specialty</button>
       </span>
       <span id="summary" class="text-muted" style="font-size:13px"></span>
@@ -57,14 +57,18 @@
       <table class="area-table">
         <tbody id="generalBody">
           <tr class="area-head"><td colspan="2"><button type="button" class="area-btn bg-general" id="toggleGeneral" title="Turn all flagship law review tiers on/off">Flagship Law Reviews</button>
-            <div style="margin-top:6px"><small class="text-muted">tiered by their school's US News rank</small></div></td></tr>
+            <div style="margin-top:6px"><small class="text-muted">tiered by their school's
+              <select id="rankSource" class="inline-select" aria-label="Which school ranking tiers the flagship reviews"></select></small></div></td></tr>
         </tbody>
         <tbody id="specialtyBody">
           <tr class="area-head"><td colspan="2"><button type="button" class="area-btn bg-specialty" id="toggleSpecialty" title="Turn all specialty groups on/off">Specialty Journals</button>
             <div style="margin-top:6px"><small class="text-muted">count each group's top
               <select id="cutoff" class="inline-select" aria-label="How many journals per group, by W&amp;L rank">
                 <option value="3">3</option><option value="5">5</option><option value="10">10</option><option value="25">25</option><option value="all">all</option>
-              </select> journals by W&amp;L rank</small></div></td></tr>
+              </select> journals by W&amp;L rank, from schools ranked
+              <select id="hostTier" class="inline-select" aria-label="Only specialty journals of schools ranked in this range">
+                <option value="any">any (or none)</option><option value="25">1–25</option><option value="50">1–50</option><option value="100">1–100</option>
+              </select></small></div></td></tr>
         </tbody>
         <tbody>
           <tr class="area-head"><td colspan="2"><span class="area-btn bg-options">Options</span></td></tr>

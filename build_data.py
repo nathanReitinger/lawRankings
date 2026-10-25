@@ -64,50 +64,18 @@ FACULTY_LIST_DIR = os.path.join(HERE, 'faculty')
 # whether it is that school's main law review ("main"), an online edition ("online"), a second general journal
 # ("secondary"), or not a school's journal ("non_school", "foreign"). Only main reviews get a US News rank.
 FLAGSHIP_FILE = os.path.join(SOURCE_DIR, 'flagship_schools.csv')
+TAXONOMY_FILE = os.path.join(SOURCE_DIR, 'journal_taxonomy.csv')     # 2026-10-25: specialty journal -> area > field > topic
+SPECIALTY_HOSTS = os.path.join(SOURCE_DIR, 'specialty_hosts.csv')    # 2026-10-25: specialty journal -> host law school
+WL_CROSSWALK = os.path.join(SOURCE_DIR, 'wl_subject_taxonomy.csv')    # W&L subject -> area > field, for journals not mapped yet
+# the order the areas are listed in (research/taxonomy: 13 subject areas, then the methods)
+AREA_ORDER = ['Constitutional & Public Law', 'Courts, Litigation & Dispute Resolution', 'Criminal Law & Justice',
+              'Business & Financial Law', 'Tax, Trusts & Estates', 'Property, Environment & Natural Resources',
+              'International & Comparative Law', 'Science, Technology & IP', 'Health Law & Bioethics',
+              'Civil Rights, Equality & Family', 'Labor & Employment', 'Legal Profession & Education',
+              'Legal Theory, Humanities & Society', 'Interdisciplinary Methods']
 DEFAULT_FLAGSHIP_TOP = 25     # the site's default view: main law reviews of the US News top 25 (tiers 1-3 and 4-25)
 DEFAULT_VIEW = f'flagship law reviews of the US News top {DEFAULT_FLAGSHIP_TOP} schools, last ten years, US law schools'
 
-# W&L subjects -> the simpler groups shown on the site. Edit freely; anything not listed lands in "Other".
-SUBJECT_GROUPS = {
-    'Business & Tax': [
-        'Business, Corporations and Securities Law', 'Banking, Finance and Insurance Law', 'Bankruptcy',
-        'Commercial and Competition Law', 'Taxation', 'Law and Economics', 'International Trade',
-        'Estates and Trusts', 'Employment Law',
-    ],
-    'Constitutional & Public Law': [
-        'Constitutional Law', 'Administrative Law', 'Governmental Law', 'Legislation',
-        'Public Policy, Politics and the Law', 'Education Law',
-        'War, Conflicts, Military and National Security Law',
-    ],
-    'Criminal Law & Litigation': [
-        'Criminal Law', 'Criminology and Law Enforcement', 'Evidence and Procedure',
-        'Civil Litigation and Dispute Resolution', 'Torts',
-    ],
-    'International & Comparative': [
-        'International Law', 'Comparative Law', 'Asian Law', 'European Law',
-        'Maritime and Transportation Law', 'Air and Space Law',
-    ],
-    'Technology & IP': [
-        'Science, Technology and Computing Law', 'Intellectual Property', 'Communications and Media Law',
-        'Arts, Entertainment and Sports Law',
-    ],
-    'Environment & Property': [
-        'Environmental and Land Use Law', 'Energy and Natural Resources Law', 'Agriculture Law', 'Animal Law',
-        'Property, Real Estate and Construction Law',
-    ],
-    'Civil Rights & Social Justice': [
-        'Civil Rights and Social Justice', 'Gender, Women and Sexuality and Law',
-        'Minority, Race and Ethnic Issues and Law', 'Human Rights and Immigration Law',
-    ],
-    'Health & Family': [
-        'Health, Medicine, Psychology and Psychiatry Law', 'Family and Juvenile Law', 'Elder Law',
-    ],
-    'Theory & the Profession': [
-        'Jurisprudence and Legal Theory', 'Social Sciences and Law', 'Legal History', 'Law and Ethics',
-        'Law and Religion and Religious Legal Systems', 'Legal Profession and Legal Education',
-        'Legal Research, Writing and Librarianship',
-    ],
-}
 
 # Short pieces (the owner, 2026-10-23: a real classifier, not title rules). short_pieces/ classifies every
 # credited piece with a local model (Ollama, qwen3:8b) from its title and Hein section label, journal, year, position in
@@ -565,6 +533,9 @@ def load_usnews():
             continue
         col = 'usnews_rank_text' if 'usnews_rank_text' in df.columns else 'rank_text'
         out = {r['school']: label(r[col]) for _, r in df.iterrows()}
+        # 2026-10-25: the same TaxProf post's peer-reputation ranks (deans and faculty, 1-5), where saved
+        peer = {r['school']: label(r['peer_rank']) for _, r in df.iterrows()} if 'peer_rank' in df.columns else {}
+        peer = {k: v for k, v in peer.items() if v}
         if kind == 'taxprof' and manual:
             prev = pd.read_csv(manual[max(manual)], dtype=str).fillna('')
             for _, r in prev[prev['rank_text'] == 'Unranked'].iterrows():
@@ -585,7 +556,7 @@ def load_usnews():
             if carried:
                 print(f'  {len(carried)} schools not in the {edition} US News list kept from {e}:', carried[:10])
         source = f'US News {edition}' + (' (via TaxProf Blog)' if kind == 'taxprof' else ' (saved page)')
-        return edition, source, out
+        return edition, source, out, peer
     return None
 
 
@@ -601,10 +572,10 @@ def load_us_schools(roster_schools):
 
     found = load_usnews()
     if found:
-        edition, source, table = found
+        edition, source, table, peer = found
     else:
         # nothing from update_usnews() yet: the hand-saved page this project started with
-        edition, source, table = '2025-2026', 'US News 2025-2026 (saved page)', {}
+        edition, source, table, peer = '2025-2026', 'US News 2025-2026 (saved page)', {}, {}
         soup = BeautifulSoup(open(os.path.join(SOURCE_DIR, '2025_USnews.txt'), encoding='utf-8').read(), 'html.parser')
         for div in soup.find_all('div', attrs={'name': True}):
             rank_tag = div.find('strong', string=lambda s: s and '#' in s)
@@ -622,16 +593,24 @@ def load_us_schools(roster_schools):
             prefixes = [k for k in by_norm if n.startswith(k + ' ')]
             hits = by_norm[prefixes[0]] if len(prefixes) == 1 else []
         for h in hits:
-            to_ret.setdefault(h, (us_name, rank))
+            to_ret.setdefault(h, (us_name, rank, peer.get(us_name)))
     unmatched = [n for n in table if not any(v[0] == n for v in to_ret.values())]
     if unmatched:
         print(f'  {len(unmatched)} {source} schools not on Hein\'s faculty lists:', unmatched[:8])
-    return to_ret, {'edition': edition, 'source': source, 'schools': len(to_ret)}, table
+    return to_ret, {'edition': edition, 'source': source, 'schools': len(to_ret), 'peer': bool(peer)}, table, peer
 
 
-def load_flagship(general_journals, usnews):
+def rank_number(label):
+    '''"14" -> 14, "175-194" -> 175, None / "Unranked" -> 0'''
+    m = re.match(r'\d+', str(label or ''))
+    return int(m.group()) if m else 0
+
+
+def load_flagship(general_journals, usnews, peer=None):
     '''journal -> [US News rank number (0 = unranked, -1 = not a main law review), [school, rank label, kind,
-    parent journal]] for every W&L General journal, from FLAGSHIP_FILE and the US News list in use'''
+    parent journal], peer-reputation rank number] for every W&L General journal, from FLAGSHIP_FILE and the US News
+    list in use'''
+    peer = peer or {}
     df = pd.read_csv(FLAGSHIP_FILE, dtype=str).fillna('')
     rows = {r['journal']: r for _, r in df.iterrows()}
     out = {}
@@ -639,16 +618,16 @@ def load_flagship(general_journals, usnews):
         r = rows.get(j)
         if r is None:
             print('  !! W&L General journal not in flagship_schools.csv, counted with the other general journals:', j)
-            out[j] = [-1, ['', '', 'unmapped', '']]
+            out[j] = [-1, ['', '', 'unmapped', ''], -1]
             continue
         school, kind = r['host_school_usnews_name'], r['kind']
         if kind != 'main':
-            out[j] = [-1, [school, '', kind, r.get('parent_journal', '')]]
+            out[j] = [-1, [school, '', kind, r.get('parent_journal', '')], -1]
             continue
         if school and school not in usnews:
             print(f'  !! {j}: school "{school}" is not in the US News list in use; counted as unranked')
         label = usnews.get(school)          # "14", "175-194", or None (Unranked)
-        out[j] = [int(re.match(r'\d+', label).group()) if label else 0, [school, label or 'Unranked', kind, '']]
+        out[j] = [rank_number(label), [school, label or 'Unranked', kind, ''], rank_number(peer.get(school))]
     return out
 
 
@@ -1108,7 +1087,7 @@ def build():
     papers, coverage = load_papers()
     roster = load_roster()
     wl_year, rankings, rankings_fetched = load_rankings()
-    us, us_meta, usnews_table = load_us_schools(roster['school'].unique())
+    us, us_meta, usnews_table, peer_table = load_us_schools(roster['school'].unique())
     aba, aba_check = load_aba(roster['school'].unique())
     extra = sorted(set(aba) - set(us))
     if extra:
@@ -1117,42 +1096,88 @@ def build():
           f"{len(aba)} from the ABA list)")
 
     ##### journals and their categories
+    # 2026-10-25 (the owner: "Use a drop down taxonomy for the specialty journals. So you click on a topic to see which
+    # journals fit that category"): specialty journals are grouped by the taxonomy (journal_taxonomy.csv: each
+    # journal's primary area > field, from research/taxonomy plus hand-mapped additions): areas are the groups,
+    # fields the sub-items; a W&L specialty journal not mapped yet goes to "Other specialty journals" under its W&L
+    # subject (and is printed)
     ranked = rankings[rankings['journal'].isin(papers['journal'].unique())]
-    subjects = sorted(s for s in ranked['journal_type'].unique() if s != 'General')
-    subject_to_group = {s: g for g, subs in SUBJECT_GROUPS.items() for s in subs}
-    unmapped = [s for s in subjects if s not in subject_to_group]
-    groups = list(SUBJECT_GROUPS) + (['Other'] if unmapped else [])
-    for s in unmapped:
-        print('  !! W&L subject not in SUBJECT_GROUPS, putting it in Other:', s)
-        subject_to_group[s] = 'Other'
-
-    # rank within each group by W&L score (journals in several subjects of a group count once)
-    group_rank = {}
+    tax = pd.read_csv(TAXONOMY_FILE, dtype=str).fillna('') if os.path.exists(TAXONOMY_FILE) else pd.DataFrame(columns=['journal', 'primary_path'])
+    area_field = {}
+    for r in tax.itertuples():
+        parts = [p.strip() for p in r.primary_path.split('>')]
+        if len(parts) >= 2:
+            area = 'Interdisciplinary Methods' if parts[0] == 'Approaches' else parts[0]
+            area_field[r.journal] = (area, parts[1])
     spec = ranked[ranked['journal_type'] != 'General'].copy()
-    spec['group'] = spec['journal_type'].map(subject_to_group)
-    for g, gdf in spec.groupby('group'):
-        best = gdf.groupby('journal')['score'].max().sort_values(ascending=False)
-        for pos, (j, score) in enumerate(best.items(), start=1):
-            group_rank[(j, g)] = pos if pd.notna(score) else None
+    # a journal not mapped by name takes the field of its best W&L subject (wl_subject_taxonomy.csv); a W&L subject
+    # not in that crosswalk either: "Other specialty journals" (printed)
+    cross = {}
+    if os.path.exists(WL_CROSSWALK):
+        for r in pd.read_csv(WL_CROSSWALK, dtype=str).fillna('').itertuples():
+            parts = [p.strip() for p in r.area_field.split('>')]
+            if len(parts) >= 2:
+                cross[r.wl_subject] = ('Interdisciplinary Methods' if parts[0] == 'Approaches' else parts[0], parts[1])
+    by_subject, other = 0, []
+    for j in sorted(set(spec['journal']) - set(area_field)):
+        rows = spec[spec['journal'] == j].sort_values('WandL_rank')
+        hit = next((cross[t] for t in rows['journal_type'] if t in cross), None)
+        if hit:
+            area_field[j] = hit
+            by_subject += 1
+        else:
+            area_field[j] = ('Other specialty journals', rows['journal_type'].iloc[0])
+            other.append(j)
+    if by_subject:
+        print(f'  {by_subject} specialty journals placed by their W&L subject (not in journal_taxonomy.csv yet)')
+    if other:
+        print(f'  !! {len(other)} specialty journals with a W&L subject the crosswalk lacks, under "Other specialty journals":', other[:10])
+    used = {area_field[j] for j in set(spec['journal'])}
+    groups = [g for g in AREA_ORDER + ['Other specialty journals'] if any(a == g for a, _ in used)]
+    groups += sorted({a for a, _ in used} - set(groups))
+    subjects = sorted({f for _, f in used})
+    subject_to_group = {f: a for a, f in used}
+    best = spec.groupby('journal').agg(rank=('WandL_rank', 'min'), score=('score', 'max'))
+    group_rank = {}
+    for g in groups:
+        members = [j for j in best.index if area_field[j][0] == g]
+        order = best.loc[members].sort_values('score', ascending=False)
+        for pos, (j, sc) in enumerate(order['score'].items(), start=1):
+            group_rank[(j, g)] = pos if pd.notna(sc) else None
+
+    # the school that publishes each specialty journal (specialty_hosts.csv), and its ranks
+    hosts = {}
+    if os.path.exists(SPECIALTY_HOSTS):
+        for r in pd.read_csv(SPECIALTY_HOSTS, dtype=str).fillna('').itertuples():
+            hosts[r.journal] = (r.host, r.publisher)
 
     journal_names = sorted(ranked['journal'].unique())
     journal_id = {j: i for i, j in enumerate(journal_names)}
     collected_on = dict(zip(coverage['journal'], coverage['collected']))
     journals = []
-    flagship = load_flagship(sorted(ranked.loc[ranked['journal_type'] == 'General', 'journal'].unique()), usnews_table)
+    flagship = load_flagship(sorted(ranked.loc[ranked['journal_type'] == 'General', 'journal'].unique()), usnews_table, peer_table)
+    rank_by = {'usnews': [], 'peer': []}        # per journal: the rank the flagship tiers / host filter use
     for j in journal_names:
-        jdf = ranked[ranked['journal'] == j]
         # flagship: the school's US News rank (0 = unranked school, -1 = online edition or other general
         # journal, None = not a General journal); the W&L General rank is not used
-        general_rank, host = flagship.get(j, [None, None])
-        # [subject id, W&L rank in that subject (0 = NR), W&L score] - the site re-ranks groups from the scores
-        subs = [[subjects.index(r.journal_type), int(r.WandL_rank) if pd.notna(r.score) else 0,
-                 float(r.score) if pd.notna(r.score) else None]
-                for r in jdf.itertuples() if r.journal_type != 'General']
-        grps = sorted({(groups.index(subject_to_group[subjects[s]]),
-                        group_rank.get((j, subject_to_group[subjects[s]])) or 0) for s, _, _ in subs})
-        # rank 0 = listed by W&L but not ranked (NR); it only shows up under "All"
-        journals.append([j, collected_on[j], general_rank, subs, [list(g) for g in grps]] + ([host] if host else []))
+        general_rank, host, peer_rank = flagship.get(j, [None, None, None])
+        subs, grps = [], []
+        if j in best.index:
+            area, field = area_field[j]
+            sc = best.at[j, 'score']
+            # [field id, W&L rank (0 = NR), W&L score] - the site re-ranks groups from the scores
+            subs = [[subjects.index(field), int(best.at[j, 'rank']) if pd.notna(sc) else 0, float(sc) if pd.notna(sc) else None]]
+            grps = [[groups.index(area), group_rank.get((j, area)) or 0]]
+            school, publisher = hosts.get(j, ('', ''))
+            if school or publisher:
+                lab = usnews_table.get(school) if school else ''
+                host = [school, (lab or 'Unranked') if school else '', 'specialty', publisher]
+            rank_by['usnews'].append(rank_number(usnews_table.get(school)) if school else -1)
+            rank_by['peer'].append(rank_number(peer_table.get(school)) if school else -1)
+        else:
+            rank_by['usnews'].append(general_rank)
+            rank_by['peer'].append(peer_rank)
+        journals.append([j, collected_on[j], general_rank, subs, grps] + ([host] if host else []))
 
     not_ranked = sorted(set(papers['journal']) - set(journal_names))
     if not_ranked:
@@ -1315,7 +1340,12 @@ def build():
           f'{sum(1 for k in paper_keys if k in classes)} classified, '
           f'{sum(1 for k in paper_keys if length_of.get(k) == length_of.get(k) and length_of.get(k) is not None)} with a measured length')
     data = {
-        'schools': [[s, s in us or s in aba, us.get(s, (None, None))[1]] for s in schools],
+        'schools': [[s, s in us or s in aba, us.get(s, (None, None, None))[1], us.get(s, (None, None, None))[2]] for s in schools],
+        # 2026-10-25 (the owner: "Add in another ranking. Use tax prof ... allow a user to select that as the source"):
+        # the flagship tiers and the specialty host filter can use either source
+        'rank_sources': [['usnews', 'U.S. News overall rank', us_meta['edition']]] +
+                        ([['peer', 'U.S. News peer reputation rank (TaxProf Blog)', us_meta['edition']]] if us_meta.get('peer') else []),
+        'journal_ranks': rank_by if us_meta.get('peer') else {'usnews': rank_by['usnews']},
         'people': people,
         'subjects': subjects,
         'groups': groups,
