@@ -16,25 +16,17 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 
 .container { margin: 0 auto; padding: 0 15px; max-width: 1170px; }
 
-/* ---------- masthead: the Harvard Law Review's boxed wordmark, under frosted glass (2026-10-24) ----------
-   The print masthead as before (measured from 139 Harv. L. Rev. 1; all sizes scale with the wordmark's cap height;
-   Alegreya 450 for the wordmark, Noto Serif 700 for Century Bold), with a little cyberpunk in a glassmorphism way:
-   a faint cyan/magenta aurora behind the box, the box itself a pane of frosted glass with a fine grain, a hairline
-   highlight on its top edge, and the letters' edges barely split into cyan and magenta. */
-.lsr-mast-wrap {
-  container-type: inline-size; position: relative; isolation: isolate; display: flex; justify-content: center; padding: 22px 0 16px;
-}
-.lsr-mast-wrap::before {                 /* the aurora the glass sits on */
-  content: ""; position: absolute; z-index: -1; inset: 4px 6% 0; pointer-events: none; filter: blur(16px); opacity: .9;
-  background:
-    radial-gradient(38% 60% at 22% 55%, rgba(0, 229, 255, .45), transparent 70%),
-    radial-gradient(34% 58% at 78% 45%, rgba(255, 43, 214, .38), transparent 70%),
-    radial-gradient(30% 50% at 50% 70%, rgba(106, 0, 255, .22), transparent 70%);
-}
+/* ---------- masthead: ten professional wordmarks, a different one on each visit (2026-10-25) ----------
+   The owner: "come up with 10 different versions of the header logo. Cycle through them. None should be cyberpunk.
+   All should look very professional. A user gets a different one on each visit." A one-line script in each page's
+   <head> sets html[data-mast="1".."10"] (one per visit, the next one on the next visit) and loads only that
+   variant's font. All keep the law-review layout measured from 139 Harv. L. Rev. 1: the version line above, the
+   framed wordmark, the About button below; sizes scale with the wordmark, --k fits wider faces to the same width. */
+.lsr-mast-wrap { container-type: inline-size; display: flex; justify-content: center; padding: 22px 0 16px; }
 .lsr-mast {
-  --ink: #000; --paper: #fff; --fi: max(11px, 0.486em);
+  --ink: #000; --paper: #fff; --fi: max(11px, 0.486em); --k: 1; --ls: 0.170em; --face: 'Alegreya', 'Libre Caslon Text', Georgia, serif; --weight: 450;
   font-size: clamp(15px, 5.6vw, 3rem);
-  font-size: clamp(15px, calc(100cqi / 16.4), 3rem);
+  font-size: clamp(15px, calc(var(--k) * 100cqi / 16.4), calc(var(--k) * 3rem));
   display: inline-grid; grid-template-columns: minmax(0, max-content); max-width: 100%; margin: 0; color: var(--ink);
 }
 .lsr-issue {
@@ -46,48 +38,54 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 .lsr-issue a:hover { text-decoration: underline; }
 .lsr-stamp { font-variant-numeric: tabular-nums; cursor: help; }
 .lsr-mark {
-  --ls: 0.170em;
-  position: relative; overflow: hidden;
   margin: calc(0.4315em - 0.112 * var(--fi)) 0 0;
   padding: 0.256em 0.855em 0.261em 0.833em;
-  border: max(1.5px, 0.069em) solid rgba(0, 0, 0, .88);
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"),
-    linear-gradient(160deg, rgba(255, 255, 255, .70) 0%, rgba(255, 255, 255, .42) 48%, rgba(240, 250, 255, .55) 100%);
-  background-size: 140px 140px, auto;
-  -webkit-backdrop-filter: blur(10px) saturate(1.5); backdrop-filter: blur(10px) saturate(1.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .95), inset 0 -1px 0 rgba(0, 229, 255, .18),
-              0 0 0 1px rgba(255, 255, 255, .5), 0 6px 22px -8px rgba(106, 0, 255, .28), 0 0 18px -6px rgba(0, 229, 255, .35);
-  font-family: 'Alegreya', 'Libre Caslon Text', Georgia, 'Times New Roman', serif; font-weight: 450; font-style: normal;
+  border: max(1.5px, 0.069em) solid var(--ink); background: var(--paper); color: var(--ink);
+  font-family: var(--face); font-weight: var(--weight); font-style: normal;
   font-size: 1em; line-height: 1; letter-spacing: var(--ls); word-spacing: 0.015em; text-transform: uppercase;
-  text-shadow: -0.014em 0 rgba(255, 43, 214, .32), 0.014em 0 rgba(0, 229, 255, .38);
   font-kerning: normal; font-variant-ligatures: none; text-align: center; white-space: nowrap;
 }
-.lsr-mark::before {                      /* a sheen across the glass */
-  content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .55) 45%, transparent 58%);
-  transform: translateX(-60%); transition: transform .9s ease;
-}
-.lsr-mark:hover::before { transform: translateX(60%); }
-.lsr-mark > a { position: relative; display: inline-block; margin-right: calc(-1 * var(--ls)); color: inherit; }
+.lsr-mark > a { display: inline-block; margin-right: calc(-1 * var(--ls)); color: inherit; }
 .lsr-mark > a:hover { text-decoration: none; }
-@media (prefers-reduced-motion: reduce) { .lsr-mark::before { transition: none; } }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .lsr-mark { background-color: rgba(255, 255, 255, .9); }
-}
+/* 2. double rule, Garamond */
+html[data-mast="2"] .lsr-mast { --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.16em; }
+html[data-mast="2"] .lsr-mark { border: max(3px, 0.11em) double var(--ink); }
+/* 3. Oxford blue: rules above and below, no sides */
+html[data-mast="3"] .lsr-mast { --ink: #14213d; --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --k: 0.99; --ls: 0.15em; }
+html[data-mast="3"] .lsr-mark { border-width: max(2px, 0.08em) 0; box-shadow: inset 0 0.07em 0 var(--paper), inset 0 0.1em 0 var(--ink), inset 0 -0.07em 0 var(--paper), inset 0 -0.1em 0 var(--ink); }
+/* 4. cardinal, a fine frame */
+html[data-mast="4"] .lsr-mast { --ink: #8c1515; --face: 'Crimson Pro', Georgia, serif; --weight: 500; --k: 1.07; --ls: 0.15em; }
+html[data-mast="4"] .lsr-mark { border-width: max(1px, 0.04em); }
+/* 5. ink panel, letters reversed out */
+html[data-mast="5"] .lsr-mast { --ink: #1f2a37; --face: 'Libre Caslon Text', Georgia, serif; --weight: 400; --k: 0.9; --ls: 0.16em; }
+html[data-mast="5"] .lsr-mark { background: var(--ink); color: #fff; }
+/* 6. small caps with an inner hairline */
+html[data-mast="6"] .lsr-mast { --face: 'Playfair Display SC', Georgia, serif; --weight: 400; --k: 1.03; --ls: 0.12em; }
+html[data-mast="6"] .lsr-mark { outline: 1px solid var(--ink); outline-offset: calc(-1 * max(5px, 0.2em)); }
+/* 7. engraved capitals, bronze ink, frame within a frame */
+html[data-mast="7"] .lsr-mast { --ink: #5b4520; --face: 'Cinzel', 'Trajan Pro', Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.14em; }
+html[data-mast="7"] .lsr-mark { border-width: max(1px, 0.04em); box-shadow: inset 0 0 0 max(3px, 0.12em) var(--paper), inset 0 0 0 max(4px, 0.16em) var(--ink); }
+/* 8. slab serif, heavy frame */
+html[data-mast="8"] .lsr-mast { --ink: #26282b; --face: 'Zilla Slab', Rockwell, Georgia, serif; --weight: 600; --k: 1.04; --ls: 0.11em; }
+html[data-mast="8"] .lsr-mark { border-width: max(2.5px, 0.1em); }
+/* 9. Garamond italic, title case, burgundy */
+html[data-mast="9"] .lsr-mast { --ink: #6d1a2b; --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 1.35; --ls: 0.02em; }
+html[data-mast="9"] .lsr-mark { font-style: italic; text-transform: none; }
+/* 10. modern serif, small capitals between a hairline and a heavy rule */
+html[data-mast="10"] .lsr-mast { --face: 'Source Serif 4', Georgia, serif; --weight: 600; --k: 0.98; --ls: 0.14em; }
+html[data-mast="10"] .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15em); }
 .lsr-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.32em; }
 .lsr-note { margin-left: auto; font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: max(12px, 0.323em); letter-spacing: 0.04em; text-align: right; }
 .lsr-about {
   display: inline-flex; align-items: center; gap: 0.45em; min-height: 32px; padding: 0 0.85em 0 0.95em;
   font-family: 'Noto Serif', Georgia, serif; font-weight: 700; font-size: max(12px, 0.27em); line-height: 1;
   letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-decoration: none;
-  background: rgba(255, 255, 255, .6); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  border: 1px solid currentColor; border-radius: 2px; cursor: pointer; transition: background-color .15s, color .15s, box-shadow .15s;
+  background: var(--paper); border: 1px solid currentColor; border-radius: 2px; cursor: pointer; transition: background-color .15s, color .15s;
 }
 .lsr-about::after { content: "\2192"; letter-spacing: 0; font-weight: 400; }
 .lsr-about.back::after { content: none; }
 .lsr-about.back::before { content: "\2190"; letter-spacing: 0; font-weight: 400; }
-.lsr-about:hover { background: var(--ink); color: var(--paper); box-shadow: 0 0 0 1px rgba(0, 229, 255, .35), 0 0 14px -3px rgba(255, 43, 214, .45); text-decoration: none; }
+.lsr-about:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
 .lsr-about:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* ---------- YaleNew for the intro box and explanatory text (the owner, 2026-10-24) ----------
@@ -115,7 +113,8 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
   color: #337ab7; background: #fff; font-size: 13px; text-decoration: none;
 }
 .btn-line:hover, .btn-line:focus { background: #337ab7; color: #fff; text-decoration: none; }
-.home-link { margin-left: 4px; font-size: 12px; }
+.bio-link { margin-left: 5px; font-size: 11px; font-variant: small-caps; letter-spacing: .04em; color: #337ab7; }
+.bio-link:hover { text-decoration: underline; }
 
 .btn-about {
   display: inline-block; font-family: Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: .02em;

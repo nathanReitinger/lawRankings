@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>/* the masthead for this visit: one of ten (style.css, html[data-mast]); the next one on the next visit */(function(){var F=['','EB+Garamond:wght@500','Cormorant+Garamond:wght@600','Crimson+Pro:wght@500','Libre+Caslon+Text','Playfair+Display+SC','Cinzel:wght@500','Zilla+Slab:wght@600','EB+Garamond:ital,wght@1,500','Source+Serif+4:wght@600'],v;try{v=sessionStorage.getItem('lsr.mast');if(!v){var n=+(localStorage.getItem('lsr.mastN')||Math.floor(Math.random()*10));v=String(n%10+1);localStorage.setItem('lsr.mastN',String(n+1));sessionStorage.setItem('lsr.mast',v);}}catch(e){v=String(1+Math.floor(Math.random()*10));}var q=/[?&]mast=(10|[1-9])\b/.exec(location.search);if(q)v=q[1];document.documentElement.setAttribute('data-mast',v);if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
 </head>
 <body>
 <div class="container">
@@ -63,13 +64,13 @@
     <details>
       <summary>When each journal was last collected</summary>
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>Journal</th><th>Collected</th><th>Latest year</th><th>Articles</th><th>Checked by the new update script</th></tr></thead>
+        <thead><tr><th>Journal</th><th>Collected</th><th>Latest year</th><th>Articles</th><th>Verified</th></tr></thead>
         <tbody id="coverage"></tbody>
       </table></div>
     </details>
 
     <h2 id="short">What counts as a "short piece"? <small class="text-muted">(beta)</small></h2>
-    <p>"Skip short pieces" leaves out a piece that runs under 10 pages, or a memorial or tribute under 20 pages. The length comes from HeinOnline's page numbers (the next piece's first page minus this one's), which the site has for the pieces its current update script has read. Where the length is not known, a classifier decides from what it can see: the title with Hein's section label (Note, Book Review, Foreword, In Memoriam...), the journal, the piece's place in its volume, its co-authors and the titles around it. A piece that is neither measured nor classified yet counts as an article. Coverage is still partial, which is why the option is off by default and marked beta: <span data-meta="short"></span>.</p>
+    <p>"Skip short pieces" leaves out a piece that runs under 10 pages, or a memorial or tribute under 20 pages. The length comes from page numbers in HeinOnline's metadata: the next entry's first page minus this one's, counting every entry in the volume's table of contents. Where a piece's length is not known yet, a trained classifier decides. It learns from the pieces whose length is measured (their titles, the journal, the piece's place in its volume, its co-authors and the titles around it) and is scored by stratified cross-validation on pieces it did not see: <span data-meta="shortModel"></span>. So far: <span data-meta="short"></span>.</p>
 
     <h2>What do the version numbers mean?</h2>
     <p>The volume number in the top left is a version, <i>major.data.site</i>. The middle number goes up whenever the substantive data changes (articles, faculty, schools, journals or their ranks; the site keeps a fingerprint of the data to tell), and the timestamp in the top right is the moment of that change, in Unix time. The last number goes up for changes to the site itself that leave the data alone. The first number goes up for a major update. The <a href="history.html">version history</a> lists every version.</p>
@@ -114,6 +115,9 @@
     const c = m.counts || {};
     set('short', c.papers ? (c.minor_papers || 0).toLocaleString() + ' of ' + c.papers.toLocaleString() + ' credited pieces are skipped when it is on; ' +
       (c.measured_papers || 0).toLocaleString() + ' have a measured length and ' + (c.classified_papers || 0).toLocaleString() + ' have been classified so far' : '?');
+    const sm = m.short_model;
+    set('shortModel', sm ? sm.folds + '-fold, ' + sm.trained_rows.toLocaleString() + ' measured pieces; precision ' + sm.precision + ', recall ' + sm.recall +
+      ', F1 ' + sm.f1 + ' (a journal-only guess: F1 ' + sm.baseline_f1 + ')' : 'not trained yet');
     set('version', m.version);
     set('updated', m.data_updated || '?');
     set('updatedDate', m.data_updated ? new Date(m.data_updated * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : '?');

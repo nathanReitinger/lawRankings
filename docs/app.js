@@ -378,7 +378,7 @@
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
         '<a class="icon-link" href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' +
         '<svg class="ico" width="10" height="11"><use href="#i-hein"/></svg></a>' +
-        (DATA.people[person][3] ? '<a class="icon-link home-link" href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener" title="Homepage">&#8962;</a>' : '') + '</td>' +
+        (DATA.people[person][3] ? ' <a class="bio-link" href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener" title="Faculty bio page">bio</a>' : '') + '</td>' +
         '<td class="num"><a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener" title="HeinOnline author profile">' + f.papers.length + '</a></td>' +
         '<td class="num">' + one(f.adj) + '</td></tr>';
       if (open) html += '<tr class="person-detail" data-key="' + key + '"><td colspan="4"></td></tr>';
@@ -430,7 +430,8 @@
     const note = '<p class="detail-note">' + f.papers.length + ' of ' + papers.length + ' article' + (papers.length === 1 ? '' : 's') +
       ' (' + state.from + '–' + state.to + ') count in this ranking' +
       (papers.length > f.papers.length ? '; the others are outside the selected journals' + (skipped ? ' or skipped as short pieces (' + skipped + ')' : '') : '') +
-      '. <a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener">HeinOnline profile</a></p>';
+      '. ' + (DATA.people[person][3] ? '<a href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener">Faculty bio</a> · ' : '') +
+      '<a href="' + esc(heinProfile(person)) + '" target="_blank" rel="noopener">HeinOnline profile</a></p>';
     detailRow.firstElementChild.innerHTML = authorBars(forBars) + note;
   }
 

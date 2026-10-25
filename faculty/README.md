@@ -1,7 +1,7 @@
 # The faculty list
 
 Law School Rankings credits each article to the school where its author teaches now. Who teaches where comes
-from HeinOnline's faculty lists by school, refreshed by the update script, plus the corrections in **`edits.csv`**,
+from HeinOnline's faculty metadata by school, refreshed from time to time, plus the corrections in **`edits.csv`**,
 which anyone can propose. (This works like [CSrankings' faculty list](https://github.com/emeryberger/CSrankings).)
 
 - `list-a.csv` ... `list-z.csv`: everyone on the lists the current site uses, one file per first letter of the
