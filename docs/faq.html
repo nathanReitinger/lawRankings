@@ -72,10 +72,10 @@
     </details>
 
     <h2 id="short">What counts as a "short piece"?</h2>
-    <p>"Skip short pieces" leaves out a piece that runs under 10 pages, or a memorial or tribute under 20 pages. The length comes from page numbers in HeinOnline's metadata: the next entry's first page minus this one's, counting every entry in the volume's table of contents. Lengths are being added volume by volume (<span data-meta="measured"></span>). Where a piece's length is not known yet, a trained classifier decides. It learns from the pieces whose length is measured (their titles, the journal, the piece's place in its volume, its co-authors and the titles around it) and is scored by stratified cross-validation on pieces it did not see: <span data-meta="shortModel"></span>. So far: <span data-meta="short"></span>.</p>
+    <p>"Skip short pieces" leaves out a piece that runs under 10 pages, or a memorial or tribute under 20 pages (where the piece has been identified as one; for now only a few have, so most memorials are judged by the 10-page rule). The length comes from page numbers in HeinOnline's metadata: the next entry's first page minus this one's, counting every entry in the volume's table of contents. Lengths are being added volume by volume (<span data-meta="measured"></span>). Where a piece's length is not known yet, a trained classifier decides. It learns from the pieces whose length is measured (their titles, the journal, the piece's place in its volume, its co-authors and the titles around it) and is scored by stratified cross-validation on pieces it did not see: <span data-meta="shortModel"></span>. So far: <span data-meta="short"></span>.</p>
     <p>Some examples, all measured:</p>
     <ul>
-      <li>Skipped: a dean's 2-page foreword; a 3-page reply to two other authors in a law review's online companion; a 6-page book review; a 2-page tribute to a judge's twenty years on the bench (any tribute or memorial under 20 pages is skipped); 2-page opening remarks at a symposium.</li>
+      <li>Skipped: a dean's 2-page foreword; a 3-page reply to two other authors in a law review's online companion; a 6-page book review; a 2-page tribute to a judge's twenty years on the bench; 2-page opening remarks at a symposium.</li>
       <li>Counted: a 12-page response essay; a 13-page essay in an online companion; a 20-page book review; every full article.</li>
     </ul>
 

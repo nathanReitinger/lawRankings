@@ -300,6 +300,16 @@ def load_school_csvs():
             out[(school, key)] = {'website': site if re.match(r'https?://', site) else '', 'title': str(r.get('title', '')).strip(),
                                   'orcid': str(r.get('ORCID', '')).strip(), 'school': school}
             schools.add(school)
+    # (review, 2026-10-25) a website that 3 or more people at one school share is the school's faculty listing
+    # (Ave Maria: 23 people, Montana: 12), not anyone's homepage: none, so they go to missing_homepages.csv and
+    # faculty_links.py looks for their own pages (it uses such a listing as the school's directory)
+    shared = defaultdict(int)
+    for (school, _), v in out.items():
+        if v['website']:
+            shared[(school, v['website'].rstrip('/'))] += 1
+    for (school, _), v in out.items():
+        if v['website'] and shared[(school, v['website'].rstrip('/'))] >= 3:
+            v['website'] = ''
     return out, schools
 
 
@@ -1088,7 +1098,9 @@ def coauthorship(papers, n_authors, is_short, journals):
     a faculty today). Kinds: flagship law reviews, online editions and other general journals, specialty journals.
     Each count also for research articles only (short pieces left out, as on the rankings page) and for the "panel":
     journals with articles in every five years since PANEL_SINCE, so a trend is not just new journals coming in.'''
-    kind_of = {j[0]: ('specialty' if j[2] is None else 'online' if j[2] < 0 else 'flagship') for j in journals}
+    # (review) the same rule as the Insights page's question 1: a journal with a W&L subject is a specialty journal,
+    # including the two General journals W&L also lists under one
+    kind_of = {j[0]: ('specialty' if j[2] is None or j[3] else 'online' if j[2] < 0 else 'flagship') for j in journals}
     per = papers.groupby('paper_key', sort=False).agg(journal=('journal', 'first'), year=('year', 'first'))
     per['n'] = n_authors.reindex(per.index).fillna(1).astype(int).clip(lower=1)
     per['short'] = [is_short(k) for k in per.index]
@@ -1266,7 +1278,9 @@ def build():
             school, publisher = hosts.get(j, ('', ''))
             if school or publisher:
                 lab = usnews_table.get(school) if school else ''
-                host = [school, (lab or 'Unranked') if school else '', 'specialty', publisher]
+                # (review) a General journal W&L also lists under a subject (Journal of Legal Analysis, University of
+                # Chicago Legal Forum) keeps its kind from flagship_schools.csv for the "other general journals" tier
+                host = [school, (lab or 'Unranked') if school else '', host[2] if host else 'specialty', publisher]
             host_by['usnews'][-1] = rank_number(usnews_table.get(school)) if school else -1
             host_by['peer'][-1] = rank_number(peer_table.get(school)) if school else -1
         journals.append([j, collected_on[j], general_rank, subs, grps] + ([host] if host else []))
@@ -1490,10 +1504,10 @@ def build():
         'counts': {'papers': len(paper_keys), 'credits': len(credit_paper), 'faculty_with_papers': len(people),
                    'minor_papers': int(sum(1 for m in data['papers']['minor'] if m)),
                    'classified_papers': int(sum(1 for k in data['papers']['kind'] if k >= 0)),
-                   'measured_papers': int(sum(1 for k in data['papers']['length'] if k >= 0)),
+                   'measured_papers': int(sum(1 for k in data['papers']['length'] if k >= 1)),
                    # the pieces without a measured length that the deployed short-piece model decided (audit: the FAQ
                    # counted only the older classifier's 88)
-                   'model_papers': int(sum(1 for k, n in zip(paper_keys, data['papers']['length']) if n < 0 and k in model_flags))},
+                   'model_papers': int(sum(1 for k, n in zip(paper_keys, data['papers']['length']) if n < 1 and k in model_flags))},
         'piece_kinds': PIECE_KINDS,
         'short_model': model_info,
         'matching': stats,

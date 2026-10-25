@@ -29,7 +29,7 @@
     { label: '101 & below, unranked', short: '101+', lo: 101, hi: Infinity },
   ];
   const bandOf = (r) => (r == null || r <= 0 ? 4 : BANDS.findIndex((b) => r >= b.lo && r <= b.hi));
-  const SRC_LABEL = { usnews: 'U.S. News', peer: 'peer rank' };
+  const SRC_LABEL = { usnews: 'U.S. News', peer: 'peer-reputation' };
 
   let DATA, META, INS;
   const st = { from: 0, to: 0, src: 'usnews', skipShort: true, band: 0, school: null, journal: null, matrix: 'row',
@@ -82,7 +82,10 @@
     return bandOf(r);
   }
 
-  // every (school, journal) pair with its number of articles in the window; an article counts once per school
+  // every (school, journal) pair with its number of articles in the window (an article counts once for each school
+  // with an author on it: the "credits" M), and, per article, the groups of schools its authors come from (D: an
+  // article counts once per group of schools it has an author in; review, 2026-10-25: article counts shown as
+  // "articles" must not count a co-authored article twice)
   function computeWhere() {
     const P = DATA.papers, C = DATA.credits, S = DATA.schools, people = DATA.people;
     const NJ = DATA.journals.length, NS = S.length;
@@ -91,6 +94,7 @@
     const sRank = S.map((s, i) => schoolRank(i));
     const pair = new Map();
     const seen = new Set();
+    const paperBands = new Map();
     for (let i = 0; i < C.paper.length; i++) {
       const p = C.paper[i];
       const y = P.year[p];
@@ -104,8 +108,27 @@
         seen.add(key);
         const e = s * NJ + P.journal[p];
         pair.set(e, (pair.get(e) || 0) + 1);
+        let pb = paperBands.get(p);
+        if (!pb) { pb = new Set(); paperBands.set(p, pb); }
+        pb.add(bandOf(sRank[s]));
       }
     }
+    const D = BANDS.map(() => [0, 0, 0, 0, 0, 0, 0]);
+    const colPapers = [0, 0, 0, 0, 0, 0, 0];
+    const journalPapers = new Map();      // ji -> {n distinct articles, bands[5]: of them, with an author in band b}
+    let topOutside = 0;                    // top-14-review articles with an author from a school ranked below 25
+    paperBands.forEach((bands, p) => {
+      const ji = P.journal[p], c = col[ji];
+      colPapers[c]++;
+      bands.forEach((b) => { D[b][c]++; });
+      if (c === 0 && (bands.has(2) || bands.has(3) || bands.has(4))) topOutside++;
+      if (c <= 4) {
+        let jp = journalPapers.get(ji);
+        if (!jp) { jp = { n: 0, bands: [0, 0, 0, 0, 0] }; journalPapers.set(ji, jp); }
+        jp.n++;
+        bands.forEach((b) => { jp.bands[b]++; });
+      }
+    });
     const M = BANDS.map(() => [0, 0, 0, 0, 0, 0, 0]);
     const edges = [];
     const school = new Map();     // s -> {n (flagship), all, cols[7], journals Map}
@@ -124,9 +147,8 @@
         if (jr[ji] > 0) so.ranks.push([jr[ji], n]);
         edges.push({ s: s, j: ji, n: n, b: b });
         let jo = journal.get(ji);
-        if (!jo) { jo = { n: 0, bands: [0, 0, 0, 0, 0], schools: new Map() }; journal.set(ji, jo); }
-        jo.n += n;
-        jo.bands[b] += n;
+        if (!jo) { jo = { n: 0, schools: new Map(), papers: journalPapers.get(ji) }; journal.set(ji, jo); }
+        jo.n += n;                       // credits: sizes the review's dot
         jo.schools.set(s, n);
       }
     });
@@ -146,10 +168,18 @@
       const near = rankKeys[Math.min(k, rankKeys.length - 1)];
       return d3.mean(atRank.get(near));
     };
+    // an axis tick for a rank no school holds (U.S. News has no 14, 25 or 50) sits between the schools above and
+    // below it, on the band edge, not on the next school down (review)
+    const tickPos = (r) => {
+      if (atRank.has(r)) return d3.mean(atRank.get(r));
+      const k = d3.bisectLeft(rankKeys, r);
+      if (k > 0 && k < rankKeys.length) return (d3.max(atRank.get(rankKeys[k - 1])) + d3.min(atRank.get(rankKeys[k]))) / 2;
+      return rankPos(r);
+    };
     const jPos = new Map();
     journal.forEach((v, ji) => jPos.set(ji, rankPos(jr[ji])));
-    return { M: M, edges: edges, school: school, journal: journal, sRank: sRank, jr: jr, us: us, pos: pos,
-             nRanked: ranked.length, jPos: jPos, rankPos: rankPos };
+    return { M: M, D: D, colPapers: colPapers, topOutside: topOutside, edges: edges, school: school, journal: journal,
+             sRank: sRank, jr: jr, us: us, pos: pos, nRanked: ranked.length, jPos: jPos, rankPos: rankPos, tickPos: tickPos };
   }
 
   function weightedMedian(pairs) {
@@ -164,13 +194,13 @@
   ////////////////////////////////////////////////////////////////////////// question 1: tiles and lede
 
   function renderWhereText() {
-    const M = W1.M;
+    const D = W1.D;
     const flag = (row) => d3.sum(row.slice(0, 5));
-    const colSum = (c) => d3.sum(M, (r) => r[c]);
-    const a = M[0][0] / flag(M[0]);
-    const b = M[3][0] / flag(M[3]);
-    const c = colSum(0) ? (M[0][0]) / colSum(0) : null;
-    const outside = colSum(0) ? (M[2][0] + M[3][0] + M[4][0]) / colSum(0) : null;
+    const share = (k) => (flag(D[k]) ? D[k][0] / flag(D[k]) : null);
+    const a = share(0), b = share(3);
+    const top = W1.colPapers[0];
+    const c = top ? D[0][0] / top : null;
+    const outside = top ? W1.topOutside / top : null;
     const t = $('whereTiles');
     t.replaceChildren();
     const tile = (v, l) => {
@@ -181,17 +211,31 @@
     };
     const yrs = st.from + '–' + st.to;
     tile(pct(a), 'of top-14 faculty\'s flagship-review articles appeared in top-14 law reviews (' + yrs + ')');
-    tile(pct(c), 'of the law-faculty articles in top-14 reviews were by top-14 faculty');
-    tile(pct(outside), 'of them were by faculty from schools ranked below 25');
+    tile(pct(c), 'of the top-14 reviews\' articles by U.S. law faculty had a top-14 author');
+    tile(pct(outside), 'had an author from a school ranked below 25');
     const lede = $('whereLede');
     lede.replaceChildren();
+    // (review, 2026-10-25) the wording follows the numbers: thin years, a top 14 that does not stand out, a
+    // closed top
+    if (!(flag(D[0]) >= 30) || a == null) {
+      lede.append('Too few articles by top-14 faculty in flagship reviews from ' + st.from + ' to ' + st.to + ' to say; try a wider range of years.');
+      return;
+    }
+    const others = d3.max([1, 2, 3, 4].map(share).filter((x) => x != null)) || 0;
     const ratio = b > 0 ? a / b : null;
-    lede.append(a >= 0.5 ? 'Largely, yes. ' : 'Not only, but far more than anyone else. ');
+    lede.append(a >= 0.5 ? 'Largely, yes. ' : a >= 1.5 * others ? 'Not only, but far more than anyone else. ' : 'Not only, and not much more than others. ');
     lede.append('From ' + st.from + ' to ' + st.to + ', faculty at the top 14 schools placed ');
     lede.appendChild(el('b', null, pct(a)));
-    lede.append(' of their flagship-review articles in top-14 reviews' + (ratio ? ', ' + ratio.toFixed(1) + ' times the share for faculty at schools ranked 51–100 (' + pct(b) + ')' : '') + '. The top reviews are not closed, though: ');
-    lede.appendChild(el('b', null, pct(outside)));
-    lede.append(' of their law-faculty articles came from schools ranked below 25.');
+    lede.append(' of their flagship-review articles in top-14 reviews' + (ratio ? ', ' + ratio.toFixed(1) + ' times the share for faculty at schools ranked 51–100 (' + pct(b) + ')' : '') + '. ');
+    if (outside >= 0.1) {
+      lede.append('The top reviews are not closed, though: ');
+      lede.appendChild(el('b', null, pct(outside)));
+      lede.append(' of their articles by law faculty had an author from a school ranked below 25.');
+    } else {
+      lede.append('Few of the top reviews\' articles by law faculty (');
+      lede.appendChild(el('b', null, pct(outside)));
+      lede.append(') had an author from a school ranked below 25.');
+    }
   }
 
   ////////////////////////////////////////////////////////////////////////// question 1: the network
@@ -263,7 +307,7 @@
     g.append('text').attr('class', 'axis-label').attr('x', xR).attr('y', 25).attr('text-anchor', wide ? 'start' : 'end').text('by their school\'s rank');
     const ticks = [1, 14, 25, 50, 100, 150].filter((r) => r <= (W1.sRank[W1.us[W1.nRanked - 1]] || 0));
     ticks.forEach((r) => {
-      const yy = y(W1.rankPos(r));
+      const yy = y(W1.tickPos(r));
       [[xL, -1], [xR, 1]].forEach(([x, side]) => {
         g.append('line').attr('x1', x).attr('x2', x + side * 4).attr('y1', yy).attr('y2', yy).attr('stroke', css('--axis'));
         g.append('text').attr('class', 'axis-label').attr('x', x + side * 7).attr('y', yy).attr('dy', '0.32em')
@@ -367,8 +411,8 @@
     t.appendChild(el('div', { class: 'tt' }, DATA.journals[ji][0]));
     const r = W1.jr[ji];
     t.appendChild(el('div', null, r > 0 ? 'school ranked ' + r + ' (' + SRC_LABEL[st.src] + ')' : 'school unranked'));
-    tipLine(t, 'Articles by U.S. law faculty', num(v.n));
-    tipLine(t, 'By top-14 faculty', pct(v.bands[0] / (v.n || 1)));
+    tipLine(t, 'Articles by U.S. law faculty', num(v.papers.n));
+    tipLine(t, 'With a top-14 author', pct(v.papers.bands[0] / (v.papers.n || 1)));
   }
 
   function renderNetDetail() {
@@ -397,14 +441,15 @@
       const p = el('div');
       p.appendChild(el('b', null, DATA.journals[st.journal][0]));
       if (!v) { p.append(': no articles by U.S. law faculty in ' + yrs + '.'); d.appendChild(p); return; }
-      p.append(': ' + num(v.n) + ' articles by U.S. law faculty, ' + yrs + '. By faculty at schools ranked ' + bandShares(v.bands, v.n) + '.');
+      p.append(': ' + num(v.papers.n) + ' articles by U.S. law faculty, ' + yrs + '. With an author from schools ranked ' + bandShares(v.papers.bands, v.papers.n) +
+        ' (an article with authors from two groups counts in both).');
       d.appendChild(p);
       d.appendChild(el('div', { style: 'margin-top:6px' }, 'Most frequent schools:'));
       d.appendChild(list(Array.from(v.schools.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6), (s) => DATA.schools[s][0]));
       return;
     }
-    const rows = st.band >= 0 ? [W1.M[st.band]] : W1.M;
-    const cols = [0, 1, 2, 3, 4].map((c) => d3.sum(rows, (r) => r[c]));
+    // one group of schools: its articles (D, each once); all U.S. faculty: every article once
+    const cols = st.band >= 0 ? W1.D[st.band].slice(0, 5) : W1.colPapers.slice(0, 5);
     const total = d3.sum(cols);
     const p = el('div');
     p.appendChild(el('b', null, st.band >= 0 ? 'Faculty at schools ranked ' + BANDS[st.band].label.toLowerCase() : 'All U.S. law faculty'));
@@ -430,8 +475,10 @@
   const RAMP = ['#f3f8fe', '#cde2fb', '#9ec5f4', '#5598e7', '#2a78d6', '#1c5cab', '#104281', '#0d366b'];
   const GRAYS = ['#f7f7f5', '#e6e5df', '#cfcec6', '#b3b2a9', '#8f8e86'];
   function renderMatrix() {
-    const M = W1.M;
+    // by row: articles, each once per group of schools it has an author in (rows add to 100%); by column: credits,
+    // an article once for each school with an author on it (columns add to 100%)
     const byRow = st.matrix === 'row';
+    const M = byRow ? W1.D : W1.M;
     const rowSum = M.map((r) => d3.sum(r));
     const colSum = [0, 1, 2, 3, 4, 5, 6].map((c) => d3.sum(M, (r) => r[c]));
     const share = (r, c) => (byRow ? M[r][c] / (rowSum[r] || 1) : M[r][c] / (colSum[c] || 1));
@@ -448,7 +495,7 @@
     $('matrixTitle').textContent = byRow ? 'Where each group of schools publishes' : 'Who writes for each group of journals';
     $('matrixNote').textContent = (byRow
       ? 'Each row is a group of law schools; across it, the share of its faculty\'s articles in each group of journals (rows add to 100%).'
-      : 'Each column is a group of journals; down it, the share of its articles by U.S. law faculty that came from each group of schools (columns add to 100%).') +
+      : 'Each column is a group of journals; down it, each group of schools\' share of the author credits there (an article counts once for each school with an author on it; columns add to 100%).') +
       ' Flagship reviews are grouped by their school\'s ' + SRC_LABEL[st.src] + ' rank; ' + st.from + '–' + st.to + '.';
     const t = $('matrix');
     t.replaceChildren();
@@ -480,8 +527,8 @@
           tt.appendChild(el('div', { class: 'tv' }, pct(s, 1)));
           tt.appendChild(el('div', null, byRow
             ? 'of articles by faculty at schools ranked ' + BANDS[r].label.toLowerCase() + ' appeared in ' + heads[c].toLowerCase() + (c < 5 ? ' flagship reviews' : '')
-            : 'of the articles by U.S. law faculty in ' + (c < 5 ? BANDS[c].label.toLowerCase() + ' flagship reviews' : heads[c].toLowerCase()) + ' were by faculty at schools ranked ' + BANDS[r].label.toLowerCase()));
-          tt.appendChild(el('div', { class: 'text-muted' }, num(v) + ' of ' + num(byRow ? rowSum[r] : colSum[c]) + ' articles'));
+            : 'of the school credits in ' + (c < 5 ? BANDS[c].label.toLowerCase() + ' flagship reviews' : heads[c].toLowerCase()) + ' went to schools ranked ' + BANDS[r].label.toLowerCase()));
+          tt.appendChild(el('div', { class: 'text-muted' }, num(v) + ' of ' + num(byRow ? rowSum[r] : colSum[c]) + (byRow ? ' articles' : ' credits')));
         });
         td.addEventListener('pointermove', show);
         td.addEventListener('pointerleave', hideTip);
@@ -494,7 +541,7 @@
     });
     if (!byRow) {
       const tr = el('tr');
-      tr.appendChild(el('th', { class: 'row', scope: 'row' }, narrow ? 'n' : 'Articles'));
+      tr.appendChild(el('th', { class: 'row', scope: 'row' }, narrow ? 'n' : 'Credits'));
       colSum.forEach((v) => tr.appendChild(el('td', { class: 'total' }, num(v))));
       tr.appendChild(el('td', { class: 'total' }));
       tb.appendChild(tr);
@@ -543,12 +590,16 @@
       svg.append('text').attr('class', 'direct').attr('x', x(me.x) + (right ? 10 : -10)).attr('y', y(me.y)).attr('dy', '0.32em')
         .attr('text-anchor', right ? 'start' : 'end').text(shortName(DATA.schools[me.s][0], 28));
     }
+    if (!pts.length) {
+      svg.append('text').attr('class', 'axis-label').attr('x', (m.l + W - m.r) / 2).attr('y', (m.t + H - m.b) / 2).attr('text-anchor', 'middle')
+        .text('No school has 10 or more flagship-review articles in these years.');
+    }
     const delaunay = d3.Delaunay.from(pts, (d) => x(d.x), (d) => y(d.y));
     const ring = svg.append('circle').attr('r', 8).attr('fill', 'none').attr('stroke', css('--ink')).attr('stroke-width', 1.5).style('display', 'none');
     const pick = (evt) => {
       const [px, py] = d3.pointer(evt, svg.node());
-      const i = delaunay.find(px, py);
-      if (i == null || i < 0) return null;
+      const i = pts.length ? delaunay.find(px, py) : -1;
+      if (!(i >= 0)) return null;          // (review) find() on no points returns NaN
       const d = pts[i];
       return Math.hypot(x(d.x) - px, y(d.y) - py) <= 28 ? d : null;
     };
