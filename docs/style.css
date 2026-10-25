@@ -199,18 +199,21 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 .lsr-about:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
 .lsr-about:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-/* ---------- YaleNew for the intro box and explanatory text (the owner, 2026-10-24) ----------
-   local() uses a copy installed on the visitor's computer (YaleNew is Yale's licensed typeface; the font files are not
-   published unless the owner decides to: then add url('fonts/...') sources here). Other visitors get Alegreya. */
+/* ---------- YaleNew for the intro box and explanatory text (the owner, 2026-10-24; 2026-10-25: "make sure yaleNew font is
+   being used" and, asked whether to serve the files to every visitor, "Serve to every visitor") ----------
+   An installed copy first (local(): full and PostScript names), else the web font in docs/fonts/. */
 @font-face { font-family: 'YaleNew'; font-style: normal; font-weight: 400; font-display: swap;
-  src: local('YaleNew'), local('YaleNew-Roman'), local('YaleNew Roman'); }
+  src: local('YaleNew Regular'), local('YaleNew-Roman'), url('fonts/yalenew-roman.woff2') format('woff2'); }
 @font-face { font-family: 'YaleNew'; font-style: italic; font-weight: 400; font-display: swap;
-  src: local('YaleNew Italic'), local('YaleNew-Italic'); }
+  src: local('YaleNew Italic'), local('YaleNew-Italic'), url('fonts/yalenew-italic.woff2') format('woff2'); }
 @font-face { font-family: 'YaleNew'; font-style: normal; font-weight: 700; font-display: swap;
-  src: local('YaleNew Bold'), local('YaleNew-Bold'); }
+  src: local('YaleNew Bold'), local('YaleNew-Bold'), url('fonts/yalenew-bold.woff2') format('woff2'); }
 @font-face { font-family: 'YaleNew'; font-style: italic; font-weight: 700; font-display: swap;
-  src: local('YaleNew Bold Italic'), local('YaleNew-BoldItalic'); }
-.intro-panel, .prose, .detail-note, .loading, .area-head small, .page-footer p {
+  src: local('YaleNew Bold Italic'), local('YaleNew-BoldItalic'), url('fonts/yalenew-bolditalic.woff2') format('woff2'); }
+/* (audit, 2026-10-25: "make sure yaleNew font is being used") every explainer: the intro box, the filter panel's notes,
+   the drop-down's notes and "What they work on", the empty-list notes, the about/history prose, the footer */
+.intro-panel, .prose, .detail-note, .loading, .area-head small, label[for=skipMinor] small, .sub-list > p, .works, .empty-note,
+.page-footer p {
   font-family: 'YaleNew', 'Alegreya', Georgia, 'Times New Roman', serif;
 }
 .intro-panel { font-size: 15.5px; line-height: 1.45; }
@@ -258,6 +261,7 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 .c-general { color: #377eb8; } .bg-general { background: #377eb8; }
 .c-specialty { color: #ff7f00; } .bg-specialty { background: #ff7f00; }
 .c-options { color: #555; } .bg-options { background: #777; }
+.bg-other { background: #8fa3b8; }   /* online editions & other general journals in a person's bars */
 
 /* ---------- two columns: areas left, ranking right (as csrankings.org) ---------- */
 .main { display: flex; gap: 30px; align-items: flex-start; }
@@ -325,6 +329,12 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: point
 
 /* ---------- phones: filters move into a drawer (CSrankings just hides them) ---------- */
 .drawer-backdrop { display: none; }
+@media (max-width: 520px) {
+  /* (audit) three or four masthead buttons on one row on phones */
+  .lsr-foot { gap: 0.4rem 0.5rem; justify-content: flex-start; }
+  .lsr-about { padding: 0 0.55em; letter-spacing: 0.05em; gap: 0.3em; min-height: 30px; }
+  .lsr-note { flex-basis: 100%; text-align: left; margin-left: 0; }
+}
 @media (max-width: 767px) {
   .container { padding: 0 10px; }
   .lsr-mast-wrap { padding: 12px 0 10px; }
@@ -361,5 +371,6 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: point
 /* "What they work on" in a faculty member's drop-down (2026-10-25) */
 .works { max-width: 620px; margin: 4px 0 10px; font-size: 13.5px; }
 .works-lede { margin: 0 0 4px; color: #333; }
+.works-tag { margin: 0 0 4px; color: #333; }
 .works-list { margin: 0; padding-left: 1.1em; }
 .works-list li { margin: 2px 0; line-height: 1.35; }

@@ -395,7 +395,7 @@
       o.authors.forEach(([person, n]) => {
         data.push({ id: 'a' + person + '_' + o.s, parent: 's' + o.s, name: DATA.people[person][0], value: n, color: d3.interpolateRgb(blue, '#ffffff')(0.35),
           marker: { radius: rA(n), fillColor: d3.interpolateRgb(blue, '#ffffff')(0.35) }, link: { lineWidth: wA(n) },
-          custom: { kind: 'author', n: n, url: DATA.people[person][3], school: DATA.schools[o.s][0], label: shortName(DATA.people[person][0], W >= 560 ? 26 : 14) } });
+          custom: { kind: 'author', n: n, url: DATA.people[person][3], school: DATA.schools[o.s][0], label: shortName(DATA.people[person][0], W >= 560 ? 26 : 16) } });
       });
     });
     const tooltip = {
@@ -433,7 +433,7 @@
       const heightFor = (r) => Math.max(400, Math.min(5200, r * 26 + 50));
       const initial = shown.reduce((a, o) => a + (jn.open.has(o.s) || jn.focus === o.s ? Math.max(1, o.authors.length) : 1), 0);
       jnChart = Highcharts.chart(box, Highcharts.merge(base, {
-        chart: { height: heightFor(initial), marginLeft: W >= 560 ? 24 : 8, marginRight: W >= 560 ? 200 : 96 },
+        chart: { height: heightFor(initial), marginLeft: W >= 560 ? 24 : 8, marginRight: W >= 560 ? 200 : 128 },
         tooltip: tooltip,
         series: [{
           type: 'treegraph', data: data, name: jname, turboThreshold: 0, cursor: 'pointer', animation: { duration: 350 },
@@ -494,14 +494,14 @@
           breadcrumbs: { showFullPath: false, format: '◂ Back to {level.name}', buttonTheme: { style: { fontSize: '12px', color: accent } } },
           levels: [
             // a small centre, institutions in the middle ring, a deep outer ring for authors' names read along the radius
-            { level: 1, levelSize: { unit: 'weight', value: 1 }, color: ink,
+            { level: 1, levelSize: { unit: 'weight', value: 1 }, color: ink,   // (audit) phones: weights 1/3/2 below
               dataLabels: { formatter() { return this.point.custom && this.point.custom.kind === 'journal' ? shortName(jname, 14) : instLabel(this.point.custom.full, 14); },
                 style: { fontSize: '11px', fontWeight: '700', color: '#ffffff', textOutline: 'none' } } },
-            { level: 2, levelSize: { unit: 'weight', value: 2 },
+            { level: 2, levelSize: { unit: 'weight', value: W >= 560 ? 2 : 3 },
               dataLabels: { rotationMode: 'parallel', formatter() { return this.point.custom ? instLabel(this.point.custom.full, 16) : this.point.name; },
                 style: { fontSize: '11px', fontWeight: '600', textOutline: 'none', color: '#ffffff' },
-                filter: { property: 'outerArcLength', operator: '>', value: 28 } } },
-            { level: 3, levelSize: { unit: 'weight', value: 3 },
+                filter: { property: 'outerArcLength', operator: '>', value: W >= 560 ? 28 : 20 } } },
+            { level: 3, levelSize: { unit: 'weight', value: W >= 560 ? 3 : 2 },
               dataLabels: { rotationMode: 'perpendicular', formatter() { return shortName(this.point.name, 22) + (this.point.custom && this.point.custom.n > 1 ? ' · ' + this.point.custom.n : ''); },
                 style: { fontSize: '10px', fontWeight: '400', textOutline: 'none', color: ink },
                 filter: { property: 'outerArcLength', operator: '>', value: 11 } } },
@@ -710,6 +710,10 @@
   const INST_SHORT = { 'New York University': 'NYU', 'University of California, Los Angeles': 'UCLA', 'University of California, Berkeley': 'UC Berkeley',
     'University of Pennsylvania': 'Penn', 'University of Texas at Austin': 'UT Austin', 'University of Southern California': 'USC',
     'George Washington University': 'GW', 'Columbia University School of Law': 'Columbia', 'Massachusetts Institute of Technology': 'MIT',
+    'Boston University': 'BU', 'University of Michigan': 'Michigan', 'University of Virginia': 'Virginia', 'University of Chicago': 'Chicago',
+    'Georgetown University': 'Georgetown', 'Stanford University': 'Stanford', 'Harvard University': 'Harvard', 'Yale University': 'Yale',
+    'Duke University': 'Duke', 'Cornell University': 'Cornell', 'Northwestern University': 'Northwestern', 'Vanderbilt University': 'Vanderbilt',
+    'University of Minnesota': 'Minnesota', 'University of Notre Dame': 'Notre Dame', 'Fordham University': 'Fordham', 'Boston College': 'BC',
     'University of North Carolina at Chapel Hill': 'UNC', 'Washington University': 'WashU', 'U.S. Supreme Court': 'Supreme Court' };
   function instLabel(name, n) {
     const t = INST_SHORT[name] || name.replace(/^The /, '').replace(/ School of Law$| Law School$/, '').replace(/^University of (California, )?/, '')

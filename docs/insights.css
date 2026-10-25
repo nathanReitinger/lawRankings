@@ -51,8 +51,8 @@
 /* ---------- chart cards ---------- */
 .ins-card { margin: 0 0 18px; padding: 18px 18px 14px; border: 1px solid var(--hair); border-radius: 12px; background: var(--surface); }
 .ins-card figcaption h3 { font-family: var(--serif); font-weight: 700; font-size: 20px; line-height: 1.2; margin: 0 0 4px; color: var(--ink); }
-.ins-card figcaption p { font-family: var(--sans); font-size: 13.5px; line-height: 1.45; color: var(--ink-2); margin: 0 0 12px; max-width: 760px; }
-.ins-foot { font-family: var(--sans); font-size: 12.5px; color: var(--muted); margin: 8px 0 0; }
+.ins-card figcaption p { font-family: var(--serif); font-size: 15px; line-height: 1.45; color: var(--ink-2); margin: 0 0 12px; max-width: 760px; }
+.ins-foot { font-family: var(--serif); font-size: 13.5px; color: var(--muted); margin: 8px 0 0; }
 .ins-chart { position: relative; width: 100%; }
 .ins-chart svg, .ins-network svg { display: block; overflow: visible; font-family: var(--sans); }
 .ins-row { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 10px; font-family: var(--sans); font-size: 13.5px; color: var(--ink-2); }
@@ -152,13 +152,27 @@
 .tx-counts { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tx-body { padding: 0 6px 10px 26px; }
 .tx-kids { margin-left: 4px; border-left: 2px solid var(--grid); padding-left: 10px; }
-.tx-desc { font-size: 14px; line-height: 1.5; color: var(--ink-2); margin: 0 0 8px; max-width: 780px; }
-.tx-also { font-size: 12.5px; color: var(--muted); margin: 0 0 8px; }
+.tx-desc { font-family: var(--serif); font-size: 15px; line-height: 1.5; color: var(--ink-2); margin: 0 0 8px; max-width: 780px; }
+.tx-also { font-family: var(--serif); font-size: 13.5px; color: var(--muted); margin: 0 0 8px; }
 .tx-label { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 8px 0 4px; }
-.tx-none { font-size: 12.5px; color: var(--muted); margin: 4px 0 8px; font-style: italic; }
+.tx-none { font-family: var(--serif); font-size: 13.5px; color: var(--muted); margin: 4px 0 8px; font-style: italic; }
 .tx-journals ul { list-style: none; margin: 0 0 8px; padding: 0; font-size: 13.5px; }
 .tx-journals li { padding: 2px 0; }
-.tx-journals .tx-counts { margin-left: 8px; }
+.tx-journals .tx-counts { margin-left: 0; }
+/* (audit, 2026-10-25) a journal found by Find, and a node opened from the chart */
+.tx-journals li.tx-hit { background: var(--plane); box-shadow: inset 2px 0 0 var(--accent); }
+.tx-journals li.tx-hit .tx-jname { font-weight: 600; }
+.tx-node { scroll-margin-top: 64px; }
+.tx-node.tx-here > summary { background: var(--plane); box-shadow: inset 3px 0 0 var(--accent); }
+/* (audit, 2026-10-25) the whole tree as a sunburst (Highcharts), at the top of section 1 */
+.tx-chart { position: relative; width: 100%; min-height: 120px; }
+.tx-chart .highcharts-container { margin: 0 auto; }
+.tx-chart svg { display: block; font-family: var(--sans); }
+.tx-tip { width: max-content; max-width: 300px; white-space: normal; font-family: var(--sans); font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.tx-tip b { color: var(--ink); font-size: 13.5px; }
+.tx-tip-k { color: var(--muted); font-size: 12px; margin-bottom: 3px; }
+.tx-tip-d { margin-top: 4px; }
+.tx-tip-h { margin-top: 5px; color: var(--muted); font-size: 12px; }
 .tx-rank { display: inline-block; min-width: 3.2em; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
 .tx-src { font-size: 12.5px; margin: 2px 0 8px; }
 .tx-src summary { cursor: pointer; color: #337ab7; }
@@ -176,10 +190,12 @@
   .tx-node > summary { padding-left: 22px; }
   .tx-body { padding-left: 14px; }
   .tx-l0 > summary .tx-name { font-size: 17px; }
+  .tx-node { scroll-margin-top: 8px; }
+  .tx-tip { max-width: 240px; }
 }
 
 /* the journal network (Insights, question 1) */
-.jn-lede { font-family: var(--sans); font-size: 14px; color: var(--ink-2); margin: 0 0 8px; }
+.jn-lede { font-family: var(--serif); font-size: 15.5px; color: var(--ink-2); margin: 0 0 8px; }
 .jn-lede b { color: var(--ink); }
 .jn-wrap { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 18px; align-items: start; }
 .jn-graph { position: relative; width: 100%; }

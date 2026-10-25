@@ -20,6 +20,8 @@
       <h1 class="lsr-mark"><a href="./"><span class="w1">Law</span> <span class="w2">School</span> <span class="w3">Rankings</span></a></h1>
       <div class="lsr-foot">
         <a class="lsr-about back" href="./">Rankings</a>
+        <a class="lsr-about" href="insights.html">Insights</a>
+        <a class="lsr-about" href="faq.html">About</a>
         <span class="lsr-note">Subject areas</span>
       </div>
     </header>
@@ -42,8 +44,16 @@
     <header class="ins-head">
       <p class="ins-q">1</p>
       <h2>The tree</h2>
-      <p class="ins-lede">Open an area to see its fields, a field to see its topics and the specialty journals placed there (with their W&amp;L rank and the school that publishes them). Counts are papers by current faculty whose titles fall under the node (<span id="snapshot"></span>); one paper can fall under several nodes.</p>
+      <p class="ins-lede">Open an area to see its fields, a field to see its topics and the specialty journals placed there, in order of W&amp;L score, each with the school that publishes it and that school's <i>U.S. News</i> rank. Counts are papers by current faculty whose titles fall under the node (<span id="snapshot"></span>); one paper can fall under several nodes.</p>
     </header>
+    <!-- (audit, 2026-10-25) the whole tree in one picture; the owner, 2026-10-23: "can also have a full visualization of this taxonomy on the explanation" -->
+    <figure class="ins-card tx-fig" id="txFig">
+      <figcaption>
+        <h3>The whole tree</h3>
+        <p>The thirteen areas sit around the centre, their fields in the next ring and their topics outside (hover over a topic for its sub-topics). Each topic's arc is its papers by current faculty, and an area or field is the sum of its topics, so the sizes are relative: a paper can fall under several topics. Click an area to see its fields; click a field to see its topics and open it, with its journals, in the list below. "Back" or the centre goes up a level.</p>
+      </figcaption>
+      <div class="tx-chart" id="txChart"></div>
+    </figure>
     <div class="ins-filters" role="search">
       <label>Find <input type="search" id="find" class="ctl-select tx-find" placeholder="a topic or a journal, e.g. privacy" aria-label="Find a topic or journal"></label>
       <button type="button" class="ins-chip" id="openAll">Open all</button>
@@ -118,6 +128,9 @@
 
   <footer class="page-footer" id="footer"></footer>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/highcharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/sunburst.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/accessibility.js"></script>
 <script src="masthead.js"></script>
 <script src="taxonomy.js"></script>
 </body>

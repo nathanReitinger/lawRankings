@@ -11,6 +11,7 @@ build the data files for the static site (docs/) from the collected metadata in 
 
 python build_data.py              # rebuild docs/data/*.json
 python build_data.py --publish    # rebuild, then git commit + push docs/ (site updates on GitHub Pages)
+python build_data.py --site-version   # only the pages, scripts or styles changed: new patch number, data untouched
 '''
 
 import argparse
@@ -242,7 +243,9 @@ def load_papers():
             'collected': collected,
             'latest_year': None if df['year'].isna().all() else int(df['year'].max()),
             'papers': int(df.groupby(['volume_key', 'title_key']).ngroups),
-            'verified': bool(state.get('verified_at')),
+            # (audit, 2026-10-25) a journal whose every volume has been re-read and verified is verified too: only the
+            # repair pass set verified_at, so 49 of the 55 fully verified journals showed "not yet" in the FAQ
+            'verified': bool(state.get('verified_at')) or (bool(vols) and all(v.get('status') == 'verified' for v in vols.values())),
             'volumes_to_recheck': sum(1 for v in vols.values() if v.get('status') == 'suspect'),
         })
     papers = pd.concat(rows, ignore_index=True)
@@ -264,9 +267,62 @@ def hein_profile_link(hein_name):
     return 'https://heinonline.org/HOL/AuthorProfile?action=edit&search_name=' + quote(hein_name.strip()) + '&collection=journals'
 
 
+# (audit, 2026-10-25) the owner: "focus on the authors and pulling links" to each person's faculty bio. The website
+# column of Hein's school CSVs is typed in by the schools, and some values are not a working bio page: a browser's
+# "#:~:text=" highlight fragment (Gilles at Northwestern, Kettler at GW), a link wrapped by a mail filter
+# (linkprotect.cudasvc.com, Outlook safelinks, google.com/url), two URLs run together ("https://law.https://law.
+# rutgers.edu/..."), a library proxy (*.idm.oclc.org, ezproxy), a staging host (Creighton's *.pantheonsite.io), or no
+# web page at all ("www.x.de" with no scheme, a CV as a PDF). Wrappers and fragments are cleaned; the rest is
+# rejected, and those people go to missing_homepages.csv, where faculty_links.py looks for their pages.
+LINK_WRAPPERS = {'linkprotect.cudasvc.com': 'a', 'safelinks.protection.outlook.com': 'url', 'www.google.com': 'url'}
+PROXY_HOST = re.compile(r'(^|\.)idm\.oclc\.org$|(^|\.)ezproxy\.|\.pantheonsite\.io$')
+NOT_A_PAGE = re.compile(r'\.(pdf|docx?|rtf|pptx?|xlsx?|jpe?g|png|gif)$', re.I)
+
+
+def clean_homepage(site):
+    '''(url, what was done): what is '' when the value is used as it is, 'cleaned: ...' or 'rejected: ...' (url '')'''
+    site = str(site or '').strip()
+    if not site:
+        return '', ''
+    done = []
+    for _ in range(2):        # a wrapper inside a wrapper
+        u = urlparse(site)
+        host = (u.hostname or '').lower()
+        param = next((p for h, p in LINK_WRAPPERS.items() if host == h or host.endswith('.' + h)), None)
+        if param and (host != 'www.google.com' or u.path == '/url'):
+            target = parse_qs(u.query).get(param, [''])[0].strip()
+            if not target:
+                return '', 'rejected: link wrapper without a target'
+            site = target
+            done.append('link wrapper')
+    half = len(site) // 2
+    if len(site) % 2 == 0 and site[:half] == site[half:] and re.match(r'https?://', site, re.I):
+        site = site[:half]                        # the same URL typed twice ("https://law.yale.edu/jason-parkinhttps://...")
+        done.append('doubled URL')
+    if '#' in site:
+        base, frag = site.split('#', 1)
+        if ':~:' in frag:                         # a text highlight (#:~:text=...), with any anchor before it kept
+            frag = frag.split(':~:', 1)[0]
+            site = base + ('#' + frag if frag else '')
+            done.append('text fragment')
+    u = urlparse(site)
+    host = (u.hostname or '').lower()
+    if u.scheme.lower() not in ('http', 'https'):
+        return '', 'rejected: not an http(s) address'
+    if len(re.findall(r'https?:/', site.split('?', 1)[0], re.I)) > 1:
+        return '', 'rejected: two addresses run together'
+    if not re.fullmatch(r'[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z][a-z0-9-]+', host) or re.search(r'\s', site):
+        return '', 'rejected: not a valid address'
+    if PROXY_HOST.search(host):
+        return '', 'rejected: library proxy or staging host'
+    if NOT_A_PAGE.search(u.path):
+        return '', 'rejected: a file, not a page'
+    return site, ('cleaned: ' + ', '.join(done)) if done else ''
+
+
 def load_school_csvs():
     """HeinOnline's per-school faculty CSV, in faculty_runs/school_csv/<school>.csv (index.json there names the school
-    each file is for) and, in the older layout, faculty_runs/<pass>.csv_metric/. Every file is read, oldest download first, so the newest wins. Returns
+    each file is for) and, in the older layout, faculty_runs/<pass>.csv_metric/. Every file is read, oldest file first, so the newest wins. Returns
     ({(school, norm(search_name)): {'website', 'title', 'orcid', 'school'}}, set of schools read). Its website column is
     the faculty homepage for nearly everyone (2026-10-24 sample: Northwestern 133/133, Harvard 150/150).
     Stress test (2026-10-24): the build read only the old per-pass folders, so no homepage ever reached the site; and
@@ -283,7 +339,8 @@ def load_school_csvs():
             named = school_of_file.get(os.path.basename(f)) if d == SCHOOL_CSV_DIR else None
             files.append((os.path.getmtime(f), f, named))
     out, schools = {}, set()
-    for _, f, named in sorted(files):            # oldest download first
+    fixed = {}                                   # (audit) (school, name) -> what clean_homepage did to its website
+    for _, f, named in sorted(files):            # oldest file first
         try:
             df = read_csv_safely(f, dtype=str).fillna('')
         except Exception as e:
@@ -296,10 +353,23 @@ def load_school_csvs():
             school = named or str(r.get('university', '')).strip()
             if not key or not school:
                 continue
-            site = str(r.get('website', '')).strip()
-            out[(school, key)] = {'website': site if re.match(r'https?://', site) else '', 'title': str(r.get('title', '')).strip(),
+            try:
+                site, fixed[(school, key)] = clean_homepage(r.get('website', ''))
+            except ValueError:                   # urlparse on a malformed address ("http://[...")
+                site, fixed[(school, key)] = '', 'rejected: not a valid address'
+            out[(school, key)] = {'website': site, 'title': str(r.get('title', '')).strip(),
                                   'orcid': str(r.get('ORCID', '')).strip(), 'school': school}
             schools.add(school)
+    # (audit, 2026-10-25) counted over the rows in use (the newest file for each person)
+    what = defaultdict(int)
+    for v in fixed.values():
+        if v:
+            what[v] += 1
+    cleaned = sum(n for v, n in what.items() if v.startswith('cleaned'))
+    rejected = sum(n for v, n in what.items() if v.startswith('rejected'))
+    if cleaned or rejected:
+        print(f'  (audit) homepages from the school CSVs: {cleaned} cleaned, {rejected} rejected (to missing_homepages.csv):',
+              dict(sorted(what.items(), key=lambda x: -x[1])))
     # (review, 2026-10-25) a website that 3 or more people at one school share is the school's faculty listing
     # (Ave Maria: 23 people, Montana: 12), not anyone's homepage: none, so they go to missing_homepages.csv and
     # faculty_links.py looks for their own pages (it uses such a listing as the school's directory)
@@ -703,10 +773,26 @@ def load_aliases(roster):
     return alias
 
 
-def match_by_name(papers, roster, rows=None):
+def non_school_links(papers, non_school):
+    '''(audit, 2026-10-25) the author links with papers in the `non_school` journals, and those with papers only there'''
+    if not len(non_school):
+        return set(), set()
+    inside = papers['journal'].isin(non_school)
+    some = set(papers.loc[inside, 'author'])
+    return some, some - set(papers.loc[~inside, 'author'])
+
+
+def match_by_name(papers, roster, rows=None, non_school=frozenset()):
     '''the name rules: paper author link -> roster row indexes (a person listed at two schools gets both), using only
     the roster rows `rows` (default: all). Also returns counts, how each link was decided, and the roster rows each
     uncertain decision involved (credited on a differing name, or held back as unsure).'''
+    # (audit, 2026-10-25) the owner wants "authors (profs) at institutions". Journals that are not a school's
+    # (flagship_schools.csv kind "non_school": the ABA Journal, the Green Bag, Practical Lawyer ...) also carry
+    # staff writers and practitioners, and the ABA Journal's writer "Davis, Kevin" (no middle initial) was credited to
+    # NYU's Kevin E. Davis as the only Kevin Davis on the lists: 45 pieces. In those journals an author with no middle
+    # initial is not credited to a faculty member listed with one: a spelling found only there is middle_unsure here;
+    # one also found in school journals is credited, and match_authors / build() leave out its non-school papers.
+    _, only_non_school = non_school_links(papers, non_school)
     full = defaultdict(list)
     short = defaultdict(list)
     no_suffix = defaultdict(list)
@@ -776,6 +862,9 @@ def match_by_name(papers, roster, rows=None):
             # vs "Davis, Ronald B.") and the paper gives no middle initial: too weak to credit automatically.
             # Longer joins are kept ("An-Na'im" = "An-Naim", "Du Bose" = "Dubose").
             decide(link, 'joined_name_unsure', unsure=cands)
+        elif len(people) == 1 and not middle and roster_mid and link in only_non_school:
+            # (audit, 2026-10-25) every paper under this spelling is in a non-school journal: none is credited
+            decide(link, 'middle_unsure', unsure=cands)
         elif len(people) == 1:
             decide(link, how, cands, unsure=cands)
         elif len(people) > 1:
@@ -791,14 +880,16 @@ def same_school(a, b):
     return bool(a) and bool(b) and (a == b or school_norm(a) == school_norm(b))
 
 
-def match_authors(papers, roster):
-    """paper author link -> roster row indexes (a person listed at two schools gets both).
+def match_authors(papers, roster, non_school=frozenset()):
+    """paper author link -> roster row indexes (a person listed at two schools gets both). `non_school`: the journals
+    flagship_schools.csv marks "non_school" (see match_by_name).
 
     2026-10-24 (the owner: "the name match should come from hein url. we can use the way they resolved to figure out
     how we should resolve it ... one author should have one URL reference"): one faculty member = one Hein profile
-    link (search_name). Where we have read that profile (hein_profiles.py), Hein's own set of name forms for the person
-    decides: a paper is theirs when its author form is in the set, and the name rules no longer give them papers.
-    Faculty whose profile has not been read yet are matched by the name rules (match_by_name), as before.
+    link (search_name). Where we have that profile's metadata (hein_profiles.py), Hein's own set of name forms for the
+    person decides: a paper is theirs when its author form is in the set, and the name rules no longer give them papers.
+    Faculty without profile metadata are matched by the name rules (match_by_name), as before. (audit, 2026-10-25:
+    profile metadata is no longer collected (PATCH 20), so for now nearly everyone is matched by the name rules.)
 
     PATCH 16 (independent review, 2026-10-24):
     - a profile whose affiliation is none of the listing's schools is not used for that listing: Hein's "Smith,
@@ -838,7 +929,7 @@ def match_authors(papers, roster):
             near_raw[key].append((k, raw_last(hein_profile_link(f))))
 
     alias = load_aliases(roster)
-    by_name, name_stats, name_how, unsure_rows = match_by_name(papers, roster)          # every faculty member
+    by_name, name_stats, name_how, unsure_rows = match_by_name(papers, roster, non_school=non_school)   # every faculty member
     # the name rules' decisions over the whole roster, without the profiled people (Hein has spoken for them), and
     # without giving a listing the other spellings of the other school's profile its link opens (that profile's
     # person wrote those; the listing's own exact name is still matched by the rules)
@@ -854,6 +945,24 @@ def match_authors(papers, roster):
 
     to_ret = {}
     stats = defaultdict(int)
+    # (audit, 2026-10-25) the non-school journals rule (see match_by_name) for every way a link is credited but a
+    # faculty/edits.csv alias (a person's own correction): Hein's profile for NYU's Kevin E. Davis lists "Davis, Kevin",
+    # the ABA Journal writer's spelling, as his. held: links credited in school journals whose non-school papers
+    # build() leaves out
+    in_non_school, only_non_school = non_school_links(papers, non_school)
+    held, kept_out = set(), defaultdict(int)
+
+    def credit(link, rows, how):
+        if (link in in_non_school and not parse_hein_name(link)[2]
+                and all(roster.at[i, 'middle'] for i in rows)):
+            stats['name_rules_middle_unsure'] += 1
+            if link in only_non_school:
+                kept_out[how] += 1
+                return
+            held.add(link)            # counted under both decisions
+        to_ret[link] = rows
+        stats[how] += 1
+
     for link in papers['author'].unique():
         x = hp.norm_form(hp.search_name(link))
         parsed = parse_hein_name(link)
@@ -867,18 +976,15 @@ def match_authors(papers, roster):
             # name is theirs); otherwise Hein itself is unsure, and neither is credited
             named = {x} if x in claim or x in rows_of else set()
             if len(claim) == 1 and named <= claim:
-                to_ret[link] = rows_of[next(iter(claim))]
-                stats['hein_profile'] += 1
+                credit(link, rows_of[next(iter(claim))], 'hein_profile')
             elif len(named) == 1:
-                to_ret[link] = rows_of[next(iter(named))]
-                stats['hein_profile_own_name'] += 1
+                credit(link, rows_of[next(iter(named))], 'hein_profile_own_name')
             else:
                 stats['hein_profiles_share_name'] += 1
             continue
         if x in rows_of and x not in profiled and link in fallback:
             # an unprofiled faculty member's own listed name (review: a profiled person's punctuation twin took it)
-            to_ret[link] = fallback[link]
-            stats['name_rules_own_name'] += 1
+            credit(link, fallback[link], 'name_rules_own_name')
             continue
         close = near.get(parsed, set())
         if close:
@@ -888,8 +994,7 @@ def match_authors(papers, roster):
             joined_only = not parsed[2] and all(joined_prefix(raw_last(link), r) for kk, r in near_raw[parsed] if kk == k)
             namesake = link in fallback and name_how.get(link) == 'exact'    # an unprofiled person with this name
             if len(close) == 1 and not namesake and not joined_only:
-                to_ret[link] = rows_of[k]
-                stats['hein_profile_punctuation'] += 1
+                credit(link, rows_of[k], 'hein_profile_punctuation')
             elif joined_only:
                 stats['joined_name_unsure'] += 1
             else:
@@ -897,8 +1002,7 @@ def match_authors(papers, roster):
             continue
         how = name_how.get(link, 'not_faculty')
         if link in fallback:
-            to_ret[link] = fallback[link]
-            stats['name_rules_' + how] += 1
+            credit(link, fallback[link], 'name_rules_' + how)
         elif link in by_name:
             # the name rules' person is profiled and Hein does not list this spelling, or it belongs to the other
             # school's profile behind their link
@@ -926,7 +1030,7 @@ def match_authors(papers, roster):
     if profiled:
         added = [c for c in changes if c['change'].startswith('added')]
         dropped = [c for c in changes if c['change'].startswith('dropped')]
-        print(f'  Hein profiles: read for {len(profiled)} of {len(rows_of)} faculty. For them, Hein and the name rules '
+        print(f'  Hein profile metadata: in for {len(profiled)} of {len(rows_of)} faculty. For them, Hein and the name rules '
               f'agree on {agree} author spellings; Hein adds {len(added)} ({sum(c["rows"] for c in added)} paper rows) '
               f'and drops {len(dropped)} ({sum(c["rows"] for c in dropped)} paper rows)')
         os.makedirs(hp.DIR, exist_ok=True)
@@ -936,14 +1040,14 @@ def match_authors(papers, roster):
         record_unexplained([c for c in changes if c['change'].startswith('dropped')], papers)
     return to_ret, dict(stats), {'pk': pk, 'rows_of': rows_of, 'profiled': profiled, 'profiles': usable,
                                  'mismatched': mismatched, 'all_profiles': profiles,
-                                 'by_name': by_name, 'unsure_rows': unsure_rows}
+                                 'by_name': by_name, 'unsure_rows': unsure_rows, 'held_in_non_school': held}
 
 
 def record_unexplained(dropped, papers):
     """PATCH 16 (review): spellings the name rules give a profiled person that their profile does not list, with when
     each was first seen (when its earliest row was collected), merged into hein_profiles/unexplained.json. The next update refreshes such a
-    profile again RECHECK_DAYS later if the spelling turned up after the profile was read; once it has been read
-    again, the same spelling never triggers another read (hein_profiles.due)."""
+    profile again RECHECK_DAYS later if the spelling turned up after the profile's metadata was collected; once it has
+    been updated again, the same spelling never triggers another update (hein_profiles.due)."""
     if not dropped:
         return
     first = papers.groupby('author')[js.COLLECTED_AT].min() if js.COLLECTED_AT in papers.columns else {}
@@ -987,7 +1091,7 @@ def write_profile_wants(papers, roster, us_schools, info):
         f.write('\n'.join(sorted(s for s in roster['school'].unique() if s in us_schools)) + '\n')
     os.replace(FACULTY_PRIORITY + '.tmp', FACULTY_PRIORITY)
     todo = hp.due(hp.load(), names)
-    print(f'  wrote hein_profiles/wanted.txt: {len(names)} faculty, {len(todo)} profiles still to read')
+    print(f'  wrote hein_profiles/wanted.txt: {len(names)} faculty, {len(todo)} without current profile metadata')
     # Hein's profile names another school than the list we have them on: usually a move the faculty-list pass has
     # not reached yet (the list wins until then)
     rows = []
@@ -1004,7 +1108,7 @@ def write_profile_wants(papers, roster, us_schools, info):
 
 def write_missing_homepages(roster, info, home_of, school_csv, csv_schools, with_papers):
     """faculty_runs/missing_homepages.csv: everyone on the faculty lists with no homepage yet, for a later fallback
-    (inferring the URL, or a search by hand). school_csv_read says whether Hein's CSV for their school has been read
+    (inferring the URL, or a search by hand). school_csv_read says whether the build has Hein's CSV for their school
     (no: the next faculty pass will likely fill it in)."""
     rows = []
     for i in roster.index:
@@ -1351,11 +1455,19 @@ def build():
         return sum(max(1, len(m - {''})) for m in by.values())
     n_authors = papers.groupby('paper_key')['name_key'].agg(count_people)
     write_faculty_list(roster)
-    matched, stats, match_info = match_authors(papers, roster)
+    # (audit, 2026-10-25) the journals that are not a school's (flagship_schools.csv kind "non_school"): see match_by_name
+    non_school = frozenset(j for j, v in flagship.items() if v[1][2] == 'non_school')
+    matched, stats, match_info = match_authors(papers, roster, non_school)
     print('  author matching:', stats)
     write_profile_wants(papers, roster, set(us) | set(aba), match_info)
 
     credited = papers[papers['author'].isin(matched)].copy()
+    held = credited['author'].isin(match_info['held_in_non_school']) & credited['journal'].isin(non_school)
+    if held.any():
+        print(f'  (audit) {int(held.sum())} paper rows in non-school journals ({", ".join(sorted(credited.loc[held, "journal"].unique()))}) '
+              f'not credited: author with no middle initial, faculty member listed with one '
+              f'({credited.loc[held, "author"].nunique()} spellings still credited in school journals)')
+        credited = credited[~held]
     first_rows = credited.drop_duplicates('paper_key').set_index('paper_key')
     # sorted by year so the titles can be split into per-decade files the site loads on demand
     paper_keys = sorted(first_rows.index, key=lambda k: (first_rows.at[k, 'year'], k))
@@ -1443,7 +1555,11 @@ def build():
         # (review, 2026-10-25) a piece the journal itself heads "In Memoriam" or "In Tribute" (the Harvard Law Review's
         # tributes to retiring and late Justices, signed by six colleagues each) is a memorial, whatever the classifier
         # said: a section heading, not a guess from the title's words
-        if kind is None and k.rsplit('|', 1)[-1].startswith(('inmemoriam', 'memoriam', 'intribute')):
+        # (audit, 2026-10-25) HeinOnline usually puts the heading after the title ("Jack In Memoriam", "William H.
+        # Rehnquist In Memoriam: ..."), so "inmemoriam" anywhere in the title key counts; "tribute" only at the start
+        # ("Family Law Issue: A Tribute to ..." holds full articles). The 20-page rule below still counts long ones.
+        tk = k.rsplit('|', 1)[-1].split('#', 1)[0]
+        if kind is None and (tk.startswith(('inmemoriam', 'memoriam', 'intribute')) or 'inmemoriam' in tk):
             kind = 'memorial or tribute'
         if kind == 'memorial or tribute' and not (length is not None and length == length and length >= 20):
             return True
@@ -1512,7 +1628,7 @@ def build():
     # paper titles and links are no longer published (2026-10-24, the owner dropped them from the site): no
     # titles/*.json and no data['title_chunks']; old titles files are deleted below
 
-    ##### when was everything grabbed
+    ##### when the metadata was last updated
     used = coverage[coverage['journal'].isin(journal_id)]
     roster_times = roster['collected'].dropna()
     meta = {
@@ -1542,7 +1658,7 @@ def build():
         'piece_kinds': PIECE_KINDS,
         'short_model': model_info,
         'matching': stats,
-        # faculty whose Hein author profile has been read (their articles matched by Hein's own name forms)
+        # faculty with Hein author-profile metadata (their articles matched by Hein's own name forms)
         'hein_profiles': {'read': len(match_info['profiled']), 'faculty': len(match_info['rows_of'])},
         'group_subjects': {g: [s for s in subjects if subject_to_group[s] == g] for g in groups},
         'coverage': [{k: (None if isinstance(v, float) and v != v else v) for k, v in r.items()}
@@ -1554,10 +1670,7 @@ def build():
     # data version (the owner: changes that are not substantive don't count)
     substantive = dict(data, journals=[[j[0]] + j[2:] for j in data['journals']])
     digest = hashlib.sha1(json.dumps(substantive, sort_keys=True).encode()).hexdigest()[:12]
-    site = hashlib.sha1()
-    for f in sorted(f for pat in SITE_FILES for f in glob.glob(os.path.join(HERE, pat))):
-        site.update(os.path.basename(f).encode() + b'\0' + open(f, 'rb').read())
-    site_digest = site.hexdigest()[:12]
+    site_digest = site_files_digest()
     prev = {}
     if os.path.exists(os.path.join(OUT_DIR, 'meta.json')):
         try:
@@ -1604,6 +1717,55 @@ def build():
     print('  papers', meta['counts']['papers'], '| credits', meta['counts']['credits'],
           '| faculty with papers', meta['counts']['faculty_with_papers'],
           '| articles collected', meta['papers_collected']['from'], 'to', meta['papers_collected']['to'])
+    return meta
+
+
+def site_files_digest():
+    '''a hash of the site's own files (SITE_FILES: its pages, scripts and styles), for the patch number'''
+    site = hashlib.sha1()
+    for f in sorted(f for pat in SITE_FILES for f in glob.glob(os.path.join(HERE, pat))):
+        with open(f, 'rb') as fh:
+            site.update(os.path.basename(f).encode() + b'\0' + fh.read())
+    return site.hexdigest()[:12]
+
+
+def write_json_atomic(path, obj):
+    with open(path + '.tmp', 'w', encoding='utf-8') as f:      # temp + rename (review)
+        json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))
+    os.replace(path + '.tmp', path)
+
+
+def site_version():
+    """python build_data.py --site-version: a new patch number for a change to the site's own files alone, without
+    rebuilding the data (audit, 2026-10-25: the owner's rule, "any change at all" moves the last number, but only a
+    full build moved it, so site-only commits went out under the old number with a stale site digest). Run it before
+    committing a change to docs/*.html, *.js or *.css. Nothing changed: nothing is written."""
+    meta_path, history_path = os.path.join(OUT_DIR, 'meta.json'), os.path.join(OUT_DIR, 'history.json')
+    with open(meta_path, encoding='utf-8') as f:
+        meta = json.load(f)
+    site_digest = site_files_digest()
+    if meta.get('site_digest') == site_digest:
+        print(f"site files unchanged (site digest {site_digest}); still version {meta.get('version')}")
+        return meta
+    with open(history_path, encoding='utf-8') as f:
+        history = json.load(f)
+    semver = list(meta['semver'])
+    semver[2] += 1
+    version = '.'.join(map(str, semver))
+    entry = dict(history[-1]) if history else {}
+    # the data are the same as the last version's: its entry, with the new number and no changes (history.html reads
+    # changes.moved, so the keys are there, empty)
+    entry.update(version=version, kind='site', date=datetime.now().strftime('%Y-%m-%d'),
+                 changes={'papers': 0, 'faculty_with_papers': 0, 'moved': []})
+    if history and history[-1].get('version') == version:      # a run stopped between the two writes below
+        history[-1] = entry
+    else:
+        history.append(entry)
+    old = meta.get('version')
+    meta.update(semver=semver, version=version, kind='site', site_digest=site_digest, history_entry=entry)
+    write_json_atomic(history_path, history)
+    write_json_atomic(meta_path, meta)
+    print(f'site files changed (site digest {site_digest}): version {old} -> {version}; wrote meta.json and history.json')
     return meta
 
 
@@ -1659,7 +1821,10 @@ def publish(meta):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='build docs/data for the static rankings site')
     parser.add_argument('--publish', action='store_true', help='git commit + push docs/ after building')
+    parser.add_argument('--site-version', action='store_true',
+                        help='only the site files changed: bump the patch number in docs/data/meta.json and history.json '
+                             'without rebuilding the data (audit, 2026-10-25)')
     args = parser.parse_args()
-    meta = build()
+    meta = site_version() if args.site_version else build()
     if args.publish:
         publish(meta)

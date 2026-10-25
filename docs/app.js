@@ -179,10 +179,17 @@
     return list;
   }
 
+  // (audit, 2026-10-25) short names for the fourteen areas the subject tree has now
+  const AREA_SHORT = {
+    'Constitutional & Public Law': 'con & public law', 'Courts, Litigation & Dispute Resolution': 'courts & litigation',
+    'Criminal Law & Justice': 'criminal law', 'Business & Financial Law': 'business & finance', 'Tax, Trusts & Estates': 'tax & estates',
+    'Property, Environment & Natural Resources': 'property & environment', 'International & Comparative Law': 'international',
+    'Science, Technology & IP': 'tech & IP', 'Health Law & Bioethics': 'health law', 'Civil Rights, Equality & Family': 'civil rights & family',
+    'Labor & Employment': 'labor & employment', 'Legal Profession & Education': 'profession & education',
+    'Legal Theory, Humanities & Society': 'theory & society', 'Interdisciplinary Methods': 'methods', 'Other specialty journals': 'other specialty',
+  };
   function shortName(g) {
-    return g.replace(' & ', ' & ').replace('Constitutional & Public Law', 'con & public').replace('Criminal Law & Litigation', 'criminal & lit.')
-      .replace('International & Comparative', 'international').replace('Civil Rights & Social Justice', 'civil rights')
-      .replace('Environment & Property', 'env. & property').replace('Theory & the Profession', 'theory & prof.').toLowerCase();
+    return AREA_SHORT[g] || g.toLowerCase();
   }
 
   function compute() {
@@ -350,16 +357,17 @@
 
   function fieldJournals(field) {
     const ids = fieldJournalIds(field).sort((a, b) => ((DATA.journals[b][3][0][2] || 0) - (DATA.journals[a][3][0][2] || 0)) || DATA.journals[a][0].localeCompare(DATA.journals[b][0]));
-    const line = (ji) => {
+    const line = (ji, i) => {
       const j = DATA.journals[ji];
-      const wl = j[3][0][1] ? 'W&amp;L #' + j[3][0][1] : 'W&amp;L NR';
+      // (audit) the place in this field by W&L combined score, which is the order shown and what "top N" counts
+      const wl = j[3][0][2] != null ? (i + 1) + '. W&amp;L score ' + j[3][0][2] : 'W&amp;L not scored';
       const [school, , , publisher] = j[5] || ['', '', '', ''];
       const r = hostRankOf(ji);
       const host = school ? esc(school) + ' <span class="text-muted">(' + (SOURCE_SHORT[state.src] || 'US News') + ' ' + (r > 0 ? '#' + r : 'unranked') + ')</span>'
         : (publisher ? '<span class="text-muted">' + esc(publisher) + '</span>' : '<span class="text-muted">publisher not recorded yet</span>');
       return '<div class="jrnl' + (hostOk(ji) ? '' : ' not-counted') + '">' + wl + ' · ' + esc(j[0]) + ' — ' + host + '</div>';
     };
-    return '<p>by W&amp;L score; host school and its rank</p>' + (ids.length ? ids.map(line).join('') : '<div class="jrnl">none</div>');
+    return '<p>in order of W&amp;L score; host school and its rank</p>' + (ids.length ? ids.map((ji, i) => line(ji, i)).join('') : '<div class="jrnl">none</div>');
   }
 
   function syncPanel() {
@@ -540,16 +548,20 @@
         state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') + '.</p></div>';
     }
     const top = DATA.subjects[fields[0][0]];
+    // (audit) the tag (all years, short pieces left out) above the years' counts, so the two cannot read as a contradiction
+    const tagged = personFields(person);
+    const tagLine = tagged.length ? '<p class="works-tag">Tagged <b>' + tagged.map(([fi]) => esc(DATA.subjects[fi])).join('</b> and <b>') +
+      '</b> (all years, short pieces left out).</p>' : '';
     const lines = fields.map(([f, n, js]) => '<li><b>' + esc(DATA.subjects[f]) + '</b> <span class="text-muted">' + n + '</span> · ' +
       js.slice(0, 3).map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') +
       (js.length > 3 ? ', …' : '') + '</li>').join('');
-    return '<div class="works"><div class="bars-title">What they work on, from specialty journals (' + state.from + '–' + state.to + ')</div>' +
-      '<p class="works-lede">' + who + ' publishes most on <b>' + esc(top) + '</b>: ' + fields[0][1] + ' of ' + specialty + ' specialty-journal article' +
+    return '<div class="works"><div class="bars-title">What they work on, from specialty journals (' + state.from + '–' + state.to + ')</div>' + tagLine +
+      '<p class="works-lede">' + (state.minor ? '' : '<span class="text-muted">Short pieces included. </span>') + who + ' publishes most on <b>' + esc(top) + '</b>: ' + fields[0][1] + ' of ' + specialty + ' specialty-journal article' +
       (specialty === 1 ? '' : 's') + (flagship ? ', besides ' + flagship + ' in flagship law reviews' : '') + '.</p><ul class="works-list">' + lines + '</ul></div>';
   }
 
-  function catLabel(c) { return c === 0 ? 'Flagship' : DATA.groups[c - 1]; }
-  function catShort(c) { return c === 0 ? 'flagship' : shortName(DATA.groups[c - 1]); }
+  function catLabel(c) { return c === 0 ? 'Flagship law reviews' : c === -1 ? 'Online & other general' : DATA.groups[c - 1]; }
+  function catShort(c) { return c === 0 ? 'flagship' : c === -1 ? 'other general' : shortName(DATA.groups[c - 1]); }
 
   // horizontal bars, most to least; empty categories are left out
   function authorBars(papers) {
@@ -568,7 +580,7 @@
       cats.map((c) => {
         const tip = catLabel(c) + ': ' + n.get(c) + ' article' + (n.get(c) === 1 ? '' : 's') + ' (adjusted for co-authors: ' + one(adj.get(c)) + ')';
         return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + esc(catLabel(c)) + '</span>' +
-          '<span class="bar-track"><span class="bar ' + (c === 0 ? 'bg-general' : 'bg-specialty') + '" style="width:' + (100 * n.get(c) / max).toFixed(1) + '%"></span></span>' +
+          '<span class="bar-track"><span class="bar ' + (c === 0 ? 'bg-general' : c === -1 ? 'bg-other' : 'bg-specialty') + '" style="width:' + (100 * n.get(c) / max).toFixed(1) + '%"></span></span>' +
           '<span class="bar-value">' + n.get(c) + '</span></div>';
       }).join('') + '</div>';
   }
@@ -635,7 +647,8 @@
     groupSubjects = META.group_subjects || {};
     // which bars a journal's articles count toward: flagship (any W&L General journal, main review or not) and each specialty group it is in
     journalCats = DATA.journals.map((j) => {
-      const cats = j[2] !== null && j[2] !== undefined ? [0] : [];
+      // (audit) 0 = a school's main law review; -1 = online editions & other general journals (their own bar)
+      const cats = j[2] === null || j[2] === undefined ? [] : j[2] === -1 ? [-1] : [0];
       return cats.concat([...new Set(j[4].map(([g]) => g + 1))].sort((a, b) => a - b));
     });
     personPapers = new Map();
