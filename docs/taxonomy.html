@@ -30,7 +30,7 @@
   <div class="ins-hero">
     <p class="ins-kicker">Subject areas</p>
     <h2 class="ins-title">How the specialty journals are grouped</h2>
-    <p class="ins-dek">Thirteen subject areas of law-faculty scholarship, each split into fields, topics and, where the work is large enough, sub-topics. Every specialty journal sits in one field. This page shows the tree, how it was built, the close calls, and every source behind it.</p>
+    <p class="ins-dek">The specialty journals, grouped into fields and the fields into thirteen subject areas, plus the journals of the interdisciplinary methods. Every specialty journal sits in one field and every field in one area. A person's areas on the rankings page come from this grouping alone: the areas of the specialty journals they published in. Nothing is guessed from titles.</p>
     <nav class="ins-toc" aria-label="Sections">
       <a href="#tree"><span>1</span>The tree</a>
       <a href="#how"><span>2</span>How it was built</a>
@@ -44,27 +44,24 @@
     <header class="ins-head">
       <p class="ins-q">1</p>
       <h2>The tree</h2>
-      <p class="ins-lede">Open an area to see its fields, a field to see its topics and the specialty journals placed there, in order of W&amp;L score, each with the school that publishes it and that school's <i>U.S. News</i> rank. Counts are papers by current faculty whose titles fall under the node (<span id="snapshot"></span>); one paper can fall under several nodes.</p>
+      <p class="ins-lede">Open an area to see its fields, a field to see its specialty journals, in order of W&amp;L score, each with the school that publishes it and that school's <i>U.S. News</i> rank. Counts are papers by current faculty in those journals (<span id="snapshot"></span>); each paper counts once, in its journal's field.</p>
     </header>
-    <!-- (audit, 2026-10-25) the whole tree in one picture; the owner, 2026-10-23: "can also have a full visualization of this taxonomy on the explanation" -->
+    <!-- (audit, 2026-10-25) the whole tree in one picture; the owner, 2026-10-23: "can also have a full visualization of this taxonomy on the explanation"; 2026-10-25: a tree, not a sunburst -->
     <figure class="ins-card tx-fig" id="txFig">
       <figcaption>
         <h3>The whole tree</h3>
-        <p>The thirteen areas sit around the centre, their fields in the next ring and their topics outside (hover over a topic for its sub-topics). Each topic's arc is its papers by current faculty, and an area or field is the sum of its topics, so the sizes are relative: a paper can fall under several topics. Click an area to see its fields; click a field to see its topics and open it, with its journals, in the list below. "Back" or the centre goes up a level.</p>
+        <p>All areas on the left, then the areas. Click an area to open its fields, a field to open its specialty journals, and again to close them; a journal opens its field in the list below. The bigger the dot and the thicker the line, the more papers current faculty published in those journals.</p>
       </figcaption>
       <div class="tx-chart" id="txChart"></div>
     </figure>
     <div class="ins-filters" role="search">
-      <label>Find <input type="search" id="find" class="ctl-select tx-find" placeholder="a topic or a journal, e.g. privacy" aria-label="Find a topic or journal"></label>
+      <label>Find <input type="search" id="find" class="ctl-select tx-find" placeholder="a field or a journal, e.g. privacy" aria-label="Find a field or journal"></label>
       <button type="button" class="ins-chip" id="openAll">Open all</button>
       <button type="button" class="ins-chip" id="closeAll">Close all</button>
       <span class="text-muted" id="findNote"></span>
     </div>
     <div class="tx-tree" id="areas"></div>
 
-    <h3 class="tx-sub" id="approaches-head">Approaches: a second set of tags, not more areas</h3>
-    <p class="tx-p">Empirical legal studies, law and economics, law and psychology, law and society, legal history and critical theory are real communities, but they cut across subjects: only about 11% of papers carry an approach signal, and 91% of those also have a subject. So they are not areas. Their journals (the Journal of Empirical Legal Studies, the Journal of Legal Studies and the like) form the rankings' "Interdisciplinary Methods" group, kept apart from the thirteen subject areas; each approach below opens onto the subject fields where it is most over-represented.</p>
-    <div class="tx-tree" id="approaches"></div>
   </section>
 
   <section class="ins-section prose tx-prose" id="how" hidden>
@@ -72,16 +69,19 @@
       <p class="ins-q">2</p>
       <h2>How it was built</h2>
     </header>
-    <p>We started from how law professors divide their own field, checked that against library and research classifications, and tested the result against this site's own data: the titles of about 107,000 papers by current faculty, and which fields the same people publish in. Where the three agreed, we followed them. Where they disagreed, we usually followed the professors' own lists when the data margin was small, and the data when the lists were silent or split.</p>
+    <p>The areas and fields come from how law professors divide their own field, checked against library and research classifications. The specialty journals were then placed in the fields, once, in a fixed table. A person's areas are read off that table: nothing about a person is inferred.</p>
 
     <h3>1. How professors divide their own field</h3>
     <p>Fourteen schemes that law professors or law faculties wrote down: <a href="https://leiterreports.com/2022/02/17/citation-counts-vary-by-field-2016-2020-edition/">Brian Leiter's most-cited-by-specialty lists</a>, <a href="https://jotwell.com/">Jotwell's sections</a>, the <i>U.S. News</i> specialty list, the "areas of study" pages at <a href="https://hls.harvard.edu/academics/programs-of-study/">Harvard</a>, <a href="https://www.law.nyu.edu/areasofstudy">NYU</a>, <a href="https://www.law.columbia.edu/faculty-and-scholarship/all-faculty">Columbia</a>, <a href="https://law.stanford.edu/directory/">Stanford</a>, <a href="https://www.law.berkeley.edu/academics/areas-of-study/">Berkeley</a> and <a href="https://www.law.georgetown.edu/academics/areas-of-study/">Georgetown</a>, <a href="https://digitalcommons.wayne.edu/slisfrp/148">Peter Hook's map</a> of which courses the same teacher teaches, the field coding in <a href="https://appext.hks.harvard.edu/publications/getFile.aspx?Id=1543">Bonica, Chilton, Rozema and Sen (2018)</a>, and the areas new law teachers list together in <a href="https://www.lawskyprojects.org/explore">Sarah Lawsky's hiring data</a> (1,645 hires, 2011–2026). Two more (<a href="https://michigan.law.umich.edu/faculty-and-scholarship/our-faculty">Michigan's faculty areas</a> and the <a href="https://fedsoc.org/practice-groups">Federalist Society practice groups</a>) were seen only in search snippets and are marked unverified. A field became an area if it stands alone in at least 7 of the 14 schemes. That rule gives 13 areas: constitutional law and criminal law stand alone in all 14, health law in 7.</p>
 
     <h3>2. Library and research classifications</h3>
-    <p>The areas, fields and topics were matched node by node against 11 classification schemes: the <a href="https://www.loc.gov/aba/cataloging/classification/lcco/lcco_k.pdf">Library of Congress classification for law</a>, <a href="http://web.archive.org/web/20231102001836/https://www.ssrn.com/index.cfm/en/lsn/lsn-ejournals/">SSRN's Legal Scholarship Network</a> (an archived copy), the <a href="https://aals.org/app/uploads/2024/12/Mailing-List-Codes.pdf">AALS subject codes</a>, the <a href="https://www.abs.gov.au/statistics/classifications/australian-and-new-zealand-standard-research-classification-anzsrc/latest-release">Australian and New Zealand research classification</a>, the economists' <a href="https://www.aeaweb.org/econlit/jelCodes.php?view=jel">JEL codes</a>, the <a href="https://static.helpjuice.com/helpjuice_production/uploads/upload/image/15882/6567884/Disciplines_taxonomy_2026-06.pdf">bepress Digital Commons disciplines</a>, Jotwell, Leiter's lists, the West Key Number System's top headings, and <a href="https://api.openalex.org/topics?filter=subfield.id:3308&amp;per-page=200">OpenAlex topics</a> (machine-made, for contrast only). These schemes agree closely on fields (roughly 20 to 25 recognizable units) and much less on how to group them into a handful of areas, which is why the professors' own groupings set the top level. Every node in the tree above lists the scheme nodes it matches; a node with none rests on the title data alone (mostly the finer topics).</p>
+    <p>The areas and fields were matched node by node against 11 classification schemes: the <a href="https://www.loc.gov/aba/cataloging/classification/lcco/lcco_k.pdf">Library of Congress classification for law</a>, <a href="http://web.archive.org/web/20231102001836/https://www.ssrn.com/index.cfm/en/lsn/lsn-ejournals/">SSRN's Legal Scholarship Network</a> (an archived copy), the <a href="https://aals.org/app/uploads/2024/12/Mailing-List-Codes.pdf">AALS subject codes</a>, the <a href="https://www.abs.gov.au/statistics/classifications/australian-and-new-zealand-standard-research-classification-anzsrc/latest-release">Australian and New Zealand research classification</a>, the economists' <a href="https://www.aeaweb.org/econlit/jelCodes.php?view=jel">JEL codes</a>, the <a href="https://static.helpjuice.com/helpjuice_production/uploads/upload/image/15882/6567884/Disciplines_taxonomy_2026-06.pdf">bepress Digital Commons disciplines</a>, Jotwell, Leiter's lists, the West Key Number System's top headings, and <a href="https://api.openalex.org/topics?filter=subfield.id:3308&amp;per-page=200">OpenAlex topics</a> (machine-made, for contrast only). These schemes agree closely on fields (roughly 20 to 25 recognizable units) and much less on how to group them into a handful of areas, which is why the professors' own groupings set the top level. Every area and field in the tree above lists the scheme nodes it matches.</p>
 
-    <h3>3. This site's own data</h3>
-    <p>Each faculty paper title was tagged with topics by a fixed dictionary (in a 200-tag audit, about 88% of tags were correct). To see whether two fields belong together, we asked whether the <em>same people</em> publish in both more often than chance predicts (each person's own papers not counted toward their own field). 64 of the 68 fields are closest to their own area by one measure (cosine) and 45 by both (cosine and lift). A standard community-detection score (modularity) is 0.0517 for this tree; the best 13-area arrangement we tried scored 0.0523, and the one following the professors' lists most literally 0.0500.</p>
+    <h3>3. How journals are placed</h3>
+    <p>Each specialty journal sits in one field, in a fixed table written once for every journal. When the table was built, a journal was placed by the share of its faculty papers in each field (judged then from the papers' titles), checked against the journal's own description of its scope; about 40 hand decisions (mostly ties and scope questions) each record why, and two independent mappings agree on 180 of 193 journals. The table is now fixed: the site reads it as it is and reads no titles. Journals W&amp;L ranks after the table was made take the field of their W&amp;L subject until they are placed by hand. Thirteen general policy journals count toward no field, and the method journals (the <i>Journal of Empirical Legal Studies</i>, the <i>Journal of Legal Studies</i> and the like) form the Interdisciplinary Methods area.</p>
+
+    <h3>4. How a person's areas are shown</h3>
+    <p>On the rankings page, a person's tags are the areas of the specialty journals they have published in, each with the number of their articles there, all years. Someone with articles in two areas' journals gets two tags. Someone who has published only in flagship law reviews gets none: a flagship article says nothing about a field here. Opening a person shows the same thing as a small tree, area, then field, then the journals, for the years chosen. No paper title is read to decide any of it.</p>
 
     <h3>What was merged, split or moved, and why</h3>
     <ul>
@@ -99,17 +99,15 @@
       <li><b>Legal education is kept apart from education law</b>; <b>torts and remedies sit in Courts, Litigation &amp; Dispute Resolution</b>; <b>antitrust stays in Business</b>, cross-listed under Science, Technology &amp; IP.</li>
     </ul>
 
-    <h3>How journals are placed</h3>
-    <p>Each specialty journal sits on one primary field (plus secondary ones), from the share of its faculty papers in each field, mostly papers since 2016, checked against the journal's own description of its scope; about 40 hand decisions (mostly ties and scope questions) each record why. A few generalist policy journals count for nothing toward a field, forums and online companions count half, and the method journals define an approach rather than a subject. Two independent mappings agree on 180 of 193 journals. Journals ranked by W&amp;L after the mapping was made take the field of their W&amp;L subject until they are placed by hand.</p>
 
     <h3>Known limits</h3>
     <ul>
-      <li><b>Titles only.</b> Topics come from paper titles: about 9% of papers get no subject, and roughly one tag in nine is wrong.</li>
-      <li><b>Approach counts are floors</b>, from title cues and their own journals; legal history rests on title cues alone.</li>
-      <li><b>Thin venue coverage for some fields</b>: no collected specialty journal centres on jurisprudence, legal history or law and religion, so those are measured from titles in general law reviews.</li>
+      <li><b>Journals, not titles.</b> A person who writes about, say, privacy only in flagship law reviews shows no privacy tag; only specialty journals speak to a field.</li>
+      <li><b>Thin venue coverage for some fields</b>: no collected specialty journal centres on jurisprudence, legal history or law and religion, so few people carry those fields.</li>
+      <li><b>One field per journal.</b> A journal whose scope spans two fields (law and medicine, say) counts toward the one it was placed in.</li>
       <li><b>Current faculty only</b>: older years show today's faculty's early work, not the field as it was.</li>
-      <li><b>Close calls are close.</b> Immigration, science, law and religion, evidence and juries, antitrust, education law and family law could each defensibly sit elsewhere; each is cross-listed in its runner-up area.</li>
-      <li><b>One snapshot.</b> Counts come from the data of <span class="snap"></span>; they shift a little as the data grow.</li>
+      <li><b>Close calls are close.</b> Immigration, science, law and religion, evidence and juries, antitrust, education law and family law could each defensibly sit in another area.</li>
+      <li><b>One snapshot.</b> Counts come from the data of <span class="snap"></span>; they shift as the data grow.</li>
     </ul>
   </section>
 
@@ -129,7 +127,8 @@
   <footer class="page-footer" id="footer"></footer>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/highcharts.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/sunburst.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/treemap.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/treegraph.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/accessibility.js"></script>
 <script src="masthead.js"></script>
 <script src="taxonomy.js"></script>

@@ -164,7 +164,7 @@
 .tx-journals li.tx-hit .tx-jname { font-weight: 600; }
 .tx-node { scroll-margin-top: 64px; }
 .tx-node.tx-here > summary { background: var(--plane); box-shadow: inset 3px 0 0 var(--accent); }
-/* (audit, 2026-10-25) the whole tree as a sunburst (Highcharts), at the top of section 1 */
+/* (audit, 2026-10-25) the whole tree (Highcharts tree), at the top of section 1 */
 .tx-chart { position: relative; width: 100%; min-height: 120px; }
 .tx-chart .highcharts-container { margin: 0 auto; }
 .tx-chart svg { display: block; font-family: var(--sans); }
@@ -200,7 +200,6 @@
 .jn-wrap { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 18px; align-items: start; }
 .jn-graph { position: relative; width: 100%; }
 .jn-graph .highcharts-container { margin: 0 auto; }
-.jn-view { margin: 0; }
 .jn-list { font-family: var(--sans); font-size: 13.5px; max-height: 720px; overflow-y: auto; border-left: 1px solid var(--grid); padding-left: 14px; }
 .jn-inst { border-bottom: 1px solid var(--grid); }
 .jn-inst > button { display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto; align-items: center; gap: 6px; width: 100%; padding: 7px 2px; border: 0;

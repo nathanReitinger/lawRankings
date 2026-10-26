@@ -880,6 +880,12 @@ def same_school(a, b):
     return bool(a) and bool(b) and (a == b or school_norm(a) == school_norm(b))
 
 
+# PATCH 20 (2026-10-25, the owner: "stop using the saved profile spellings so every faculty member is matched by name
+# only"): the Hein profile metadata read before the profile phase was stopped (116 faculty) stays in hein_profiles/
+# but decides nothing; with no profiles, match_authors gives exactly the name rules' decisions (and edits.csv aliases)
+USE_PROFILE_METADATA = False
+
+
 def match_authors(papers, roster, non_school=frozenset()):
     """paper author link -> roster row indexes (a person listed at two schools gets both). `non_school`: the journals
     flagship_schools.csv marks "non_school" (see match_by_name).
@@ -888,8 +894,8 @@ def match_authors(papers, roster, non_school=frozenset()):
     how we should resolve it ... one author should have one URL reference"): one faculty member = one Hein profile
     link (search_name). Where we have that profile's metadata (hein_profiles.py), Hein's own set of name forms for the
     person decides: a paper is theirs when its author form is in the set, and the name rules no longer give them papers.
-    Faculty without profile metadata are matched by the name rules (match_by_name), as before. (audit, 2026-10-25:
-    profile metadata is no longer collected (PATCH 20), so for now nearly everyone is matched by the name rules.)
+    Faculty without profile metadata are matched by the name rules (match_by_name), as before. (2026-10-25: profile
+    metadata is no longer collected or used (PATCH 20, USE_PROFILE_METADATA): everyone is matched by the name rules.)
 
     PATCH 16 (independent review, 2026-10-24):
     - a profile whose affiliation is none of the listing's schools is not used for that listing: Hein's "Smith,
@@ -901,7 +907,7 @@ def match_authors(papers, roster, non_school=frozenset()):
     - the punctuation rule keeps the one-letter-particle guard ("d'Avis" vs "Davis" with no middle initial)
     - a spelling the name rules give a profiled person but their profile does not list is recorded in
       hein_profiles/unexplained.json, so the next update refreshes that profile (HeinOnline adds new spellings)"""
-    profiles = hp.load_good()
+    profiles = hp.load_good() if USE_PROFILE_METADATA else {}
     pk = roster['link'].map(lambda l: hp.norm_form(hp.search_name(l)))
     rows_of = defaultdict(list)
     for i, k in pk.items():
@@ -1081,15 +1087,17 @@ def write_profile_wants(papers, roster, us_schools, info):
     order = sorted(roster.index, key=lambda i: (roster.at[i, 'school'] not in us_schools,
                                                 0 if i in info['unsure_rows'] else 1 if i in credited else 2,
                                                 -stake[i], roster.at[i, 'hein_name']))
+    os.makedirs(os.path.dirname(FACULTY_PRIORITY), exist_ok=True)
+    with open(FACULTY_PRIORITY + '.tmp', 'w', encoding='utf-8') as f:
+        f.write('\n'.join(sorted(s for s in roster['school'].unique() if s in us_schools)) + '\n')
+    os.replace(FACULTY_PRIORITY + '.tmp', FACULTY_PRIORITY)
+    if not USE_PROFILE_METADATA:       # PATCH 20: no profile reads, so no to-do list for them
+        return
     names = list(dict.fromkeys(hp.search_name(roster.at[i, 'link']) for i in order))
     os.makedirs(hp.DIR, exist_ok=True)
     with open(hp.WANTED + '.tmp', 'w', encoding='utf-8') as f:
         f.write('\n'.join(n for n in names if n.strip()) + '\n')
     os.replace(hp.WANTED + '.tmp', hp.WANTED)
-    os.makedirs(os.path.dirname(FACULTY_PRIORITY), exist_ok=True)
-    with open(FACULTY_PRIORITY + '.tmp', 'w', encoding='utf-8') as f:
-        f.write('\n'.join(sorted(s for s in roster['school'].unique() if s in us_schools)) + '\n')
-    os.replace(FACULTY_PRIORITY + '.tmp', FACULTY_PRIORITY)
     todo = hp.due(hp.load(), names)
     print(f'  wrote hein_profiles/wanted.txt: {len(names)} faculty, {len(todo)} without current profile metadata')
     # Hein's profile names another school than the list we have them on: usually a move the faculty-list pass has
@@ -1189,6 +1197,55 @@ def subject_tree():
             'generated': t.get('generated'), 'counts': t.get('counts'),
             'areas': [node(a) for a in t.get('children', [])], 'approaches': [node(a) for a in t.get('approaches', [])],
             'sources': sources}
+
+
+def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year, credit_paper, credit_person, built):
+    """docs/data/taxonomy.json for the Subject areas page (2026-10-25, the owner: "a clear taxonomy presented as a tree
+    structure that pulls information from grouped specialty journals. That's it."): area > field > specialty journal,
+    as the rankings group them (each journal in one field, each field in one area), with the papers by current faculty
+    in those journals, all years and since 2016, and how many current faculty wrote them. Nothing comes from titles.
+    Each area and field keeps its description and the outside schemes it matches from the subject-area research
+    (research/taxonomy, subject_tree), and the page lists every source.
+    Node: {n: name, d: description, s: [[source, url]], c: [papers, papers since 2016, faculty], k: fields (an area) or
+    j: [[journal id, papers, since 2016, faculty, counts toward the field (1/0)], ...] (a field)}"""
+    research = subject_tree() or {'areas': [], 'approaches': [], 'sources': [], 'name': '', 'description': ''}
+    about = {}
+    for top in research['areas'] + research['approaches']:
+        about.setdefault(top['n'], top)
+        for k in top.get('k', []):
+            about.setdefault(k['n'], k)
+    papers_in, people_in = defaultdict(set), defaultdict(set)
+    for pk, person_i in zip(credit_paper, credit_person):
+        papers_in[paper_journal[pk]].add(pk)
+        people_in[paper_journal[pk]].add(person_i)
+    def count(jis):
+        ps = set().union(*(papers_in[ji] for ji in jis)) if jis else set()
+        fs = set().union(*(people_in[ji] for ji in jis)) if jis else set()
+        return [len(ps), sum(1 for pk in ps if paper_year[pk] >= 2016), len(fs)]
+    in_field = defaultdict(list)            # field id -> its specialty journals, best W&L score first
+    for ji, j in enumerate(journals):
+        if j[3] and j[2] is None:
+            in_field[j[3][0][0]].append(ji)
+    score = lambda ji: journals[ji][3][0][2] if journals[ji][3][0][2] is not None else -1
+    areas, counted = [], []
+    for g, area in enumerate(groups):
+        fields = []
+        for f in sorted((f for f in in_field if journals[in_field[f][0]][4][0][0] == g), key=lambda f: subjects[f]):
+            jis = sorted(in_field[f], key=lambda ji: (-score(ji), journals[ji][0]))
+            use = [ji for ji in jis if ji in field_of]
+            info = about.get(subjects[f], {})
+            fields.append({'n': subjects[f], 'd': info.get('d', ''), 's': info.get('s', []), 'c': count(use),
+                           'j': [[ji] + count([ji]) + [1 if ji in field_of else 0] for ji in jis]})
+            counted += use
+        if not fields:
+            continue
+        info = about.get(area, {})
+        areas.append({'n': area, 'd': info.get('d', ''), 's': info.get('s', []),
+                      'c': count([ji for fl in fields for ji, *_, use in fl['j'] if use]), 'k': fields})
+    total = count(counted)
+    return {'name': 'Subject areas of the specialty journals', 'generated': built,
+            'counts': {'faculty_papers': total[0], 'faculty_papers_2016_on': total[1], 'faculty': total[2]},
+            'areas': areas, 'sources': research['sources']}
 
 
 PANEL_SINCE = 1980     # insights: "the same journals throughout" = journals with articles in every five years since
@@ -1523,28 +1580,6 @@ def build():
                 credit_paper.append(key[0])
                 credit_person.append(key[1])
 
-    # Faculty tags (the owner, 2026-10-23: "a separate computation"): where each person publishes among the specialty
-    # journals, over all their articles and all years, whatever the site's filters. An article in a journal that sits
-    # in several groups counts a share toward each. The top group is a tag; so is the second when it is at least half
-    # the top. Two specialty articles at least; flagship law reviews are not a tag (nearly everyone publishes there).
-    journal_groups = {journal_id[j[0]]: sorted({g for g, _ in j[4]}) for j in journals}
-    weight = defaultdict(lambda: defaultdict(float))
-    for pk, person_i in zip(credit_paper, credit_person):
-        gs = journal_groups.get(journal_id[first_rows.at[paper_keys[pk], 'journal']], [])
-        for g in gs:
-            weight[person_i][g] += 1 / len(gs)
-    tagged = 0
-    for person_i, w in weight.items():
-        ranked_groups = sorted(w, key=lambda g: (-w[g], g))
-        if sum(w.values()) < 2:
-            continue
-        tags = [ranked_groups[0]] + [g for g in ranked_groups[1:2] if w[g] >= 0.5 * w[ranked_groups[0]]]
-        people[person_i].append(tags)
-        tagged += 1
-    for person_entry in people:
-        if len(person_entry) < 5:
-            person_entry.append([])
-    print(f'  faculty tags: {tagged} people tagged by where they publish among specialty journals')
 
     p = first_rows.loc[paper_keys]
     classes = load_classes()
@@ -1570,28 +1605,41 @@ def build():
         return bool(llm_short)             # an older classifier's call; neither: it counts
     short_flags = [1 if is_short(k) else 0 for k in paper_keys]
 
-    # "Person X does Y" (the owner, 2026-10-25: "I want to know if someone published in flagship sure, but I can
-    # really tell what someone does by publications in specialty journals. I want to highlight that. And show
-    # examples."): each person's fields, from their articles in specialty journals (each journal's field in the
-    # subject tree), all years, short pieces left out, co-authored articles counted whole: people[i][5] =
-    # [[field id, articles, [[journal id, articles], ... up to 3]], ...], most articles first, up to 5 fields
-    # (review) not the general journals W&L also lists under a subject, nor the generalist policy journals the subject
-    # tree gives weight 0 (journal_taxonomy.csv: they say nothing about a field); data['field_of'] tells the pages
-    # which journals these are
+    # What each person works on (2026-10-25, the owner: "I want zero inferences drawn. I want a clear taxonomy presented
+    # as a tree structure that pulls information from grouped specialty journals. That's it. If an author only published
+    # flagship, then no inference is made. If they have multiple specialty then it might be multi tag. It should be low
+    # level specialty grouped into 10 or so higher level areas. Do that instead of guessing area."): the fields and
+    # areas of the specialty journals a person published in, and nothing else. Each specialty journal sits in one field
+    # (journal_taxonomy.csv), each field in one area; every credited piece counts, all years; no thresholds, no caps, no
+    # guesses from titles. (Before, a person was tagged with their top area, a second only at half the top's count,
+    # from two specialty articles up, and fields at a quarter of their articles.) The generalist policy journals the
+    # taxonomy gives weight 0 say nothing about a field and count toward none (data['field_of'] tells the pages which
+    # journals count). Most articles first:
+    #   people[i][4] = [[area id, articles], ...]
+    #   people[i][5] = [[field id, articles, [[journal id, articles], ...]], ...]
+    #   people[i][6] = all their specialty-journal articles
     paper_journal = [journal_id[j] for j in first_rows.loc[paper_keys, 'journal']]
     no_field = set(tax.loc[pd.to_numeric(tax.get('weight', pd.Series(dtype=str)), errors='coerce') == 0, 'journal']) if 'weight' in tax.columns else set()
     field_of = {journal_id[j[0]]: j[3][0][0] for j in journals if j[3] and j[2] is None and j[0] not in no_field}
+    field_area = {subjects.index(f): groups.index(a) for f, a in subject_to_group.items()}
     works = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
     for pk, person_i in zip(credit_paper, credit_person):
         f = field_of.get(paper_journal[pk])
-        if f is not None and not short_flags[pk]:
+        if f is not None:
             works[person_i][f][paper_journal[pk]] += 1
     for person_i, entry in enumerate(people):
+        assert len(entry) == 4, entry[:1]
         w = works.get(person_i, {})
-        top = sorted(w, key=lambda f: (-sum(w[f].values()), subjects[f]))[:5]
-        entry.append([[f, sum(w[f].values()), sorted(([ji, n] for ji, n in w[f].items()), key=lambda x: (-x[1], x[0]))[:3]] for f in top])
-        entry.append(int(sum(sum(v.values()) for v in w.values())))   # people[i][6]: all their field articles (the tag rule's base)
-    print(f'  fields: {sum(1 for e in people if e[5] and e[5][0][1] >= 2)} people with 2+ specialty-journal articles in one field')
+        n_of = {f: sum(w[f].values()) for f in w}
+        fields = sorted(w, key=lambda f: (-n_of[f], subjects[f]))
+        areas = defaultdict(int)
+        for f in fields:
+            areas[field_area[f]] += n_of[f]
+        entry.append([[g, n] for g, n in sorted(areas.items(), key=lambda x: (-x[1], groups[x[0]]))])
+        entry.append([[f, n_of[f], sorted(([ji, n] for ji, n in w[f].items()), key=lambda x: (-x[1], x[0]))] for f in fields])
+        entry.append(int(sum(n_of.values())))
+    print(f'  areas: {sum(1 for e in people if e[4])} people with specialty-journal articles, tagged with those journals\' '
+          f'areas ({sum(1 for e in people if len(e[4]) > 1)} with more than one); {sum(1 for e in people if not e[4])} with none')
     os.makedirs(os.path.dirname(CREDITED_KEYS), exist_ok=True)
     with open(CREDITED_KEYS + '.tmp', 'w', encoding='utf-8') as f:   # what the classifier does next
         f.write('\n'.join(paper_keys))
@@ -1658,8 +1706,6 @@ def build():
         'piece_kinds': PIECE_KINDS,
         'short_model': model_info,
         'matching': stats,
-        # faculty with Hein author-profile metadata (their articles matched by Hein's own name forms)
-        'hein_profiles': {'read': len(match_info['profiled']), 'faculty': len(match_info['rows_of'])},
         'group_subjects': {g: [s for s in subjects if subject_to_group[s] == g] for g in groups},
         'coverage': [{k: (None if isinstance(v, float) and v != v else v) for k, v in r.items()}
                      for r in used.sort_values('journal').to_dict(orient='records')],
@@ -1706,9 +1752,9 @@ def build():
     print(f"  insights: co-authorship of {insights['pieces']} pieces in {len(journals)} journals, "
           f"{insights['years'][0]}-{insights['years'][-1]} ({insights['panel']['journals']} journals publishing since {insights['panel']['since']})")
     outputs = [('data.json', data), ('meta.json', meta), ('history.json', history), ('insights.json', insights)]
-    tree = subject_tree()
-    if tree:
-        outputs.append(('taxonomy.json', tree))
+    tree = journal_tree(groups, subjects, journals, field_of, paper_journal, [int(y) for y in p['year']],
+                        credit_paper, credit_person, meta['built'])
+    outputs.append(('taxonomy.json', tree))
     for name, obj in outputs:
         with open(os.path.join(OUT_DIR, name) + '.tmp', 'w', encoding='utf-8') as f:   # temp + rename (review)
             json.dump(obj, f, ensure_ascii=False, separators=(',', ':'))

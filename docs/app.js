@@ -442,13 +442,13 @@
     people.forEach(([person, f], i) => {
       const key = r.school + ':' + person;
       const open = openPeople.has(key);
-      // what this person works on (2026-10-25, the owner: "I can really tell what someone does by publications in
-      // specialty journals. I want to highlight that"): their main fields among specialty journals, all their
-      // articles and years, whatever the filters (build_data.py: people[i][5]); the broad area when no field stands out
-      const tags = personFields(person).map(([fi, n, js]) => '<span class="c-specialty" title="' + esc(fieldTitle(fi, n, js)) + '">' +
-        esc(DATA.subjects[fi]) + '</span>').join('') ||
-        (DATA.people[person][4] || []).map((g) => '<span class="c-specialty" title="Publishes most in ' + esc(DATA.groups[g]) +
-        ' (specialty journals, all years)">' + esc(shortName(DATA.groups[g])) + '</span>').join('');
+      // what this person works on (2026-10-25, the owner: "I want zero inferences drawn ... a clear taxonomy ... that
+      // pulls information from grouped specialty journals. That's it. If an author only published flagship, then no
+      // inference is made. If they have multiple specialty then it might be multi tag"): every area of the specialty
+      // journals they published in, all years, each with its count (build_data.py: people[i][4]); nothing for someone
+      // with no specialty-journal article
+      const tags = (DATA.people[person][4] || []).map(([g, n]) => '<span class="c-specialty" title="' + esc(areaTitle(person, g, n)) + '">' +
+        esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('');
       html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
@@ -508,24 +508,27 @@
     detailRow.firstElementChild.innerHTML = worksOn(person, forBars) + authorBars(forBars) + note;
   }
 
-  // a person's main fields: at least 2 specialty-journal articles in the field and at least a quarter of their
-  // specialty-journal articles; at most two
-  function personFields(person) {
-    const w = DATA.people[person][5] || [];
-    // (review) the base is all their field articles (people[i][6]), not only the top five fields'
-    const total = DATA.people[person][6] != null ? DATA.people[person][6] : w.reduce((a, f) => a + f[1], 0);
-    return w.filter(([, n]) => n >= 2 && n >= 0.25 * total).slice(0, 2);
+  // the field a specialty journal sits in -> that field's area (each journal has one field, each field one area); built
+  // on first use, once the data are in
+  let areaMap = null;
+  function areaOfField(f) {
+    if (!areaMap) {
+      areaMap = new Map();
+      DATA.journals.forEach((j) => { if (j[3] && j[3].length && j[4] && j[4].length) areaMap.set(j[3][0][0], j[4][0][0]); });
+    }
+    return areaMap.has(f) ? areaMap.get(f) : -1;
   }
-  function fieldTitle(fi, n, js) {
-    const listed = js.reduce((a, [, k]) => a + k, 0);
-    return n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' in ' + DATA.subjects[fi] + ', all years (' +
-      js.map(([ji, k]) => DATA.journals[ji][0] + (k > 1 ? ' ×' + k : '')).join(', ') + (listed < n ? ', …' : '') + ')';
+  // a tag's tooltip: the area's count and its fields, all years (build_data.py: people[i][5])
+  function areaTitle(person, g, n) {
+    const fields = (DATA.people[person][5] || []).filter(([fi]) => areaOfField(fi) === g);
+    return n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' in ' + DATA.groups[g] + ', all years: ' +
+      fields.map(([fi, k]) => DATA.subjects[fi] + ' ' + k).join(', ');
   }
   // the field a journal's articles count toward (build_data.py: data.field_of; -1 none), as in the tags
   const fieldOfJournal = (ji) => (DATA.field_of ? DATA.field_of[ji] : (DATA.journals[ji][3] && DATA.journals[ji][3].length ? DATA.journals[ji][3][0][0] : -1));
 
-  // the drop-down's "What they work on": their articles in specialty journals in the chosen years, by field, with the
-  // journals; flagship law reviews alongside for contrast
+  // the drop-down's "What they work on": their articles in specialty journals in the chosen years, as a small tree, area
+  // > field > journals (each journal's own place in the taxonomy; nothing guessed), and flagship law reviews alongside
   function worksOn(person, papers) {
     const P = DATA.papers;
     const byField = new Map();
@@ -540,24 +543,33 @@
       }
       if (journalCats[P.journal[p]].includes(0)) flagship++;     // (review) the same set as the "Flagship" bar below
     });
-    const fields = [...byField.entries()].map(([f, m]) => [f, [...m.values()].reduce((a, b) => a + b, 0), [...m.entries()].sort((a, b) => b[1] - a[1])])
-      .sort((a, b) => b[1] - a[1] || DATA.subjects[a[0]].localeCompare(DATA.subjects[b[0]])).slice(0, 5);
+    const byArea = new Map();
+    byField.forEach((m, f) => {
+      const g = areaOfField(f);
+      const n = [...m.values()].reduce((a, b) => a + b, 0);
+      if (!byArea.has(g)) byArea.set(g, { n: 0, fields: [] });
+      const a = byArea.get(g);
+      a.n += n;
+      a.fields.push([f, n, [...m.entries()].sort((x, y) => y[1] - x[1] || DATA.journals[x[0]][0].localeCompare(DATA.journals[y[0]][0]))]);
+    });
+    const areas = [...byArea.entries()].sort((a, b) => b[1].n - a[1].n || (DATA.groups[a[0]] || '').localeCompare(DATA.groups[b[0]] || ''));
     const who = esc(DATA.people[person][0]);
-    if (!fields.length) {
-      return '<div class="works"><div class="bars-title">What they work on</div><p class="detail-note">' + who + ' has no specialty-journal articles in ' +
-        state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') + '.</p></div>';
+    const all = DATA.people[person][4] || [];
+    // (audit) the tags (all years) above the chosen years' tree, so the two cannot read as a contradiction
+    const tagLine = all.length ? '<p class="works-tag">All years: ' + all.map(([g, n]) => '<b>' + esc(DATA.groups[g]) + '</b> ' + n).join(' · ') + '</p>' : '';
+    if (!areas.length) {
+      return '<div class="works"><div class="bars-title">What they work on, from specialty journals</div>' + tagLine + '<p class="detail-note">' + who +
+        ' has no specialty-journal articles in ' + state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') +
+        (all.length ? '' : ', and none in any year, so no area is shown') + '.</p></div>';
     }
-    const top = DATA.subjects[fields[0][0]];
-    // (audit) the tag (all years, short pieces left out) above the years' counts, so the two cannot read as a contradiction
-    const tagged = personFields(person);
-    const tagLine = tagged.length ? '<p class="works-tag">Tagged <b>' + tagged.map(([fi]) => esc(DATA.subjects[fi])).join('</b> and <b>') +
-      '</b> (all years, short pieces left out).</p>' : '';
-    const lines = fields.map(([f, n, js]) => '<li><b>' + esc(DATA.subjects[f]) + '</b> <span class="text-muted">' + n + '</span> · ' +
-      js.slice(0, 3).map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') +
-      (js.length > 3 ? ', …' : '') + '</li>').join('');
+    const tree = areas.map(([g, a]) => '<li><b>' + esc(DATA.groups[g] || 'Other') + '</b> <span class="text-muted">' + a.n + '</span><ul>' +
+      a.fields.sort((x, y) => y[1] - x[1] || DATA.subjects[x[0]].localeCompare(DATA.subjects[y[0]])).map(([f, n, js]) => '<li>' + esc(DATA.subjects[f]) +
+        ' <span class="text-muted">' + n + '</span> · ' + js.map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') + '</li>').join('') +
+      '</ul></li>').join('');
     return '<div class="works"><div class="bars-title">What they work on, from specialty journals (' + state.from + '–' + state.to + ')</div>' + tagLine +
-      '<p class="works-lede">' + (state.minor ? '' : '<span class="text-muted">Short pieces included. </span>') + who + ' publishes most on <b>' + esc(top) + '</b>: ' + fields[0][1] + ' of ' + specialty + ' specialty-journal article' +
-      (specialty === 1 ? '' : 's') + (flagship ? ', besides ' + flagship + ' in flagship law reviews' : '') + '.</p><ul class="works-list">' + lines + '</ul></div>';
+      '<p class="works-lede">' + (state.minor ? '' : '<span class="text-muted">Short pieces included. </span>') + who + ': ' + specialty + ' specialty-journal article' +
+      (specialty === 1 ? '' : 's') + (flagship ? ', besides ' + flagship + ' in flagship law reviews' : '') + '. Each journal sits in one field, each field in one area.</p>' +
+      '<ul class="works-list works-tree">' + tree + '</ul></div>';
   }
 
   function catLabel(c) { return c === 0 ? 'Flagship law reviews' : c === -1 ? 'Online & other general' : DATA.groups[c - 1]; }

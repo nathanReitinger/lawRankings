@@ -374,3 +374,6 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: point
 .works-tag { margin: 0 0 4px; color: #333; }
 .works-list { margin: 0; padding-left: 1.1em; }
 .works-list li { margin: 2px 0; line-height: 1.35; }
+.works-tree > li > ul { margin: 1px 0 4px; padding-left: 1.1em; list-style: circle; }
+/* a tag's count (the person's articles in that area's specialty journals, all years) */
+.c-specialty .tag-n { margin-left: 3px; font-size: 0.85em; opacity: 0.75; font-variant-numeric: tabular-nums; }

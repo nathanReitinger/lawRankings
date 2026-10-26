@@ -14,9 +14,9 @@ configuration file, replace its contents, Save, Reload).
 
 | page | what |
 |---|---|
-| `index.html` | the rankings (CSrankings style): flagship law reviews by their school's rank, specialty journals by W&L rank and subject area; each faculty member's bars, fields and faculty page |
+| `index.html` | the rankings (CSrankings style): flagship law reviews by their school's rank, specialty journals by W&L rank and subject area; each faculty member's bars, their areas (the areas of the specialty journals they published in; nothing inferred) and faculty page |
 | `insights.html` | who publishes where (a network from schools to flagship reviews; one journal's institutions and authors with drill-down; a table; rank against rank) and co-authorship over time |
-| `taxonomy.html` | the subject areas of the specialty journals: the tree, how it was built, every source |
+| `taxonomy.html` | the subject areas of the specialty journals: area > field > journal, with papers by current faculty in each; how it was built; the sources |
 | `faq.html` | about and method |
 | `history.html` | every version and what changed |
 
@@ -36,7 +36,7 @@ python build_data.py --publish    # rebuild, then commit and push docs/ and facu
 |---|---|
 | journal tables of contents (`journal_store/`) | articles, their authors, volumes, years and page numbers |
 | faculty lists by school (`faculty_runs/`) | who teaches where; articles are credited to the author's *current* school |
-| HeinOnline author profiles (`hein_profiles/`) | name forms for the few faculty whose profile was read (no longer collected) |
+| HeinOnline author profiles (`hein_profiles/`) | no longer collected or used: every faculty member is matched by name |
 | per-school faculty metadata (`faculty_runs/school_csv/`) | links to each faculty member's bio page |
 | newest `rankings_<year>.csv` | Washington & Lee specialty-journal ranks and subjects; which journals are general (flagship) |
 | newest `usnews_<edition>.csv` | which schools count as US law schools; flagship ranks |
