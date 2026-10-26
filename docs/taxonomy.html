@@ -29,47 +29,57 @@
 
   <div class="ins-hero">
     <p class="ins-kicker">Subject areas</p>
-    <h2 class="ins-title">How the specialty journals are grouped</h2>
-    <p class="ins-dek">The specialty journals, grouped into fields and the fields into thirteen subject areas, plus the journals of the interdisciplinary methods and a group of general and policy journals. Every specialty journal sits in one field and every field in one area, placed by the journal's own statement of its scope and its W&amp;L subject. A person's areas on the rankings page come from this grouping alone: the areas of the specialty journals they published in. Nothing is guessed from titles.</p>
+    <h2 class="ins-title">From specialty journal to category</h2>
+    <p class="ins-dek">Every specialty journal sits in one field, and every field in one category: thirteen subject areas, the journals of the interdisciplinary methods, and a group of general and policy journals. Each journal's place rests on its own statement of what it publishes and on its W&amp;L subject, and both are cited below. The categories are also the buckets authors go in: a person's categories on the rankings page are the categories of the specialty journals they published in. Nothing is guessed from titles.</p>
     <nav class="ins-toc" aria-label="Sections">
-      <a href="#tree"><span>1</span>The tree</a>
-      <a href="#how"><span>2</span>How it was built</a>
-      <a href="#sources"><span>3</span>Sources</a>
+      <a href="#tree"><span>1</span>Journal to category</a>
+      <a href="#mapping"><span>2</span>Every journal</a>
+      <a href="#how"><span>3</span>How it was built</a>
+      <a href="#sources"><span>4</span>Sources</a>
     </nav>
   </div>
 
-  <p class="loading ins-loading" id="loading">Loading the tree…</p>
+  <p class="loading ins-loading" id="loading">Loading the categories…</p>
 
   <section class="ins-section" id="tree" hidden>
     <header class="ins-head">
       <p class="ins-q">1</p>
-      <h2>The tree</h2>
-      <p class="ins-lede">Open an area to see its fields, a field to see its specialty journals, in order of W&amp;L score, each with the school that publishes it and that school's <i>U.S. News</i> rank. Counts are papers by current faculty in those journals (<span id="snapshot"></span>); each paper counts once, in its journal's field.</p>
+      <h2>Journal to category</h2>
+      <p class="ins-lede">Pick a category to see every one of its specialty journals and the line from each journal, through its field, to the category; then its bucket of authors, the current faculty with an article in those journals. Hover over a journal for what its placement rests on, or click it for its row in the table. Counts are papers by current faculty in those journals (<span id="snapshot"></span>).</p>
     </header>
-    <!-- (audit, 2026-10-25) the whole tree in one picture; the owner, 2026-10-23: "can also have a full visualization of this taxonomy on the explanation"; 2026-10-25: a tree, not a sunburst -->
+    <div class="ins-seg tx-pick" id="txPick" role="group" aria-label="Category"></div>
+    <!-- (2026-10-26, the owner: "a really clear line between specalty journal and then category. then use that category to place authors into buckets") -->
     <figure class="ins-card tx-fig" id="txFig">
       <figcaption>
-        <h3>The whole tree</h3>
-        <p>All areas on the left, then the areas. Click an area to open its fields, a field to open its specialty journals, and again to close them; a journal opens its field in the list below. The bigger the dot and the thicker the line, the more papers current faculty published in those journals.</p>
+        <h3 id="txName"></h3>
+        <p class="tx-counts" id="txCounts"></p>
+        <p id="txDesc"></p>
+        <p class="tx-src" id="txSrc"></p>
       </figcaption>
       <div class="tx-chart" id="txChart"></div>
+      <div class="tx-bucket-box" id="txBucket"></div>
     </figure>
+  </section>
+
+  <section class="ins-section" id="mapping" hidden>
+    <header class="ins-head">
+      <p class="ins-q">2</p>
+      <h2>Every journal and its category</h2>
+      <p class="ins-lede">The whole mapping in one table, each row with what its placement rests on: the rule that decided it, the deciding words, the journal's own scope statement (linked to where it was read) and its W&amp;L subject.</p>
+    </header>
     <div class="ins-filters" role="search">
-      <label>Find <input type="search" id="find" class="ctl-select tx-find" placeholder="a field or a journal, e.g. privacy" aria-label="Find a field or journal"></label>
-      <button type="button" class="ins-chip" id="openAll">Open all</button>
-      <button type="button" class="ins-chip" id="closeAll">Close all</button>
+      <label>Find <input type="search" id="find" class="ctl-select tx-find" placeholder="a journal, field or category, e.g. privacy" aria-label="Find a journal, field or category"></label>
       <span class="text-muted" id="findNote"></span>
     </div>
-    <div class="tx-tree" id="areas"></div>
-
+    <div class="tx-table-wrap"><table class="tx-table"><thead><tr><th>Specialty journal</th><th>Field</th><th>Category</th><th>Placed by</th></tr></thead><tbody id="txRows"></tbody></table></div>
   </section>
 
   <section class="ins-section prose tx-prose" id="how" hidden>
     <header class="ins-head">
-      <p class="ins-q">2</p>
+      <p class="ins-q">3</p>
       <h2>How it was built</h2>
     </header>
-    <p>The areas and fields come from how law professors divide their own field, checked against library and research classifications. The specialty journals were then placed in the fields, once, in a fixed table. A person's areas are read off that table: nothing about a person is inferred.</p>
+    <p>The categories (the subject areas) and their fields come from how law professors divide their own field, checked against library and research classifications. Each specialty journal was then placed in a field by its own scope statement and its W&amp;L subject, in a fixed table. A person's categories are read off that table: nothing about a person is inferred.</p>
 
     <h3>1. How professors divide their own field</h3>
     <p>Fourteen schemes that law professors or law faculties wrote down: <a href="https://leiterreports.com/2022/02/17/citation-counts-vary-by-field-2016-2020-edition/">Brian Leiter's most-cited-by-specialty lists</a>, <a href="https://jotwell.com/">Jotwell's sections</a>, the <i>U.S. News</i> specialty list, the "areas of study" pages at <a href="https://hls.harvard.edu/academics/programs-of-study/">Harvard</a>, <a href="https://www.law.nyu.edu/areasofstudy">NYU</a>, <a href="https://www.law.columbia.edu/faculty-and-scholarship/all-faculty">Columbia</a>, <a href="https://law.stanford.edu/directory/">Stanford</a>, <a href="https://www.law.berkeley.edu/academics/areas-of-study/">Berkeley</a> and <a href="https://www.law.georgetown.edu/academics/areas-of-study/">Georgetown</a>, <a href="https://digitalcommons.wayne.edu/slisfrp/148">Peter Hook's map</a> of which courses the same teacher teaches, the field coding in <a href="https://appext.hks.harvard.edu/publications/getFile.aspx?Id=1543">Bonica, Chilton, Rozema and Sen (2018)</a>, and the areas new law teachers list together in <a href="https://www.lawskyprojects.org/explore">Sarah Lawsky's hiring data</a> (1,645 hires, 2011–2026). Two more (<a href="https://michigan.law.umich.edu/faculty-and-scholarship/our-faculty">Michigan's faculty areas</a> and the <a href="https://fedsoc.org/practice-groups">Federalist Society practice groups</a>) were seen only in search snippets and are marked unverified. A field became an area if it stands alone in at least 7 of the 14 schemes. That rule gives 13 areas: constitutional law and criminal law stand alone in all 14, health law in 7.</p>
@@ -81,8 +91,8 @@
     <p>Each specialty journal sits in one field, from two things only: the journal's own statement of what it publishes (its name counts as part of that statement) and its subject in the W&amp;L Law Journal Rankings. Nothing about the papers it has published is used. The rule, applied in order: a statement that names one subject decides the field; a statement that names several goes by the one it names first or as central, with the W&amp;L subject breaking a tie; a journal with no usable statement goes by its W&amp;L subject; a journal whose statement covers law, or law and public policy, generally goes to "General &amp; Policy Journals", which counts in the rankings but gives no one an area; and a journal that defines a method or discipline (empirical work, economics, history) goes to the matching Interdisciplinary Methods field.</p>
     <p>Two placers applied the rule independently, each without seeing the other's answers or any earlier placement, and agreed on 225 of 231 journals; a third decided the other 6 by the same rule. For 120 journals the scope statement was taken from the journal's own page, for 73 from a search result's quotation of it, and 38 had none on file (placed by name or W&amp;L subject). Each journal's deciding words are recorded with the data. Compared with the earlier placement, which also used the share of each journal's faculty papers in each field (judged from titles), 27 journals changed area and 57 changed field within their area. Journals W&amp;L ranks later take the field of their W&amp;L subject until they are placed the same way.</p>
 
-    <h3>4. How a person's areas are shown</h3>
-    <p>On the rankings page, a person's tags are the areas of the specialty journals they have published in, each with the number of their articles there, all years. Someone with articles in two areas' journals gets two tags. Someone who has published only in flagship law reviews gets none: a flagship article says nothing about a field here. Opening a person shows the same thing as a small tree, area, then field, then the journals, for the years chosen. No paper title is read to decide any of it.</p>
+    <h3>4. How authors are placed in buckets</h3>
+    <p>Each category is a bucket of authors: the current faculty with an article in one of its journals. On the rankings page, a person's tags are the categories of the specialty journals they have published in, each with the number of their articles there, all years. Someone with articles in two areas' journals gets two tags. Someone who has published only in flagship law reviews gets none: a flagship article says nothing about a field here. Opening a person shows the same thing as a small tree, area, then field, then the journals, for the years chosen. No paper title is read to decide any of it.</p>
 
     <h3>What was merged, split or moved, and why</h3>
     <ul>
@@ -115,9 +125,9 @@
 
   <section class="ins-section" id="sources" hidden>
     <header class="ins-head">
-      <p class="ins-q">3</p>
+      <p class="ins-q">4</p>
       <h2>Sources</h2>
-      <p class="ins-lede">Every outside source cited in the tree, with what it supports. "Unverified" marks sources seen only in search snippets or behind blocked pages.</p>
+      <p class="ins-lede">Every outside source behind the categories and fields, with what it supports (each journal's own scope statement is cited in its row above). "Unverified" marks sources seen only in search snippets or behind blocked pages.</p>
     </header>
     <div class="ins-filters">
       <label>Find <input type="search" id="findSource" class="ctl-select tx-find" placeholder="e.g. Leiter, SSRN, privacy" aria-label="Find a source"></label>

@@ -1638,7 +1638,12 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
     Each area and field keeps its description and the outside schemes it matches from the subject-area research
     (research/taxonomy, subject_tree), and the page lists every source.
     Node: {n: name, d: description, s: [[source, url]], c: [papers, papers since 2016, faculty], k: fields (an area) or
-    j: [[journal id, papers, since 2016, faculty, counts toward the field (1/0)], ...] (a field)}"""
+    j: [[journal id, papers, since 2016, faculty, counts toward the field (1/0)], ...] (a field)}
+    (2026-10-26, the owner: "there needs to be a really clear line between specalty journal and then category. then use
+    that category to place authors into buckets ... cite all of the work"): each area (the category) also carries its
+    bucket of authors, b: [faculty with an article in its journals, [[person id, articles], ... the 15 with most]], and
+    the tree carries each journal's placement with its citation, placed: {journal id: [rule, deciding words, scope
+    statement, its URL, where it was quoted from, W&L subjects]}, from TAXONOMY_FILE."""
     research = subject_tree() or {'areas': [], 'approaches': [], 'sources': [], 'name': '', 'description': ''}
     about = {'General & Policy Journals': {'d': 'Journals whose own scope statement covers law, or law and public policy, generally, '
                                                  'with no subject focus. Their papers count in the rankings when this group is chosen; '
@@ -1649,9 +1654,14 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         for k in top.get('k', []):
             about.setdefault(k['n'], k)
     papers_in, people_in = defaultdict(set), defaultdict(set)
+    bucket = defaultdict(lambda: defaultdict(int))     # area id -> person -> articles in its journals (as people[i][4])
+    area_of_journal = {ji: journals[ji][4][0][0] for ji in field_of}
     for pk, person_i in zip(credit_paper, credit_person):
         papers_in[paper_journal[pk]].add(pk)
         people_in[paper_journal[pk]].add(person_i)
+        g = area_of_journal.get(paper_journal[pk])
+        if g is not None:
+            bucket[g][person_i] += 1
     def count(jis):
         ps = set().union(*(papers_in[ji] for ji in jis)) if jis else set()
         fs = set().union(*(people_in[ji] for ji in jis)) if jis else set()
@@ -1673,12 +1683,26 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         if not fields:
             continue
         info = about.get(area, {})
+        top = sorted(bucket[g].items(), key=lambda x: (-x[1], x[0]))[:15]
         areas.append({'n': area, 'd': info.get('d', ''), 's': info.get('s', []),
-                      'c': count([ji for fl in fields for ji, *_ in fl['j']]), 'k': fields})
+                      'c': count([ji for fl in fields for ji, *_ in fl['j']]), 'k': fields,
+                      'b': [len(bucket[g]), [[pi, n] for pi, n in top]]})
     total = count(counted)
+    # each journal's placement and what it rests on (journal_taxonomy_scope.csv); a journal W&L ranks after the table was
+    # made rests on its W&L subject until it is placed the same way
+    placed = {}
+    tax = pd.read_csv(TAXONOMY_FILE, dtype=str).fillna('') if os.path.exists(TAXONOMY_FILE) else pd.DataFrame()
+    rows = {r['journal']: r for r in tax.to_dict('records')} if len(tax) else {}
+    for ji in counted:
+        r = rows.get(journals[ji][0])
+        if r:
+            placed[ji] = [r.get('basis', ''), r.get('deciding_words', ''), r.get('scope_statement', ''), r.get('scope_url', ''),
+                          r.get('scope_source', ''), r.get('wl_subjects', '')]
+        else:
+            placed[ji] = ['by its W&L subject (not yet placed by its scope statement)', '', '', '', '', '']
     return {'name': 'Subject areas of the specialty journals', 'generated': built,
             'counts': {'faculty_papers': total[0], 'faculty_papers_2016_on': total[1], 'faculty': total[2]},
-            'areas': areas, 'sources': research['sources']}
+            'areas': areas, 'placed': placed, 'sources': research['sources']}
 
 
 PANEL_SINCE = 1980     # insights: "the same journals throughout" = journals with articles in every five years since
