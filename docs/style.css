@@ -51,32 +51,32 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 .lsr-mark > a { display: inline-block; margin-right: calc(-1 * var(--ls)); color: inherit; }
 .lsr-mark > a:hover { text-decoration: none; }
 /* 2. double rule, Garamond */
-[data-mast="2"] .lsr-mast { --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.16em; }
-[data-mast="2"] .lsr-mark { border: max(3px, 0.11em) double var(--ink); }
+:is(html[data-mast="2"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="2"]) .lsr-mast { --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.16em; }
+:is(html[data-mast="2"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="2"]) .lsr-mark { border: max(3px, 0.11em) double var(--ink); }
 /* 3. Oxford blue: rules above and below, no sides */
-[data-mast="3"] .lsr-mast { --ink: #14213d; --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --k: 0.99; --ls: 0.15em; }
-[data-mast="3"] .lsr-mark { border-width: max(2px, 0.08em) 0; box-shadow: inset 0 0.07em 0 var(--paper), inset 0 0.1em 0 var(--ink), inset 0 -0.07em 0 var(--paper), inset 0 -0.1em 0 var(--ink); }
+:is(html[data-mast="3"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="3"]) .lsr-mast { --ink: #14213d; --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --k: 0.99; --ls: 0.15em; }
+:is(html[data-mast="3"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="3"]) .lsr-mark { border-width: max(2px, 0.08em) 0; box-shadow: inset 0 0.07em 0 var(--paper), inset 0 0.1em 0 var(--ink), inset 0 -0.07em 0 var(--paper), inset 0 -0.1em 0 var(--ink); }
 /* 4. cardinal, a fine frame */
-[data-mast="4"] .lsr-mast { --ink: #8c1515; --face: 'Crimson Pro', Georgia, serif; --weight: 500; --k: 1.07; --ls: 0.15em; }
-[data-mast="4"] .lsr-mark { border-width: max(1px, 0.04em); }
+:is(html[data-mast="4"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="4"]) .lsr-mast { --ink: #8c1515; --face: 'Crimson Pro', Georgia, serif; --weight: 500; --k: 1.07; --ls: 0.15em; }
+:is(html[data-mast="4"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="4"]) .lsr-mark { border-width: max(1px, 0.04em); }
 /* 5. ink panel, letters reversed out */
-[data-mast="5"] .lsr-mast { --ink: #1f2a37; --face: 'Libre Caslon Text', Georgia, serif; --weight: 400; --k: 0.9; --ls: 0.16em; }
-[data-mast="5"] .lsr-mark { background: var(--ink); color: #fff; }
+:is(html[data-mast="5"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="5"]) .lsr-mast { --ink: #1f2a37; --face: 'Libre Caslon Text', Georgia, serif; --weight: 400; --k: 0.9; --ls: 0.16em; }
+:is(html[data-mast="5"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="5"]) .lsr-mark { background: var(--ink); color: #fff; }
 /* 6. small caps with an inner hairline */
-[data-mast="6"] .lsr-mast { --face: 'Playfair Display SC', Georgia, serif; --weight: 400; --k: 1.03; --ls: 0.12em; }
-[data-mast="6"] .lsr-mark { outline: 1px solid var(--ink); outline-offset: calc(-1 * max(5px, 0.2em)); }
+:is(html[data-mast="6"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="6"]) .lsr-mast { --face: 'Playfair Display SC', Georgia, serif; --weight: 400; --k: 1.03; --ls: 0.12em; }
+:is(html[data-mast="6"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="6"]) .lsr-mark { outline: 1px solid var(--ink); outline-offset: calc(-1 * max(5px, 0.2em)); }
 /* 7. engraved capitals, bronze ink, frame within a frame */
-[data-mast="7"] .lsr-mast { --ink: #5b4520; --face: 'Cinzel', 'Trajan Pro', Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.14em; }
-[data-mast="7"] .lsr-mark { border-width: max(1px, 0.04em); box-shadow: inset 0 0 0 max(3px, 0.12em) var(--paper), inset 0 0 0 max(4px, 0.16em) var(--ink); }
+:is(html[data-mast="7"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="7"]) .lsr-mast { --ink: #5b4520; --face: 'Cinzel', 'Trajan Pro', Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.14em; }
+:is(html[data-mast="7"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="7"]) .lsr-mark { border-width: max(1px, 0.04em); box-shadow: inset 0 0 0 max(3px, 0.12em) var(--paper), inset 0 0 0 max(4px, 0.16em) var(--ink); }
 /* 8. slab serif, heavy frame */
-[data-mast="8"] .lsr-mast { --ink: #26282b; --face: 'Zilla Slab', Rockwell, Georgia, serif; --weight: 600; --k: 1.04; --ls: 0.11em; }
-[data-mast="8"] .lsr-mark { border-width: max(2.5px, 0.1em); }
+:is(html[data-mast="8"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="8"]) .lsr-mast { --ink: #26282b; --face: 'Zilla Slab', Rockwell, Georgia, serif; --weight: 600; --k: 1.04; --ls: 0.11em; }
+:is(html[data-mast="8"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="8"]) .lsr-mark { border-width: max(2.5px, 0.1em); }
 /* 9. Garamond italic, title case, burgundy */
-[data-mast="9"] .lsr-mast { --ink: #6d1a2b; --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 1.35; --ls: 0.02em; }
-[data-mast="9"] .lsr-mark { font-style: italic; text-transform: none; }
+:is(html[data-mast="9"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="9"]) .lsr-mast { --ink: #6d1a2b; --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 1.35; --ls: 0.02em; }
+:is(html[data-mast="9"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="9"]) .lsr-mark { font-style: italic; text-transform: none; }
 /* 10. modern serif, small capitals between a hairline and a heavy rule */
-[data-mast="10"] .lsr-mast { --face: 'Source Serif 4', Georgia, serif; --weight: 600; --k: 0.98; --ls: 0.14em; }
-[data-mast="10"] .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15em); }
+:is(html[data-mast="10"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="10"]) .lsr-mast { --face: 'Source Serif 4', Georgia, serif; --weight: 600; --k: 0.98; --ls: 0.14em; }
+:is(html[data-mast="10"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="10"]) .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15em); }
 
 /* ---------- 11-25 (2026-10-25, the owner: "Have like 20-30 versions of the logo. Some inspired by minimalism. Some by
    glassmorphism. Some colorful"; 2026-10-26: "drop the gaussian blur logo option. it looks bad. make all of these logos look
@@ -87,63 +87,63 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 .lsr-mark > a > span { display: inline; }
 
 /* 11. minimal: hairline sans, wide tracking, one rule under it */
-[data-mast="11"] .lsr-mast { --ink: #111; --face: 'Montserrat', Helvetica, Arial, sans-serif; --weight: 200; --ls: 0.3em; --k: 0.88; }
-[data-mast="11"] .lsr-mark { border: 0; border-bottom: 1px solid var(--ink); padding: 0.16em 0 0.24em; }
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mast { --ink: #111; --face: 'Montserrat', Helvetica, Arial, sans-serif; --weight: 200; --ls: 0.3em; --k: 0.88; }
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark { border: 0; border-bottom: 1px solid var(--ink); padding: 0.16em 0 0.24em; }
 /* 12. minimal: an italic Didone, as a magazine sets its name */
-[data-mast="12"] .lsr-mast { --ink: #151515; --face: 'Bodoni Moda', Didot, 'Bodoni 72', Georgia, serif; --weight: 500; --ls: 0.01em; --k: 1.5; }
-[data-mast="12"] .lsr-mark { border: 0; padding: 0.04em 0.1em 0.12em; text-transform: none; font-style: italic; }
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mast { --ink: #151515; --face: 'Bodoni Moda', Didot, 'Bodoni 72', Georgia, serif; --weight: 500; --ls: 0.01em; --k: 1.5; }
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark { border: 0; padding: 0.04em 0.1em 0.12em; text-transform: none; font-style: italic; }
 /* 13. minimal: a technical sans between two hairlines */
-[data-mast="13"] .lsr-mast { --ink: #1b2a3a; --face: 'IBM Plex Sans', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.22em; --k: 1.01; }
-[data-mast="13"] .lsr-mark { border: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 0.22em 0.1em 0.26em; }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mast { --ink: #1b2a3a; --face: 'IBM Plex Sans', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.22em; --k: 1.01; }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { border: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 0.22em 0.1em 0.26em; }
 /* 14. minimal: a heavy grotesque and a slim crimson bar */
-[data-mast="14"] .lsr-mast { --ink: #111; --face: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif; --weight: 400; --ls: -0.005em; --k: 1.25; }
-[data-mast="14"] .lsr-mark { position: relative; border: 0; padding: 0.06em 0 0.08em 0.5em; text-transform: none; }
-[data-mast="14"] .lsr-mark::before { content: ""; position: absolute; left: 0; top: 0.16em; bottom: 0.18em; width: 0.12em; background: #a51c30; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mast { --ink: #111; --face: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif; --weight: 400; --ls: -0.005em; --k: 1.25; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark { position: relative; border: 0; padding: 0.06em 0 0.08em 0.5em; text-transform: none; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark::before { content: ""; position: absolute; left: 0; top: 0.16em; bottom: 0.18em; width: 0.12em; background: #a51c30; }
 /* 15. minimal: light serif, airy tracking, two vertical rules */
-[data-mast="15"] .lsr-mast { --ink: #2a2a2a; --face: 'Cormorant', 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 300; --ls: 0.4em; --k: 0.79; }
-[data-mast="15"] .lsr-mark { border: 0; border-left: 1px solid var(--ink); border-right: 1px solid var(--ink); padding: 0.04em 0.75em 0.08em; }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mast { --ink: #2a2a2a; --face: 'Cormorant', 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 300; --ls: 0.4em; --k: 0.79; }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark { border: 0; border-left: 1px solid var(--ink); border-right: 1px solid var(--ink); padding: 0.04em 0.75em 0.08em; }
 
 /* glass: a frosted pane drawn crisply (a faint top-to-bottom tint, a hairline edge, a light top highlight, a short soft
    shadow); nothing is blurred */
-[data-mast="16"] .lsr-mark, [data-mast="17"] .lsr-mark, [data-mast="18"] .lsr-mark, [data-mast="19"] .lsr-mark, [data-mast="20"] .lsr-mark {
+:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark, :is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark, :is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark, :is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark, :is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark {
   border: 1px solid rgba(20, 30, 50, 0.14); border-radius: 0.3em;
   background: linear-gradient(180deg, #ffffff 0%, #f1f4f8 100%);
   box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(16, 24, 40, 0.06), 0 0.18em 0.5em rgba(16, 24, 40, 0.07);
 }
 /* 16. glass: cool white */
-[data-mast="16"] .lsr-mast { --ink: #1d2340; --face: 'Plus Jakarta Sans', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0.13em; --k: 0.98; }
+:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mast { --ink: #1d2340; --face: 'Plus Jakarta Sans', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0.13em; --k: 0.98; }
 /* 17. glass: a dark navy pane, white letters */
-[data-mast="17"] .lsr-mast { --ink: #16203a; --face: 'DM Serif Display', Georgia, serif; --weight: 400; --ls: 0.05em; --k: 1.26; }
-[data-mast="17"] .lsr-mark { color: #fff; text-transform: none; border-color: #0f1828; background: linear-gradient(180deg, #24324d 0%, #152036 100%);
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mast { --ink: #16203a; --face: 'DM Serif Display', Georgia, serif; --weight: 400; --ls: 0.05em; --k: 1.26; }
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark { color: #fff; text-transform: none; border-color: #0f1828; background: linear-gradient(180deg, #24324d 0%, #152036 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(16, 24, 40, 0.12), 0 0.18em 0.5em rgba(16, 24, 40, 0.14); }
 /* 18. glass: pale teal with an accent edge */
-[data-mast="18"] .lsr-mast { --ink: #0c2d3e; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.1em; --k: 0.96; }
-[data-mast="18"] .lsr-mark { background: linear-gradient(180deg, #f8fbfc 0%, #e8f0f2 100%);
+:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mast { --ink: #0c2d3e; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.1em; --k: 0.96; }
+:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark { background: linear-gradient(180deg, #f8fbfc 0%, #e8f0f2 100%);
   box-shadow: inset 0.14em 0 0 #0f6e7a, inset 0 1px 0 #ffffff, 0 1px 2px rgba(16, 24, 40, 0.06), 0 0.18em 0.5em rgba(16, 24, 40, 0.07); }
 /* 19. glass: an ivory pill */
-[data-mast="19"] .lsr-mast { --ink: #3d2241; --face: 'Fraunces', Georgia, serif; --weight: 600; --ls: 0.02em; --k: 1.22; }
-[data-mast="19"] .lsr-mark { border-radius: 999px; padding-left: 1.1em; padding-right: 1.1em; text-transform: none; font-style: italic;
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mast { --ink: #3d2241; --face: 'Fraunces', Georgia, serif; --weight: 600; --ls: 0.02em; --k: 1.22; }
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark { border-radius: 999px; padding-left: 1.1em; padding-right: 1.1em; text-transform: none; font-style: italic;
   border-color: rgba(61, 34, 65, 0.16); background: linear-gradient(180deg, #fffdf9 0%, #f4eee6 100%); }
 /* 20. glass: two panes, offset */
-[data-mast="20"] .lsr-mast { --ink: #12343b; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.16em; --k: 0.98; }
-[data-mast="20"] .lsr-mark { box-shadow: inset 0 1px 0 #ffffff, 0.2em 0.2em 0 -1px #ffffff, 0.2em 0.2em 0 0 rgba(18, 52, 59, 0.2), 0 0.18em 0.5em rgba(16, 24, 40, 0.06); }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mast { --ink: #12343b; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.16em; --k: 0.98; }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark { box-shadow: inset 0 1px 0 #ffffff, 0.2em 0.2em 0 -1px #ffffff, 0.2em 0.2em 0 0 rgba(18, 52, 59, 0.2), 0 0.18em 0.5em rgba(16, 24, 40, 0.06); }
 
 /* 21. color: a two-tone wordmark, navy and crimson, over a crimson rule */
-[data-mast="21"] .lsr-mast { --ink: #0b2545; --face: 'Libre Franklin', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.1em; --k: 1.1; }
-[data-mast="21"] .lsr-mark { border: 0; border-bottom: max(2px, 0.07em) solid #a51c30; padding: 0.12em 0.05em 0.2em; }
-[data-mast="21"] .lsr-mark .w3 { color: #a51c30; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mast { --ink: #0b2545; --face: 'Libre Franklin', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.1em; --k: 1.1; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark { border: 0; border-bottom: max(2px, 0.07em) solid #a51c30; padding: 0.12em 0.05em 0.2em; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark .w3 { color: #a51c30; }
 /* 22. color: a forest-green band, an inner hairline */
-[data-mast="22"] .lsr-mast { --ink: #1e4d3b; --face: 'Spectral', Georgia, serif; --weight: 500; --ls: 0.15em; --k: 0.93; }
-[data-mast="22"] .lsr-mark { border-color: #1e4d3b; background: #1e4d3b; color: #fff; outline: 1px solid rgba(255, 255, 255, 0.4); outline-offset: calc(-1 * max(4px, 0.16em)); }
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mast { --ink: #1e4d3b; --face: 'Spectral', Georgia, serif; --weight: 500; --ls: 0.15em; --k: 0.93; }
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark { border-color: #1e4d3b; background: #1e4d3b; color: #fff; outline: 1px solid rgba(255, 255, 255, 0.4); outline-offset: calc(-1 * max(4px, 0.16em)); }
 /* 23. color: navy letters between gold rules */
-[data-mast="23"] .lsr-mast { --ink: #0b2545; --face: 'Lora', Georgia, serif; --weight: 600; --ls: 0.04em; --k: 1.36; }
-[data-mast="23"] .lsr-mark { border: 0; border-top: max(3px, 0.1em) solid #b08d57; border-bottom: 1px solid #b08d57; padding: 0.18em 0.2em 0.22em; text-transform: none; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mast { --ink: #0b2545; --face: 'Lora', Georgia, serif; --weight: 600; --ls: 0.04em; --k: 1.36; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark { border: 0; border-top: max(3px, 0.1em) solid #b08d57; border-bottom: 1px solid #b08d57; padding: 0.18em 0.2em 0.22em; text-transform: none; }
 /* 24. color: a burgundy band with gold letters */
-[data-mast="24"] .lsr-mast { --ink: #6b1d2a; --face: 'Cormorant SC', 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --ls: 0.12em; --k: 1.02; }
-[data-mast="24"] .lsr-mark { border-color: #6b1d2a; background: #6b1d2a; color: #ead7a8; box-shadow: inset 0 0 0 max(3px, 0.1em) #6b1d2a, inset 0 0 0 max(4px, 0.13em) #ead7a8; }
+:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mast { --ink: #6b1d2a; --face: 'Cormorant SC', 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --ls: 0.12em; --k: 1.02; }
+:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark { border-color: #6b1d2a; background: #6b1d2a; color: #ead7a8; box-shadow: inset 0 0 0 max(3px, 0.1em) #6b1d2a, inset 0 0 0 max(4px, 0.13em) #ead7a8; }
 /* 25. color: a teal slab and an accent bar */
-[data-mast="25"] .lsr-mast { --ink: #0f4c5c; --face: 'Roboto Slab', Rockwell, Georgia, serif; --weight: 600; --ls: 0.1em; --k: 1.01; }
-[data-mast="25"] .lsr-mark { border: 0; border-left: max(5px, 0.2em) solid #0f4c5c; background: #eef5f6; padding-left: 0.7em; }
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mast { --ink: #0f4c5c; --face: 'Roboto Slab', Rockwell, Georgia, serif; --weight: 600; --ls: 0.1em; --k: 1.01; }
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark { border: 0; border-left: max(5px, 0.2em) solid #0f4c5c; background: #eef5f6; padding-left: 0.7em; }
 .lsr-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.32em; }
 .lsr-note { margin-left: auto; font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: max(12px, calc(0.323em / var(--k))); letter-spacing: 0.04em; text-align: right; }
 .lsr-about {
@@ -346,3 +346,42 @@ input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: point
 .crunch-label { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; letter-spacing: 0.02em;
   color: #2b2b2b; text-shadow: 0 0 8px rgba(255, 255, 255, 0.9); min-height: 1.4em; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .crunch { background: rgba(255, 255, 255, 0.82); } }
+
+/* (the variants above are scoped: the page's own masthead follows <html data-mast>, each gallery preview its own data-mast)
+   the logo gallery (masthead.js): a quiet "change logo" by the build hash, and every masthead in a pop-up */
+.lsr-right { display: inline-flex; align-items: baseline; gap: 0.9em; }
+.mast-pick { align-self: center; padding: 0; border: 0; background: none; cursor: pointer;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-weight: 400; font-size: max(9.5px, 0.62em); letter-spacing: 0.04em;
+  text-transform: none; color: #9b978f; text-decoration: underline; text-decoration-color: rgba(155, 151, 143, 0.45); text-underline-offset: 2px; }
+.mast-pick:hover, .mast-pick:focus-visible { color: #4a4740; text-decoration-color: currentColor; }
+html.mast-open { overflow: hidden; }
+.mast-gallery { position: fixed; inset: 0; z-index: 1100; display: none; align-items: flex-start; justify-content: center; padding: 4vh 16px;
+  background: rgba(20, 22, 28, 0.42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); overflow-y: auto; }
+.mast-gallery.on { display: flex; }
+.mast-panel { width: min(1080px, 100%); background: #fff; border-radius: 10px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); padding: 18px 20px 16px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color: #222; }
+.mast-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.mast-top h2 { margin: 0 0 4px; font-size: 19px; }
+.mast-top p { margin: 0; font-size: 13.5px; color: #555; }
+.mast-x { border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: #666; padding: 0 4px; }
+.mast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 14px; }
+.mast-card { border: 1px solid #e3e1dc; border-radius: 8px; overflow: hidden; background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.mast-card:hover { border-color: #b9b5ad; }
+.mast-card.is-now { border-color: #1c5cab; box-shadow: 0 0 0 2px rgba(28, 92, 171, 0.25); }
+.mast-card.is-fav { border-color: #b08d57; box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.3); }
+.mast-preview { padding: 14px 12px 10px; pointer-events: none; }
+.mast-bar { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-top: 1px solid #efede8; background: #fafaf8; font-size: 12.5px; }
+.mast-no { color: #777; margin-right: auto; }
+.mast-bar button { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 3px 10px; font: inherit; cursor: pointer; color: #333; }
+.mast-bar button:hover { border-color: #888; }
+.mast-vote[aria-pressed="true"] { background: #b08d57; border-color: #b08d57; color: #fff; }
+.mast-bottom { margin-top: 14px; text-align: right; }
+.mast-shuffle { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+@media (max-width: 520px) { .mast-grid { grid-template-columns: 1fr; } .mast-panel { padding: 14px 12px; } }
+
+/* BETA: categories from a title model (off by default; the switch in Options) */
+.c-beta { color: #6a4fb3; font-style: italic; }
+.c-beta::before { content: "\03B2\00a0"; font-style: normal; font-size: 0.85em; opacity: 0.8; }
+.works-beta { margin: 4px 0; color: #4b3d7a; font-size: 13px; }
+.beta-badge { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 999px; background: #ece7f8; color: #4b3d7a;
+  font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }

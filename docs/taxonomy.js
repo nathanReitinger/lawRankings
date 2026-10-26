@@ -2,9 +2,9 @@
 // field, the field in one category (the subject areas), and a person's categories on the rankings page are the
 // categories of the specialty journals they published in. (2026-10-26, the owner: "there needs to be a really clear
 // line between specalty journal and then category. then use that category to place authors into buckets ... cite all
-// of the work".) The tree, each journal's placement with what it rests on, the author buckets and the sources come from
-// data/taxonomy.json (build_data.py: journal_tree); each journal's school, U.S. News rank and W&L score, and the
-// people's names, from data/data.json, as on the rankings page. Nothing is guessed from titles.
+// of the work".) The tree, each journal's placement with what it rests on, its school, U.S. News rank and W&L score,
+// the author buckets and the sources all come from data/taxonomy.json (build_data.py: journal_tree), so the page
+// loads no data.json (2026-10-26: "use lazy loading"). Nothing is guessed from titles.
 (function () {
   'use strict';
 
@@ -22,7 +22,6 @@
   const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const clip = (s, n) => (s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s);
 
-  let D = null;           // data.json
   let T = null;           // taxonomy.json
   let current = 0;        // the category shown
   let chart = null;
@@ -30,12 +29,14 @@
 
   // the school that publishes a journal and that school's U.S. News rank, as the rankings page shows them (the owner,
   // 2026-10-25: "the associated school" and "its US News rank"); a journal no school publishes shows its publisher
+  // T.jinfo: journal id -> [name, school, publisher, the school's U.S. News rank (0 unranked, -1 no school), W&L score]
+  const info = (ji) => (T.jinfo && T.jinfo[ji]) || ['', '', '', null, null];
+  const jname = (ji) => info(ji)[0];
   function hostText(ji) {
-    const [school, , , publisher] = D.journals[ji][5] || ['', '', '', ''];
-    const hr = D.host_ranks && D.host_ranks.usnews ? D.host_ranks.usnews[ji] : null;
+    const [, school, publisher, hr] = info(ji);
     return school ? school + ' (U.S. News ' + (hr > 0 ? '#' + hr : 'unranked') + ')' : publisher || '';
   }
-  const wlScore = (ji) => (D.journals[ji][3] && D.journals[ji][3][0] ? D.journals[ji][3][0][2] : null);
+  const wlScore = (ji) => info(ji)[4];
   const placed = (ji) => (T.placed && T.placed[ji]) || ['', '', '', '', '', ''];
   // journal_taxonomy_scope.csv's basis ("1 scope names one subject") in words
   const RULE = {
@@ -94,7 +95,7 @@
       pts.push({ id: 'f' + fi, parent: 'c', name: f.n, color: field, marker: { radius: narrow ? 5 : 6, fillColor: field }, custom: { kind: 'field', f: f, up: a.n } });
       f.j.forEach(([ji, papers, since, faculty, cnt]) => {
         rows++;
-        pts.push({ id: 'j' + ji, parent: 'f' + fi, name: D.journals[ji][0], color: jour, marker: { radius: 3.5, fillColor: jour },
+        pts.push({ id: 'j' + ji, parent: 'f' + fi, name: jname(ji), color: jour, marker: { radius: 3.5, fillColor: jour },
           custom: { kind: 'journal', ji: ji, c: [papers, since, faculty], cnt: cnt, up: f.n, cat: a.n } });
       });
     });
@@ -154,11 +155,9 @@
     if (!n) { box.appendChild(el('p', { class: 'tx-none' }, 'No one is placed in this group: its journals have no subject focus.')); return; }
     box.appendChild(el('p', { class: 'tx-label' }, num(n) + ' current faculty in this bucket: everyone with an article in these journals. Most articles:'));
     const ol = el('ol', { class: 'tx-bucket' });
-    top.forEach(([pi, k]) => {
-      const p = D.people[pi];
+    top.forEach(([name, schools, home, k]) => {
       const li = el('li');
-      li.appendChild(p[3] ? el('a', { href: p[3], target: '_blank', rel: 'noopener' }, p[0]) : el('span', null, p[0]));
-      const schools = (p[1] || []).map((s) => D.schools[s][0]).join('; ');
+      li.appendChild(home ? el('a', { href: home, target: '_blank', rel: 'noopener' }, name) : el('span', null, name));
       li.appendChild(el('span', { class: 'text-muted' }, (schools ? ', ' + schools : '') + ' · ' + k));
       ol.appendChild(li);
     });
@@ -173,7 +172,7 @@
       const [basis, words, quote, url, how, wl] = placed(ji);
       const tr = el('tr', { 'data-j': String(ji) });
       const td1 = el('td', { 'data-h': 'Specialty journal' });
-      td1.appendChild(el('b', null, D.journals[ji][0]));
+      td1.appendChild(el('b', null, jname(ji)));
       const host = hostText(ji);
       if (host) td1.appendChild(el('div', { class: 'text-muted' }, host));
       td1.appendChild(el('div', { class: 'tx-counts' }, num(papers) + ' papers by ' + num(faculty) + ' current faculty'));
@@ -195,7 +194,7 @@
       }
       if (wl) td4.appendChild(el('div', { class: 'text-muted tx-cite' }, 'W&L subject: ' + wl));
       [td1, td2, td3, td4].forEach((td) => tr.appendChild(td));
-      tr.dataset.text = fold([D.journals[ji][0], host, f.n, a.n, words, quote, wl].join(' '));
+      tr.dataset.text = fold([jname(ji), host, f.n, a.n, words, quote, wl].join(' '));
       tb.appendChild(tr);
       rowOf.set(ji, tr);
     })));
@@ -252,11 +251,11 @@
   }
 
   if (window.LSR.crunch) window.LSR.crunch.show('Loading the categories');
-  Promise.all(['data/taxonomy.json', 'data/data.json', 'data/meta.json'].map((u) => fetch(u, { cache: 'no-cache' }).then((r) => {
+  Promise.all(['data/taxonomy.json', 'data/meta.json'].map((u) => fetch(u, { cache: 'no-cache' }).then((r) => {
     if (!r.ok) throw new Error(u + ': ' + r.status);
     return r.json();
-  }))).then(([tree, data, meta]) => {
-    T = tree; D = data;
+  }))).then(([tree, meta]) => {
+    T = tree;
     window.LSR.stampMasthead(meta);
     $('footer').innerHTML = window.LSR.siteFooter(meta);
     $('snapshot').textContent = 'data of ' + fmtDate(tree.generated);

@@ -1293,14 +1293,24 @@
     if (!r.ok) throw new Error(u + ': ' + r.status);
     return r.json();
   }))).then(([data, meta, ins]) => {
-    DATA = data; META = meta; INS = ins;
+    DATA = LSR.unpack(data); META = meta; INS = ins;      // (2026-10-26) packed core; homepages come after
     LSR.stampMasthead(meta);
     $('footer').innerHTML = LSR.siteFooter(meta);
     $('loading').remove();
     document.querySelectorAll('.ins-section').forEach((s) => { s.hidden = false; });
     setup();
     renderWhere();
-    renderCo();
+    // (2026-10-26, the owner: "use lazy loading") the co-authorship section is computed when it comes into view
+    // (or a few seconds after the first section is up, whichever comes first)
+    const co = document.getElementById('coauthor');
+    let coDone = false;
+    const drawCo = () => { if (!coDone) { coDone = true; renderCo(); } };
+    if (co && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); drawCo(); } }, { rootMargin: '400px 0px' });
+      io.observe(co);
+      setTimeout(() => { io.disconnect(); drawCo(); }, 2500);
+    } else drawCo();
+    LSR.people(DATA).then(() => { if (jn.journal != null) renderJournal(); });   // authors' faculty pages in the journal view
     if (LSR.crunch) LSR.crunch.hide();
     if (location.hash) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }
   }).catch((e) => {

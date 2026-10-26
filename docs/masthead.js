@@ -195,5 +195,180 @@
     return { show: show, hide: hide, run: run };
   })();
 
-  window.LSR = { stampMasthead: stampMasthead, siteFooter: siteFooter, email: MAINTAINER_EMAIL, repo: REPO, crunch: crunch };
+  // ---- (2026-10-26, the owner: "use lazy loading so that the main ranking shows first") data.json holds what the ranking
+  // needs, packed (build_data.split_for_site): unpack() turns it back into the arrays the pages read (papers.year,
+  // .minor, .authors indexed by paper id; people as [name, schools, null, homepage, areas, fields, total], the last four
+  // empty until people.json is in). people() fetches people.json once, fills them in and resolves.
+  function unpack(d) {
+    const P = d.papers;
+    if (P.years) {
+      const year = new Int16Array(P.n);
+      let at = 0;
+      P.years[1].forEach((n, k) => { year.fill(P.years[0] + k, at, at + n); at += n; });
+      P.year = year;
+    }
+    if (P.minor_ids) { const m = new Uint8Array(P.n); P.minor_ids.forEach((i) => { m[i] = 1; }); P.minor = m; }
+    if (P.authors_not_1) { const a = new Uint16Array(P.n).fill(1); P.authors_not_1.forEach(([i, n]) => { a[i] = n; }); P.authors = a; }
+    const C = d.credits;
+    if (C.who) {                      // in paper order: each paper's credited people, one each unless C.more says more
+      const k = new Uint16Array(P.n).fill(1);
+      (C.more || []).forEach(([p, n]) => { k[p] = n; });
+      const paper = new Int32Array(C.who.length);
+      let at = 0;
+      for (let p = 0; p < P.n; p++) for (let j = 0; j < k[p]; j++) paper[at++] = p;
+      C.paper = paper;
+      C.person = Int32Array.from(C.who);
+    }
+    d.people = d.people.map((p) => (p.length > 2 ? p : [p[0], p[1], null, '', [], [], 0]));
+    return d;
+  }
+  let peopleLoad = null;
+  function people(d) {
+    if (!peopleLoad) {
+      peopleLoad = fetch('data/people.json').then((r) => (r.ok ? r.json() : [])).then((rows) => {
+        rows.forEach((x, i) => { const p = d.people[i]; if (p && x) { p[3] = x[0] || ''; p[4] = x[1] || []; p[5] = x[2] || []; p[6] = x[3] || 0; } });
+        d.peopleLoaded = true;
+        return d;
+      }).catch(() => d);
+    }
+    return peopleLoad;
+  }
+
+  // ---- the logo gallery (2026-10-26, the owner: "allow a vote procedure on the logo. a user can vote on their favoriate
+  // logo and then we'll keep that one for them. and allow a click-button to change logo with a pop-up of all logos to
+  // view"). A small "change logo" button by the build hash opens every masthead, drawn live in its own face; a click
+  // previews one on the page, "Vote for this one" keeps it for this visitor (localStorage lsr.mastPin, which the
+  // <head> script reads before anything is drawn), and "Surprise me" goes back to a new one each visit. The votes stay
+  // in each visitor's browser: a static site has nowhere to count them.
+  const FAMILY = (n) => (n <= 10 ? 'Classic' : n <= 15 ? 'Minimal' : n <= 20 ? 'Glass' : 'Color');
+  const PIN = 'lsr.mastPin';
+  const pinned = () => { try { return +(localStorage.getItem(PIN) || 0); } catch (e) { return 0; } };
+  let gallery = null, fontsAll = false, opener = null;
+
+  function applyMast(n) {
+    document.documentElement.setAttribute('data-mast', n);
+    const M = window.LSR_MAST || {};
+    const f = (M.fonts || [])[n - 1];
+    if (f && !fontsAll) {
+      const l = document.createElement('link');
+      l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + f + '&display=swap';
+      document.head.appendChild(l);
+    }
+  }
+
+  function loadAllFonts() {
+    if (fontsAll) return;
+    fontsAll = true;
+    const fam = ((window.LSR_MAST || {}).fonts || []).filter(Boolean);
+    if (!fam.length) return;
+    const l = document.createElement('link');
+    l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + fam.join('&family=') + '&display=swap';
+    document.head.appendChild(l);
+  }
+
+  function buildGallery() {
+    const head = document.querySelector('.lsr-mast');
+    const N = (window.LSR_MAST || {}).n || 25;
+    gallery = document.createElement('div');
+    gallery.className = 'mast-gallery';
+    gallery.setAttribute('role', 'dialog');
+    gallery.setAttribute('aria-modal', 'true');
+    gallery.setAttribute('aria-labelledby', 'mastGalleryTitle');
+    gallery.innerHTML = '<div class="mast-panel"><div class="mast-top"><div><h2 id="mastGalleryTitle">Pick a masthead</h2>' +
+      '<p>Click one to see it on the page. <b>Vote for your favorite</b> and it stays for you on this browser; or let a new one come each visit.</p></div>' +
+      '<button type="button" class="mast-x" aria-label="Close">&times;</button></div><div class="mast-grid"></div>' +
+      '<div class="mast-bottom"><button type="button" class="mast-shuffle">Surprise me again: a new one each visit</button></div></div>';
+    const grid = gallery.querySelector('.mast-grid');
+    for (let n = 1; n <= N; n++) {
+      const card = document.createElement('div');
+      card.className = 'mast-card';
+      card.dataset.n = n;
+      const wrap = document.createElement('div');
+      wrap.className = 'lsr-mast-wrap mast-preview';
+      wrap.setAttribute('data-mast', n);
+      if (head) {
+        const c = head.cloneNode(true);
+        c.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
+        c.querySelectorAll('.lsr-foot, .mast-pick').forEach((x) => x.remove());
+        c.querySelectorAll('a').forEach((x) => { x.removeAttribute('href'); x.setAttribute('tabindex', '-1'); });
+        wrap.appendChild(c);
+      }
+      const bar = document.createElement('div');
+      bar.className = 'mast-bar';
+      bar.innerHTML = '<span class="mast-no">No. ' + n + ' · ' + FAMILY(n) + '</span>' +
+        '<button type="button" class="mast-see">See it</button><button type="button" class="mast-vote">Vote for this one</button>';
+      card.appendChild(wrap);
+      card.appendChild(bar);
+      grid.appendChild(card);
+    }
+    gallery.addEventListener('click', (e) => {
+      if (e.target === gallery || e.target.closest('.mast-x')) { closeGallery(); return; }
+      if (e.target.closest('.mast-shuffle')) {
+        try { localStorage.removeItem(PIN); } catch (err) { /* private mode */ }
+        markCards(); closeGallery(); return;
+      }
+      const card = e.target.closest('.mast-card');
+      if (!card) return;
+      const n = +card.dataset.n;
+      if (e.target.closest('.mast-vote')) {
+        try { localStorage.setItem(PIN, String(n)); } catch (err) { /* private mode: it applies for this page only */ }
+        applyMast(n); markCards(); return;
+      }
+      applyMast(n); markCards();
+    });
+    gallery.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeGallery(); });
+    document.body.appendChild(gallery);
+  }
+
+  function markCards() {
+    const now = +document.documentElement.getAttribute('data-mast');
+    const fav = pinned();
+    gallery.querySelectorAll('.mast-card').forEach((c) => {
+      const n = +c.dataset.n;
+      c.classList.toggle('is-now', n === now);
+      c.classList.toggle('is-fav', n === fav);
+      const v = c.querySelector('.mast-vote');
+      v.textContent = n === fav ? '★ Your favorite' : 'Vote for this one';
+      v.setAttribute('aria-pressed', String(n === fav));
+    });
+  }
+
+  function openGallery(btn) {
+    opener = btn || null;
+    loadAllFonts();
+    if (!gallery) buildGallery();
+    markCards();
+    gallery.classList.add('on');
+    document.documentElement.classList.add('mast-open');
+    const cur = gallery.querySelector('.mast-card.is-now');
+    (gallery.querySelector('.mast-x')).focus();
+    if (cur) cur.scrollIntoView({ block: 'nearest' });
+  }
+  function closeGallery() {
+    gallery.classList.remove('on');
+    document.documentElement.classList.remove('mast-open');
+    if (opener) opener.focus();
+  }
+
+  function addPicker() {
+    const line = document.querySelector('.lsr-issue');
+    if (!line || line.querySelector('.mast-pick')) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mast-pick';
+    b.title = 'See every masthead and vote for your favorite';
+    b.textContent = 'change logo';
+    b.addEventListener('click', () => openGallery(b));
+    const stamp = line.querySelector('.lsr-stamp');
+    const box = document.createElement('span');
+    box.className = 'lsr-right';
+    if (stamp) { line.insertBefore(box, stamp); box.appendChild(stamp); }
+    else line.appendChild(box);
+    box.appendChild(b);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addPicker); else addPicker();
+
+  window.LSR = { stampMasthead: stampMasthead, siteFooter: siteFooter, email: MAINTAINER_EMAIL, repo: REPO, crunch: crunch,
+    openLogos: openGallery,
+    unpack: unpack, people: people };
 })();

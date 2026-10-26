@@ -94,6 +94,10 @@ SHORT_DIR = os.path.join(SOURCE_DIR, 'short_pieces')
 CREDITED_KEYS = os.path.join(SHORT_DIR, 'credited_keys.txt')
 MODEL_SHORT = os.path.join(SHORT_DIR, 'model_short.csv')          # the deployed short-piece model's predictions
 MODELS_DIR = os.path.join(SOURCE_DIR, 'models', 'artifacts')    # what the classifier does next (a test build redirects it)
+# BETA (2026-10-26, the owner: "the title area classification mark as a beta function. so the website doesn't operate
+# using that by default but a user can see what it would look like"): models/title_area.py's category for every title
+TITLE_AREA = os.path.join(MODELS_DIR, 'title_area_predictions.csv')
+TITLE_AREA_MIN_P = 0.5      # only titles the model is at least this sure of count toward a person's beta categories
 PIECE_KINDS = ['research article', 'essay', 'book review', 'response or reply', 'foreword or introduction', 'memorial or tribute',
                'lecture, speech or remarks', 'student note or comment', 'transcript or panel discussion',
                'case or legislation summary', 'editorial or front matter', 'correction', 'other']
@@ -1630,7 +1634,8 @@ def subject_tree():
             'sources': sources}
 
 
-def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year, credit_paper, credit_person, built):
+def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year, credit_paper, credit_person, built,
+                 people=(), schools=(), host_rank=()):
     """docs/data/taxonomy.json for the Subject areas page (2026-10-25, the owner: "a clear taxonomy presented as a tree
     structure that pulls information from grouped specialty journals. That's it."): area > field > specialty journal,
     as the rankings group them (each journal in one field, each field in one area), with the papers by current faculty
@@ -1684,9 +1689,11 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
             continue
         info = about.get(area, {})
         top = sorted(bucket[g].items(), key=lambda x: (-x[1], x[0]))[:15]
+        # (2026-10-26, the owner: "use lazy loading") the bucket names its people itself, so the page needs no data.json
         areas.append({'n': area, 'd': info.get('d', ''), 's': info.get('s', []),
                       'c': count([ji for fl in fields for ji, *_ in fl['j']]), 'k': fields,
-                      'b': [len(bucket[g]), [[pi, n] for pi, n in top]]})
+                      'b': [len(bucket[g]), [[people[pi][0], '; '.join(schools[sc][0] for sc in people[pi][1]), people[pi][3] or '', n]
+                                             for pi, n in top]]})
     total = count(counted)
     # each journal's placement and what it rests on (journal_taxonomy_scope.csv); a journal W&L ranks after the table was
     # made rests on its W&L subject until it is placed the same way
@@ -1700,9 +1707,68 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
                           r.get('scope_source', ''), r.get('wl_subjects', '')]
         else:
             placed[ji] = ['by its W&L subject (not yet placed by its scope statement)', '', '', '', '', '']
+    # each journal's name, publishing school (and its U.S. News rank) or publisher, and W&L score
+    jinfo = {ji: [journals[ji][0], (journals[ji][5] if len(journals[ji]) > 5 else ['', '', '', ''])[0],
+                  (journals[ji][5] if len(journals[ji]) > 5 else ['', '', '', ''])[3],
+                  host_rank[ji] if ji < len(host_rank) else None, journals[ji][3][0][2] if journals[ji][3] else None] for ji in counted}
     return {'name': 'Subject areas of the specialty journals', 'generated': built,
             'counts': {'faculty_papers': total[0], 'faculty_papers_2016_on': total[1], 'faculty': total[2]},
-            'areas': areas, 'placed': placed, 'sources': research['sources']}
+            'areas': areas, 'placed': placed, 'jinfo': jinfo, 'sources': research['sources']}
+
+
+def beta_title_areas(paper_keys, credit_paper, credit_person, groups, n_people):
+    '''docs/data/beta.json, read only when a visitor turns the beta on: each person's categories as the title model
+    (models/title_area.py) would give them, from every credited article's title in any journal (flagship reviews
+    included), counting only titles it is at least TITLE_AREA_MIN_P sure of; and the model's cross-validated scores.
+    None when the model has not been run.'''
+    if not os.path.exists(TITLE_AREA):
+        return None
+    pred = read_csv_safely(TITLE_AREA, dtype={'title_key': str, 'category': str})
+    version = str(pred['version'].iloc[0]) if len(pred) else ''
+    report = os.path.join(MODELS_DIR, f'title_area-{version}.json')
+    model = json.load(open(report, encoding='utf-8')) if os.path.exists(report) else {}
+    gid = {g: i for i, g in enumerate(groups)}
+    sure = pred[pred['p'] >= TITLE_AREA_MIN_P]
+    area_of = {k: gid[c] for k, c in zip(sure['title_key'], sure['category']) if c in gid}
+    tk = [k.rsplit('|', 1)[-1].split('#', 1)[0] for k in paper_keys]
+    per = defaultdict(lambda: defaultdict(int))
+    for pk, person in zip(credit_paper, credit_person):
+        g = area_of.get(tk[pk])
+        if g is not None:
+            per[person][g] += 1
+    people = [[[g, n] for g, n in sorted(per[i].items(), key=lambda x: (-x[1], x[0]))] for i in range(n_people)]
+    print(f'  beta (title model {version}): {sum(1 for p in people if p)} people with titled categories; '
+          f'{len(area_of)} of {len(pred)} titles at p >= {TITLE_AREA_MIN_P}')
+    keep = ('version', 'accuracy', 'top3_accuracy', 'macro_f1', 'baseline_accuracy', 'trained_titles', 'journals', 'cv')
+    return {'model': {k: model.get(k) for k in keep}, 'min_p': TITLE_AREA_MIN_P, 'people': people}
+
+
+def split_for_site(data):
+    '''(2026-10-26, the owner: "why does the website take so long to load. use lazy loading so that the main ranking shows
+    first") the site's data in two files: data.json, what the ranking needs (each person as [name, schools]; the papers'
+    years as counts per year, since papers are numbered in year order; short pieces and co-authored papers as lists of
+    their ids), and people.json, what opening a person needs ([homepage, areas, fields, field articles] per person),
+    loaded after the ranking is on screen; credits in paper order. masthead.js (LSR.unpack, LSR.people) puts them back together. The papers'
+    kinds and lengths stay in the build (meta counts them).'''
+    P = data['papers']
+    years = [int(y) for y in P['year']]
+    papers = {'n': len(years), 'journal': P['journal'],
+              'minor_ids': [i for i, m in enumerate(P['minor']) if m],
+              'authors_not_1': [[i, int(n)] for i, n in enumerate(P['authors']) if n != 1]}
+    if years and all(a <= b for a, b in zip(years, years[1:])):
+        papers['years'] = [years[0], [years.count(y) for y in range(years[0], years[-1] + 1)]]
+    else:                                   # not in year order (never, since paper ids are sorted by year): as it is
+        papers['year'] = years
+    # credits in paper order, as each credited person in turn and, for the papers with more than one credited author,
+    # how many (gzip shrinks this to half of the plain paper/person pairs)
+    pairs = sorted(zip(data['credits']['paper'], data['credits']['person']))
+    per = defaultdict(int)
+    for pk, _ in pairs:
+        per[pk] += 1
+    credits = {'who': [q for _, q in pairs], 'more': [[pk, n] for pk, n in sorted(per.items()) if n != 1]}
+    core = dict(data, papers=papers, credits=credits, people=[[p[0], p[1]] for p in data['people']])
+    details = [[p[3], p[4], p[5], p[6]] for p in data['people']]
+    return core, details
 
 
 PANEL_SINCE = 1980     # insights: "the same journals throughout" = journals with articles in every five years since
@@ -2259,9 +2325,14 @@ def build():
     insights = coauthorship(papers, n_authors, is_short, journals)
     print(f"  insights: co-authorship of {insights['pieces']} pieces in {len(journals)} journals, "
           f"{insights['years'][0]}-{insights['years'][-1]} ({insights['panel']['journals']} journals publishing since {insights['panel']['since']})")
-    outputs = [('data.json', data), ('meta.json', meta), ('history.json', history), ('insights.json', insights)]
+    core, details = split_for_site(data)
+    outputs = [('data.json', core), ('people.json', details), ('meta.json', meta), ('history.json', history), ('insights.json', insights)]
+    beta = beta_title_areas(paper_keys, credit_paper, credit_person, groups, len(data['people']))
+    if beta:
+        outputs.append(('beta.json', beta))
     tree = journal_tree(groups, subjects, journals, field_of, paper_journal, [int(y) for y in p['year']],
-                        credit_paper, credit_person, meta['built'])
+                        credit_paper, credit_person, meta['built'], people=data['people'], schools=data['schools'],
+                        host_rank=data['host_ranks']['usnews'])
     outputs.append(('taxonomy.json', tree))
     for name, obj in outputs:
         with open(os.path.join(OUT_DIR, name) + '.tmp', 'w', encoding='utf-8') as f:   # temp + rename (review)

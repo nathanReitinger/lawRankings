@@ -278,6 +278,9 @@
         const cur = new Set(state.groups[g] || []);
         if (t.checked) cur.add(t.dataset.subject); else cur.delete(t.dataset.subject);
         if (cur.size) state.groups[g] = groupSubjects[g].filter((s) => cur.has(s)); else delete state.groups[g];
+      } else if (t.id === 'betaTitles') {
+        setBeta(t.checked);
+        return;
       } else if (t.id === 'skipMinor') {
         state.minor = t.checked;
       } else if (t.id === 'cutoff') {
@@ -400,6 +403,30 @@
 
   ////////////////////////////////////////////// ranking table
 
+  // ---- BETA (2026-10-26, the owner: "the title area classification mark as a beta function. so the website doesn't
+  // operate using that by default but a user can see what it would look like"): with the switch on, a person's tags
+  // and "What they work on" show the categories a title model gives their articles in any journal (data/beta.json,
+  // build_data.beta_title_areas), marked as beta. Off by default; the choice is remembered on this browser.
+  let BETA = null, betaOn = false;
+  function setBeta(on) {
+    betaOn = on;
+    try { localStorage.setItem('lsr.beta', on ? '1' : ''); } catch (e) { /* private mode */ }
+    if (on && !BETA) {
+      fetch('data/beta.json').then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status)))).then((b) => { BETA = b; renderRanking(); })
+        .catch(() => { betaOn = false; $('betaTitles').checked = false; });
+      return;
+    }
+    renderRanking();
+  }
+  const betaNote = () => (BETA && BETA.model && BETA.model.accuracy != null
+    ? 'the model is right ' + Math.round(BETA.model.accuracy * 100) + '% of the time on journals it never saw (always guessing the largest category: ' + Math.round(BETA.model.baseline_accuracy * 100) + '%)'
+    : 'a beta model');
+  function betaTags(person) {
+    const b = (BETA && BETA.people[person]) || [];
+    return b.map(([g, n]) => '<span class="c-beta" title="' + esc('Beta: ' + n + ' of their titles (any journal) read as ' + DATA.groups[g] + '; ' + betaNote()) + '">' +
+      esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('');
+  }
+
   function renderRanking() {
     const win = $('rankingWindow');
     const { areas, rows } = current;
@@ -447,7 +474,7 @@
       // inference is made. If they have multiple specialty then it might be multi tag"): every area of the specialty
       // journals they published in, all years, each with its count (build_data.py: people[i][4]); nothing for someone
       // with no specialty-journal article
-      const tags = (DATA.people[person][4] || []).map(([g, n]) => '<span class="c-specialty" title="' + esc(areaTitle(person, g, n)) + '">' +
+      const tags = betaOn && BETA ? betaTags(person) : (DATA.people[person][4] || []).map(([g, n]) => '<span class="c-specialty" title="' + esc(areaTitle(person, g, n)) + '">' +
         esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('');
       html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
@@ -556,7 +583,10 @@
     const who = esc(DATA.people[person][0]);
     const all = DATA.people[person][4] || [];
     // (audit) the tags (all years) above the chosen years' tree, so the two cannot read as a contradiction
-    const tagLine = all.length ? '<p class="works-tag">All years: ' + all.map(([g, n]) => '<b>' + esc(DATA.groups[g]) + '</b> ' + n).join(' · ') + '</p>' : '';
+    const b = betaOn && BETA ? (BETA.people[person] || []) : [];
+    const tagLine = (all.length ? '<p class="works-tag">All years: ' + all.map(([g, n]) => '<b>' + esc(DATA.groups[g]) + '</b> ' + n).join(' · ') + '</p>' : '') +
+      (betaOn && BETA ? '<p class="works-beta"><span class="beta-badge">Beta</span> From their titles in any journal, the title model would say: ' +
+        (b.length ? b.map(([g, n]) => esc(DATA.groups[g]) + ' ' + n).join(' · ') : 'nothing it is sure of') + ' (' + esc(betaNote()) + ').</p>' : '');
     if (!areas.length) {
       return '<div class="works"><div class="bars-title">What they work on, from specialty journals</div>' + tagLine + '<p class="detail-note">' + who +
         ' has no specialty-journal articles in ' + state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') +
@@ -658,7 +688,7 @@
     fetch('data/data.json').then((r) => r.json()),
     fetch('data/meta.json').then((r) => r.json()),
   ]).then(([data, meta]) => {
-    DATA = data;
+    DATA = window.LSR.unpack(data);       // (2026-10-26) the packed core; people's details come after the ranking
     META = meta;
     groupSubjects = META.group_subjects || {};
     // which bars a journal's articles count toward: flagship (any W&L General journal, main review or not) and each specialty group it is in
@@ -680,6 +710,12 @@
     wire();
     update();
     loaded();
+    // (2026-10-26, the owner: "use lazy loading so that the main ranking shows first") homepages and categories for
+    // the faculty rows, once the ranking is on screen; an open school is drawn again when they arrive
+    window.LSR.people(DATA).then(() => { if (openSchools.size) renderRanking(); });
+    let wantBeta = false;
+    try { wantBeta = localStorage.getItem('lsr.beta') === '1'; } catch (e) { wantBeta = false; }
+    if (wantBeta) { $('betaTitles').checked = true; setBeta(true); }
   }).catch((err) => {
     loaded();
     $('rankingWindow').innerHTML = '<p class="empty-note">Could not load the data (' + esc(err.message) + ').</p>';
