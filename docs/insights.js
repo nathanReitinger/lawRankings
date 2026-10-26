@@ -1289,7 +1289,7 @@
   }
 
   if (LSR.crunch) LSR.crunch.show('Loading the data');
-  Promise.all(['data/data.json', 'data/meta.json', 'data/insights.json'].map((u) => fetch(u, { cache: 'no-cache' }).then((r) => {
+  Promise.all(['data/data.json', 'data/meta.json', 'data/insights.json'].map((u) => fetch(u).then((r) => {   // (2026-10-26) a plain fetch, so the <head>'s preload is used
     if (!r.ok) throw new Error(u + ': ' + r.status);
     return r.json();
   }))).then(([data, meta, ins]) => {
