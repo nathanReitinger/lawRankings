@@ -421,7 +421,7 @@
       if (c.kind === 'author') return point.name + ', ' + c.school + ': ' + c.n + ' articles.';
       return '';
     };
-    const base = { chart: { backgroundColor: 'transparent', style: font, spacing: [8, 8, 8, 8] }, title: { text: null }, credits: { enabled: true, style: { fontSize: '9px' } },
+    const base = { chart: { backgroundColor: 'transparent', style: font, spacing: [8, 8, 8, 8] }, title: { text: null }, credits: { enabled: false },   // (2026-10-26, the owner: "drop the highcharts logo")
       exporting: { enabled: false },
       accessibility: { enabled: true, description: 'Institutions and authors publishing in ' + jname + ', ' + st.from + '–' + st.to + '. The list beside the chart has every institution and author.',
         point: { descriptionFormatter: describe } } };

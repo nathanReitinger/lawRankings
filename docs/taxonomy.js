@@ -247,7 +247,7 @@
       // the height follows the rows on screen: the closed areas and fields, plus the journals of the fields opened
       chart: { height: Math.max(360, Math.min(4800, rows * 26 + 40)), backgroundColor: 'transparent', style: font, spacing: [8, 4, 8, 4],
         marginLeft: narrow ? 8 : 24, marginRight: narrow ? 112 : 250 },
-      title: { text: null }, credits: { enabled: true, style: { fontSize: '9px' } }, exporting: { enabled: false },
+      title: { text: null }, credits: { enabled: false }, exporting: { enabled: false },   // (2026-10-26) no Highcharts logo
       accessibility: { enabled: true, description: 'The specialty journals grouped into ' + tree.areas.length + ' areas and their fields, ' +
         'sized by papers by current faculty in those journals. The list below the chart has the same tree.', point: { descriptionFormatter: describe } },
       tooltip: { useHTML: true, outside: false, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)', borderRadius: 8,
