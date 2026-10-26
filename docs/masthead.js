@@ -6,17 +6,23 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const utc = (t) => t.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
 
-  // "Volume 2.1.0" on the left; on the right the Unix time of the last substantive data update
+  // "Volume 2.1.0" on the left; on the right, small and quiet, the build's short hash (2026-10-26, the owner: "not a
+  // timestamp but a smaller-tech-looking build hash ... small ... not super obvious. just like a little extra
+  // information"): seven hex characters of the data's and the site's fingerprints (build_data.build_hash)
+  const shortHash = (m) => m.build_hash || String(m.digest || '').slice(0, 7);
   function stampMasthead(m) {
     document.getElementById('mhVolume').textContent = m.version;
     const st = document.getElementById('mhStamp');
-    st.textContent = m.data_updated || '';
-    if (m.data_updated) st.title = 'Last substantive data update: ' + utc(new Date(m.data_updated * 1000)) + ' (Unix time ' + m.data_updated + ')';
+    const h = shortHash(m);
+    st.textContent = h ? 'build ' + h : '';
+    st.title = 'Build ' + h + (m.data_updated ? ' · data last changed ' + utc(new Date(m.data_updated * 1000)) : '') +
+      (m.digest ? ' · data ' + String(m.digest).slice(0, 7) : '') + (m.site_digest ? ' · site ' + String(m.site_digest).slice(0, 7) : '');
   }
 
   function siteFooter(m) {
     const t = m.data_updated ? new Date(m.data_updated * 1000) : null;
-    return '<p>Volume ' + esc(m.version) + (t ? ' · data updated ' + esc(t.toISOString().slice(0, 10)) + ' (' + m.data_updated + ')' : '') +
+    return '<p>Volume ' + esc(m.version) + (t ? ' · data updated ' + esc(t.toISOString().slice(0, 10)) : '') +
+      (shortHash(m) ? ' · <span class="build-hash">build ' + esc(shortHash(m)) + '</span>' : '') +
       ' · <a href="history.html">version history</a> · <a href="faq.html">about &amp; method</a> · <a href="insights.html">insights</a> · <a href="taxonomy.html">subject areas</a></p>' +
       '<div class="foot-actions">' +
       '<a class="btn-line" href="mailto:' + MAINTAINER_EMAIL + '?subject=' + encodeURIComponent('Law School Rankings: I noticed a flaw') + '">Notice a flaw? Email Nathan</a>' +

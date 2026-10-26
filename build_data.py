@@ -1745,7 +1745,7 @@ def update_history(meta, data, prev):
             history = git_json('docs/data/history.json') or []
     entry = {
         'version': meta['version'], 'kind': meta['kind'], 'date': meta['built'], 'data_updated': meta['data_updated'],
-        'papers_collected': meta['papers_collected'], 'faculty_collected': meta['faculty_collected'],
+        'hash': meta.get('build_hash'), 'papers_collected': meta['papers_collected'], 'faculty_collected': meta['faculty_collected'],
         'rankings_edition': meta['rankings']['edition'], 'us_schools': meta.get('us_schools'),
         'flagship_ranks': meta['flagship_ranks'], 'default_view': meta['default_view'],
         'counts': meta['counts'], 'top': default_ranking(data),
@@ -2225,6 +2225,7 @@ def build():
     meta['data_updated'] = updated                       # unix time of the last substantive data change
     meta['digest'] = digest
     meta['site_digest'] = site_digest
+    meta['build_hash'] = build_hash(digest, site_digest)
     history = update_history(meta, data, prev)
 
     for f in glob.glob(os.path.join(OUT_DIR, 'titles', '*.json')):     # titles are no longer published
@@ -2264,6 +2265,12 @@ def write_json_atomic(path, obj):
     os.replace(path + '.tmp', path)
 
 
+def build_hash(digest, site_digest):
+    '''(2026-10-26, the owner: "make the build version not a timestamp but a smaller-tech-looking build hash") seven hex
+    characters for this build, from the data's fingerprint and the site files' together, like a short git hash'''
+    return hashlib.sha1(f'{digest}:{site_digest}'.encode()).hexdigest()[:7]
+
+
 def site_version():
     """python build_data.py --site-version: a new patch number for a change to the site's own files alone, without
     rebuilding the data (audit, 2026-10-25: the owner's rule, "any change at all" moves the last number, but only a
@@ -2285,13 +2292,13 @@ def site_version():
     # the data are the same as the last version's: its entry, with the new number and no changes (history.html reads
     # changes.moved, so the keys are there, empty)
     entry.update(version=version, kind='site', date=datetime.now().strftime('%Y-%m-%d'),
-                 changes={'papers': 0, 'faculty_with_papers': 0, 'moved': []})
+                 hash=build_hash(meta.get('digest', ''), site_digest), changes={'papers': 0, 'faculty_with_papers': 0, 'moved': []})
     if history and history[-1].get('version') == version:      # a run stopped between the two writes below
         history[-1] = entry
     else:
         history.append(entry)
     old = meta.get('version')
-    meta.update(semver=semver, version=version, kind='site', site_digest=site_digest, history_entry=entry)
+    meta.update(semver=semver, version=version, kind='site', site_digest=site_digest, build_hash=entry['hash'], history_entry=entry)
     write_json_atomic(history_path, history)
     write_json_atomic(meta_path, meta)
     print(f'site files changed (site digest {site_digest}): version {old} -> {version}; wrote meta.json and history.json')
