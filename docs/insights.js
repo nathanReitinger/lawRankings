@@ -1179,7 +1179,12 @@
 
   ////////////////////////////////////////////////////////////////////////// controls
 
+  // (2026-10-25, the owner: "add in a spinner for crunching numbers") the years, rank source or short-piece switch
+  // recompute every chart of section 1 behind the spinner (masthead.js: LSR.crunch)
   function renderWhere() {
+    if (window.LSR && LSR.crunch) LSR.crunch.run(renderWhereNow); else renderWhereNow();
+  }
+  function renderWhereNow() {
     W1 = computeWhere();
     renderWhereText();
     renderJournal();
@@ -1283,6 +1288,7 @@
     document.addEventListener('pointerdown', (e) => { if (!e.target.closest('svg, .ins-matrix')) hideTip(); });
   }
 
+  if (LSR.crunch) LSR.crunch.show('Loading the data');
   Promise.all(['data/data.json', 'data/meta.json', 'data/insights.json'].map((u) => fetch(u, { cache: 'no-cache' }).then((r) => {
     if (!r.ok) throw new Error(u + ': ' + r.status);
     return r.json();
@@ -1295,8 +1301,10 @@
     setup();
     renderWhere();
     renderCo();
+    if (LSR.crunch) LSR.crunch.hide();
     if (location.hash) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }
   }).catch((e) => {
+    if (LSR.crunch) LSR.crunch.hide(0);
     $('loading').textContent = 'The data could not be loaded (' + e.message + '). Try reloading the page.';
   });
 })();

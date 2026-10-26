@@ -42,7 +42,7 @@ python build_data.py --publish    # rebuild, then commit and push docs/ and facu
 | newest `usnews_<edition>.csv` | which schools count as US law schools; flagship ranks |
 | newest `aba_schools_<year>.csv` | a check that every ABA-approved law school is on the faculty lists |
 | `flagship_schools.csv` | which school publishes each general journal, and whether it is that school's main law review |
-| `journal_taxonomy.csv`, `wl_subject_taxonomy.csv` | each specialty journal's subject area and field |
+| `journal_taxonomy_scope.csv`, `wl_subject_taxonomy.csv` | each specialty journal's subject area and field, placed by its own scope statement and W&L subject (with the deciding words); the W&L subject for journals not placed yet |
 | `specialty_hosts.csv` | the school (or society or press) that publishes each specialty journal |
 | `faculty_runs/inferred_homepages.csv` | faculty pages found on the schools' own websites where the school lists lack one |
 | `short_pieces/model_short.csv` | the short-piece model's predictions (trained in the data folder's `models/`) |

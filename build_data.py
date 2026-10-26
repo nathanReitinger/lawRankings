@@ -66,7 +66,12 @@ FACULTY_LIST_DIR = os.path.join(HERE, 'faculty')
 # whether it is that school's main law review ("main"), an online edition ("online"), a second general journal
 # ("secondary"), or not a school's journal ("non_school", "foreign"). Only main reviews get a US News rank.
 FLAGSHIP_FILE = os.path.join(SOURCE_DIR, 'flagship_schools.csv')
-TAXONOMY_FILE = os.path.join(SOURCE_DIR, 'journal_taxonomy.csv')     # 2026-10-25: specialty journal -> area > field > topic
+# 2026-10-25 (the owner: "Re-place every specialty journal by its own scope statement and W&L subject only, with no
+# title data"): specialty journal -> area > field, each placed by two independent placers from the journal's own scope
+# statement and its W&L subjects (a third decided the 6 they split on); the basis, the deciding words and the scope
+# statement are in the file. Journals whose scope is law or policy generally sit in "General & Policy Journals" with
+# weight 0 (no area for anyone). The earlier table (journal_taxonomy.csv) used the faculty papers' titles; not read now.
+TAXONOMY_FILE = os.path.join(SOURCE_DIR, 'journal_taxonomy_scope.csv')
 SPECIALTY_HOSTS = os.path.join(SOURCE_DIR, 'specialty_hosts.csv')    # 2026-10-25: specialty journal -> host law school
 WL_CROSSWALK = os.path.join(SOURCE_DIR, 'wl_subject_taxonomy.csv')    # W&L subject -> area > field, for journals not mapped yet
 # the order the areas are listed in (research/taxonomy: 13 subject areas, then the methods)
@@ -74,7 +79,7 @@ AREA_ORDER = ['Constitutional & Public Law', 'Courts, Litigation & Dispute Resol
               'Business & Financial Law', 'Tax, Trusts & Estates', 'Property, Environment & Natural Resources',
               'International & Comparative Law', 'Science, Technology & IP', 'Health Law & Bioethics',
               'Civil Rights, Equality & Family', 'Labor & Employment', 'Legal Profession & Education',
-              'Legal Theory, Humanities & Society', 'Interdisciplinary Methods']
+              'Legal Theory, Humanities & Society', 'Interdisciplinary Methods', 'General & Policy Journals']
 DEFAULT_FLAGSHIP_TOP = 25     # the site's default view: main law reviews of the US News top 25 (tiers 1-3 and 4-25)
 DEFAULT_VIEW = f'flagship law reviews of the US News top {DEFAULT_FLAGSHIP_TOP} schools, last ten years, US law schools'
 
@@ -150,6 +155,12 @@ def load_classes():
 
 # no 'v': "Smith, John V." is a middle initial far more often than a fifth-generation suffix (stress test t14)
 NAME_SUFFIXES = {'jr', 'sr', 'ii', 'iii', 'iv'}
+# (naming audit, 2026-10-26) Hein tags namesakes it tells apart: "Gardner, James A. (I)", "Johnson, Stephen (II)",
+# "Smith, John (Boston)". The tag is part of who the person is ("gardner#i"), never a middle initial or a suffix: read
+# as those, the 1957-65 papers of "Gardner, James A. (I)" went to Buffalo's James A. Gardner (first papers 1984).
+# Nickname parentheticals ("(Tony)", "(Mae)") are left as they were.
+MANY_SIGNER_WORDS = ('tribute', 'dedication', 'remembrance', 'memoriam', 'transcript', 'roundtable', 'panel', 'discussion', 'conference')
+NAME_TAG = re.compile(r'\s*\((?P<t>i{1,3}|iv|vi{0,3}|ix|x|\d+|duke|boston|ua|washu)\)\s*$', re.I)
 
 # US News name -> name used on Hein's AuthorBySchool list, where normalizing alone can't line them up
 USNEWS_TO_HEIN = {
@@ -164,10 +175,17 @@ def parse_hein_name(url):
     '''Hein author links carry "Last, First Middle" in search_name; returns (last, first, middle) lowercased, no punctuation'''
     raw = parse_qs(urlparse(str(url)).query).get('search_name', [''])[0]
     name = unquote(raw).strip()
+    tag = NAME_TAG.search(name)
+    if tag:
+        name, tag = name[:tag.start()].strip(), '#' + tag.group('t').lower()
     if ',' in name:
         last, rest = name.split(',', 1)
     else:
         last, rest = name, ''
+    # (naming audit) a block of two or three capitals with no periods after the comma is initials: "Ard, BJ" is
+    # "Ard, B. J." (so both spellings are one name)
+    if re.fullmatch(r'\s*[A-Z]{2,3}\s*', rest):
+        rest = ' '.join(rest.strip())
     # 2026-10-23 (stress tests t7, t14, t17): accents folded (José = Jose), letters of any script kept (an all-CJK
     # name no longer becomes ""), hyphens and apostrophes joined (Smith-Jones = Smith Jones, O'Brien = OBrien),
     # a suffix is found wherever it is ("Skeel Jr., David" = "Skeel, David Jr.") and kept with the last name as
@@ -176,11 +194,29 @@ def parse_hein_name(url):
     fold = lambda s: ''.join(c for c in unicodedata.normalize('NFKD', s.lower()) if not unicodedata.combining(c))
     words = lambda s: re.sub(r'[^\w ]', ' ', re.sub(r"[-'’]", '', fold(s))).split()
     suffix = next((p for p in words(last) + words(rest) if p in NAME_SUFFIXES), '')
-    last = ''.join(p for p in words(last) if p not in NAME_SUFFIXES) + ('|' + suffix if suffix else '')
+    last = ''.join(p for p in words(last) if p not in NAME_SUFFIXES) + (tag or '') + ('|' + suffix if suffix else '')
     parts = [p for p in words(rest) if p not in NAME_SUFFIXES]
     first = parts[0] if parts else ''
     middle = ' '.join(parts[1:])
     return last, first, middle
+
+
+def roster_parse(link):
+    '''parse_hein_name for a faculty-list entry. (naming audit, 2026-10-26) An entry without a comma is not one long
+    surname: "Jordan. Elizabeth" (a period for the comma) is "Jordan, Elizabeth", and natural order ("Young Ran
+    (Christine) Kim", "William Wesley Patton") is "Kim, Young Ran (Christine)". One-word names stay as they are.'''
+    name = unquote(parse_qs(urlparse(str(link)).query).get('search_name', [''])[0]).strip()
+    if ',' in name or len(name.split()) < 2:
+        return parse_hein_name(link)
+    m = re.match(r'^([^\s.]+)\.\s+(.+)$', name)
+    if m:
+        fixed = m.group(1) + ', ' + m.group(2)
+    else:
+        toks = name.split()
+        suffix = [t for t in toks if t.lower().strip('.,') in NAME_SUFFIXES]
+        toks = [t for t in toks if t not in suffix]
+        fixed = toks[-1] + ', ' + ' '.join(toks[:-1] + suffix)
+    return parse_hein_name(hein_profile_link(fixed))
 
 
 def display_name(hein_name):
@@ -210,6 +246,70 @@ def middles_compatible(a, b):
     return not a or not b or a[0] == b[0]
 
 
+# (naming audit, 2026-10-26) formal first names and their usual short forms (both directions), for the second pass of
+# match_by_name ("Schragger, Rich" / "Schragger, Richard C.")
+NICKNAMES = {
+    'william': 'bill billy will willie liam', 'robert': 'bob bobby rob robbie bert', 'richard': 'dick rick rich richie ricky',
+    'james': 'jim jimmy jamie', 'john': 'jack johnny jon', 'jonathan': 'jon jonny', 'joseph': 'joe joey', 'thomas': 'tom tommy',
+    'michael': 'mike mick mickey', 'daniel': 'dan danny', 'david': 'dave davey', 'christopher': 'chris kit', 'christine': 'chris',
+    'christina': 'chris tina', 'charles': 'chuck charlie chas chaz', 'edward': 'ed eddie ted ned', 'edwin': 'ed', 'edmund': 'ed ted',
+    'elizabeth': 'liz beth betsy betty libby lisa eliza liza', 'katherine': 'kate kathy katie kat kay', 'catherine': 'cathy kate cate katie',
+    'kathryn': 'kate kathy katie', 'kathleen': 'kathy kate katie', 'margaret': 'peg peggy maggie meg marge margie greta',
+    'jennifer': 'jen jenny jenn', 'jessica': 'jess jessie', 'rebecca': 'becky becca', 'deborah': 'deb debbie debby', 'debra': 'deb debbie',
+    'patricia': 'pat patty trish tricia', 'patrick': 'pat', 'susan': 'sue susie', 'suzanne': 'sue suzy', 'samuel': 'sam sammy',
+    'samantha': 'sam', 'benjamin': 'ben benji', 'nicholas': 'nick nicky', 'nicole': 'nikki', 'alexander': 'alex al sandy',
+    'alexandra': 'alex sandra sandy', 'alexis': 'alex', 'anthony': 'tony', 'antonio': 'tony', 'andrew': 'andy drew', 'gregory': 'greg',
+    'jeffrey': 'jeff', 'geoffrey': 'geoff jeff', 'stephen': 'steve', 'steven': 'steve', 'kenneth': 'ken kenny',
+    'lawrence': 'larry', 'laurence': 'larry', 'leonard': 'len lenny', 'ronald': 'ron ronnie', 'donald': 'don donnie',
+    'timothy': 'tim timmy', 'matthew': 'matt', 'peter': 'pete', 'philip': 'phil', 'phillip': 'phil', 'raymond': 'ray',
+    'gerald': 'jerry gerry', 'jerome': 'jerry', 'harold': 'hal harry', 'henry': 'hank harry hal', 'frederick': 'fred freddie rick',
+    'francis': 'frank fran', 'franklin': 'frank', 'albert': 'al bert', 'alfred': 'al fred', 'allen': 'al', 'alan': 'al',
+    'eugene': 'gene', 'douglas': 'doug', 'theodore': 'ted teddy theo', 'walter': 'walt wally', 'zachary': 'zach zack',
+    'nathaniel': 'nate nat', 'nathan': 'nate', 'jacob': 'jake', 'joshua': 'josh', 'abraham': 'abe', 'mitchell': 'mitch',
+    'randall': 'randy', 'randolph': 'randy', 'russell': 'russ', 'stanley': 'stan', 'vincent': 'vince', 'victoria': 'vicky tori',
+    'cynthia': 'cindy', 'pamela': 'pam', 'barbara': 'barb barbie', 'judith': 'judy', 'sandra': 'sandy', 'dorothy': 'dot dottie',
+    'virginia': 'ginny', 'carolyn': 'carol', 'caroline': 'carol carrie', 'abigail': 'abby', 'gabrielle': 'gabby', 'gabriel': 'gabe',
+    'frances': 'fran frankie', 'josephine': 'jo josie', 'joanne': 'jo', 'johanna': 'jo', 'theresa': 'terry tess', 'teresa': 'terry tess',
+    'terence': 'terry', 'terrence': 'terry', 'valerie': 'val', 'veronica': 'ronnie', 'maximilian': 'max', 'maxwell': 'max',
+    'montgomery': 'monty', 'clifford': 'cliff', 'bradley': 'brad', 'bradford': 'brad', 'cameron': 'cam', 'harrison': 'harry',
+    'jacqueline': 'jackie', 'melissa': 'missy mel', 'melanie': 'mel', 'amanda': 'mandy', 'kimberly': 'kim', 'pamala': 'pam',
+    'leslie': 'les', 'lester': 'les', 'louis': 'lou', 'louise': 'lou', 'marjorie': 'margie', 'martin': 'marty', 'mathew': 'matt',
+    'oliver': 'ollie', 'reginald': 'reggie', 'rodney': 'rod', 'roderick': 'rod', 'ronan': 'ro', 'solomon': 'sol', 'sylvia': 'syl',
+    'tobias': 'toby', 'vernon': 'vern', 'wesley': 'wes', 'wilfred': 'will', 'winifred': 'winnie', 'evan': 'ev', 'eleanor': 'ellie nell',
+    'helen': 'nell', 'ellen': 'nell', 'anne': 'annie', 'ann': 'annie', 'susanna': 'sue', 'jeremy': 'jerry', 'jeremiah': 'jerry',
+    'herbert': 'herb', 'howard': 'howie', 'isaac': 'ike', 'irving': 'irv', 'marvin': 'marv', 'morton': 'mort', 'mortimer': 'mort',
+    'norman': 'norm', 'seymour': 'sy', 'sidney': 'sid', 'sydney': 'syd', 'gerard': 'gerry', 'clarence': 'clay', 'calvin': 'cal',
+    'carl': 'carl', 'karl': 'karl', 'benedict': 'ben', 'bernard': 'bernie', 'arnold': 'arnie', 'arthur': 'art', 'augustus': 'gus',
+    'dennis': 'denny', 'edgar': 'ed', 'emily': 'em', 'florence': 'flo', 'gwendolyn': 'gwen', 'harriet': 'hattie', 'jane': 'janie',
+    'janet': 'jan', 'janice': 'jan', 'kristen': 'kris', 'kristin': 'kris', 'kristina': 'kris tina', 'christian': 'chris',
+    'lillian': 'lil', 'madeline': 'maddie', 'madeleine': 'maddie', 'mary': 'molly polly mae', 'miriam': 'mimi', 'rosemary': 'rose',
+    'stephanie': 'steph', 'tamara': 'tammy', 'trevor': 'trev', 'vivian': 'viv', 'wendell': 'wendy', 'yvonne': 'vonnie',
+    'zachariah': 'zach', 'cornelius': 'neil', 'aaron': 'ari', 'ariel': 'ari', 'daniela': 'dani', 'danielle': 'dani',
+    'eliot': 'eli', 'elliott': 'eli', 'elijah': 'eli', 'ezekiel': 'zeke', 'jessie': 'jess', 'joel': 'joe', 'jody': 'jo',
+    'lucas': 'luke', 'luke': 'luke', 'meredith': 'merry', 'olivia': 'liv', 'penelope': 'penny', 'priscilla': 'cilla',
+    'roberta': 'bobbi', 'ruth': 'ruthie', 'thaddeus': 'tad', 'virgil': 'virg', 'woodrow': 'woody', 'jerold': 'jerry',
+}
+NICK_OF = defaultdict(set)
+for _formal, _short in NICKNAMES.items():
+    for _n in _short.split():
+        if _n != _formal:
+            NICK_OF[_formal].add(_n)
+            NICK_OF[_n].add(_formal)
+HONORIFICS = {'hon', 'honorable', 'judge', 'justice', 'professor', 'prof', 'dr', 'rev', 'reverend'}
+COMMON_SURNAME = 120     # first names written with one surname in the data: Smith, Davis, Clark ... (Glover: 44)
+BENCH = {'hon', 'honorable', 'judge', 'justice', 'chief'}     # a judge's title: only someone listed at a court
+# (naming audit, 2026-10-26) a spelling and a listing that the second pass would join but that are two people, found by
+# reading the candidates: (paper spelling, faculty-list name, school)
+KNOWN_NAMESAKES = {('Kaye, David H.', 'Kaye, David', 'University of California, Irvine')}   # the forensic-evidence scholar
+
+
+def split_last(last):
+    '''"brakmanreiser#ii|jr" -> ("brakmanreiser", "ii", "jr"): surname, Hein's namesake tag, suffix'''
+    b, _, suf = last.partition('|')
+    base, _, tag = b.partition('#')
+    return base, tag, suf
+
+
 ################################################ inputs
 
 def infer_year(volume):
@@ -231,7 +331,9 @@ def load_papers():
             continue
         df['title_key'] = df['title'].map(js.title_key)
         df['author_key'] = df['author'].map(js.author_key)
-        df = df[df['title_key'] != '']
+        # (pairing audit, 2026-10-26) an author link with an empty name is no author: it counted as a phantom co-author
+        # and halved five faculty members' credit
+        df = df[(df['title_key'] != '') & (df['author_key'] != '')]
         df['journal'] = journal
         df['year'] = df['volume'].map(infer_year)
         rows.append(df)
@@ -277,6 +379,14 @@ def hein_profile_link(hein_name):
 LINK_WRAPPERS = {'linkprotect.cudasvc.com': 'a', 'safelinks.protection.outlook.com': 'url', 'www.google.com': 'url'}
 PROXY_HOST = re.compile(r'(^|\.)idm\.oclc\.org$|(^|\.)ezproxy\.|\.pantheonsite\.io$')
 NOT_A_PAGE = re.compile(r'\.(pdf|docx?|rtf|pptx?|xlsx?|jpe?g|png|gif)$', re.I)
+# (naming audit, 2026-10-25) never a homepage: HeinOnline (the owner: "Drop hein links throughout") and a search
+# engine's pages (its link wrapper is unwrapped first)
+NOT_A_HOMEPAGE = re.compile(r'(^|\.)heinonline\.org$')
+# (naming audit, 2026-10-26) whole URL schemes a school has retired, each fetched and found to redirect to the faculty
+# listing or to a dead page: Michigan's FacultyBio.aspx, Idaho's /law/people/faculty/<one word>, Cincinnati's
+# /education/faculty/
+RETIRED_SCHEME = re.compile(r'law\.umich\.edu/facultybio|uidaho\.edu/law/people/faculty/[^/-]+/?$|law\.uc\.edu/education/faculty/', re.I)
+SEARCH_ROOTS = re.compile(r'^(www\.)?(google|bing|duckduckgo|yahoo)\.[a-z.]+$')
 
 
 def clean_homepage(site):
@@ -285,6 +395,14 @@ def clean_homepage(site):
     if not site:
         return '', ''
     done = []
+    # (naming audit) "http://https://..." and a bare "www.school.edu/..." are fixable
+    m = re.match(r'https?://(?=https?://)', site, re.I)
+    if m:
+        site = site[m.end():]
+        done.append('doubled scheme')
+    if re.match(r'www\.', site, re.I):
+        site = 'https://' + site
+        done.append('scheme added')
     for _ in range(2):        # a wrapper inside a wrapper
         u = urlparse(site)
         host = (u.hostname or '').lower()
@@ -315,6 +433,12 @@ def clean_homepage(site):
         return '', 'rejected: not a valid address'
     if PROXY_HOST.search(host):
         return '', 'rejected: library proxy or staging host'
+    if NOT_A_HOMEPAGE.search(host):
+        return '', 'rejected: HeinOnline, not a faculty page'
+    if RETIRED_SCHEME.search(host + u.path):
+        return '', 'rejected: retired URL scheme (redirects to the listing or is gone)'
+    if SEARCH_ROOTS.match(host):
+        return '', 'rejected: a search engine page'
     if NOT_A_PAGE.search(u.path):
         return '', 'rejected: a file, not a page'
     return site, ('cleaned: ' + ', '.join(done)) if done else ''
@@ -358,7 +482,8 @@ def load_school_csvs():
             except ValueError:                   # urlparse on a malformed address ("http://[...")
                 site, fixed[(school, key)] = '', 'rejected: not a valid address'
             out[(school, key)] = {'website': site, 'title': str(r.get('title', '')).strip(),
-                                  'orcid': str(r.get('ORCID', '')).strip(), 'school': school}
+                                  'orcid': str(r.get('ORCID', '')).strip(), 'school': school,
+                                  'surname': raw_last(hein_profile_link(str(r.get('search_name', ''))))}
             schools.add(school)
     # (audit, 2026-10-25) counted over the rows in use (the newest file for each person)
     what = defaultdict(int)
@@ -380,7 +505,73 @@ def load_school_csvs():
     for (school, _), v in out.items():
         if v['website'] and shared[(school, v['website'].rstrip('/'))] >= 3:
             v['website'] = ''
+    not_theirs(out)
     return out, schools
+
+
+def norm_url(u):
+    '''an address without scheme, "www.", fragment, trailing slash or index/default page: two spellings of one page meet'''
+    p = urlparse(u)
+    host = (p.hostname or '').lower()
+    host = host[4:] if host.startswith('www.') else host
+    path = re.sub(r'/(index|default)\.[a-z]+$', '', p.path, flags=re.I).rstrip('/')
+    return host + path + ('?' + p.query if p.query else '')
+
+
+LISTING_WORDS = re.compile(r'^(faculty|people|directory|staff|all|our-faculty|faculty-directory|faculty-and-staff|'
+                           r'(emerit(us|i)|full-time|adjunct|visiting)-faculty|instructors-in-law|law-faculty-experts|'
+                           r'law-school-contacts|profiles|faculty-staff|our-people)(\.[a-z]+)?$', re.I)
+ROLE_URL = re.compile(r'president|chancellor|provost', re.I)
+OTHER_SCHOOL_OK = {'uchastings.edu', 'wgtn.ac.nz', 'unt.edu'}   # a school's former or parent domain (naming audit)
+
+
+def not_theirs(out):
+    '''(naming audit, 2026-10-26) school-CSV websites that are not the person's own page at this school, blanked so the
+    person goes to missing_homepages.csv (where faculty_links.py looks for the page by the school's naming convention):
+      listing    a listing or directory page: shared by 2+ people at the school and naming none of them; the parent
+                 folder of 2+ other people's pages there; or a last segment that is a listing word ("faculty",
+                 "people", "emeritus-faculty") or the bare root of the site, without the person's surname
+      other      another university's site (.edu, .ac.xx) that the school's own pages do not use (3+ of them), e.g.
+                 Columbia's Gabriel Rauterberg at michigan.law.umich.edu: a move the CSV has not caught up with
+      role       an office's page (president, chancellor, provost) without the person's surname: Wisconsin's
+                 chancellor page now shows the next chancellor'''
+    def names(v, u):
+        flat = re.sub(r'[^a-z]', '', u.lower())
+        return any(len(w) >= 3 and w in flat for w in v['surname'].split())
+    def domain(host):
+        labels = host.split('.')
+        return '.'.join(labels[-3:]) if len(labels) >= 3 and labels[-2] in ('ac', 'edu') else '.'.join(labels[-2:])
+    by_school = defaultdict(list)
+    for k, v in out.items():
+        if v['website']:
+            by_school[v['school']].append((k, v, norm_url(v['website'])))
+    why = defaultdict(int)
+    for school, items in by_school.items():
+        sharers = defaultdict(list)
+        for k, v, n in items:
+            sharers[n].append(v)
+        own = defaultdict(int)
+        for k, v, n in items:
+            own[domain(n.split('/')[0])] += 1
+        own = {d for d, c in own.items() if c >= 3}
+        for k, v, n in items:
+            host, _, path = n.partition('/')
+            last_seg = path.rsplit('/', 1)[-1].split('?')[0] if path else ''
+            children = sum(1 for _, _, m in items if m != n and m.startswith(n + '/'))
+            if ((len(sharers[n]) >= 2 and not any(names(x, v['website']) for x in sharers[n])) or children >= 2
+                    or ((not path or LISTING_WORDS.match(last_seg)) and not names(v, v['website']))):
+                reason = 'listing'
+            elif (own and domain(host) not in own and domain(host) not in OTHER_SCHOOL_OK
+                    and re.search(r'\.(edu|ac\.[a-z]+|edu\.[a-z]+)$', host)):
+                reason = 'other'
+            elif ROLE_URL.search(n) and not names(v, v['website']):
+                reason = 'role'
+            else:
+                continue
+            why[reason] += 1
+            v['website'] = ''
+    if why:
+        print('  (naming audit) school-CSV websites not the person\'s own page here, left for faculty_links.py:', dict(why))
 
 
 def load_faculty_edits():
@@ -525,7 +716,10 @@ def load_roster():
               df.loc[dup, 'author'].tolist()[:10])
         df = df[~dup].reset_index(drop=True)
 
-    parsed = df['link'].map(parse_hein_name)
+    parsed = df['link'].map(roster_parse)
+    n_fixed = int((~df['link'].map(lambda u: ',' in unquote(parse_qs(urlparse(str(u)).query).get('search_name', [''])[0]))).sum())
+    if n_fixed:
+        print(f'  {n_fixed} faculty-list entries without a comma, read in natural order (or the period as the comma)')
     df['last'] = parsed.map(lambda p: p[0])
     df['first'] = parsed.map(lambda p: p[1])
     df['middle'] = parsed.map(lambda p: p[2])
@@ -782,10 +976,11 @@ def non_school_links(papers, non_school):
     return some, some - set(papers.loc[~inside, 'author'])
 
 
-def match_by_name(papers, roster, rows=None, non_school=frozenset()):
+def match_by_name(papers, roster, rows=None, non_school=frozenset(), journal_schools=None):
     '''the name rules: paper author link -> roster row indexes (a person listed at two schools gets both), using only
     the roster rows `rows` (default: all). Also returns counts, how each link was decided, and the roster rows each
-    uncertain decision involved (credited on a differing name, or held back as unsure).'''
+    uncertain decision involved (credited on a differing name, or held back as unsure). journal_schools: journal ->
+    the faculty-list schools that publish it, the evidence some second-pass rules need (none: those rules are off).'''
     # (audit, 2026-10-25) the owner wants "authors (profs) at institutions". Journals that are not a school's
     # (flagship_schools.csv kind "non_school": the ABA Journal, the Green Bag, Practical Lawyer ...) also carry
     # staff writers and practitioners, and the ABA Journal's writer "Davis, Kevin" (no middle initial) was credited to
@@ -796,12 +991,14 @@ def match_by_name(papers, roster, rows=None, non_school=frozenset()):
     full = defaultdict(list)
     short = defaultdict(list)
     no_suffix = defaultdict(list)
+    untagged = defaultdict(list)        # (surname without tag or suffix, first) -> roster rows
     for i, r in roster.iterrows():
         if rows is not None and i not in rows:
             continue
         full[(r['last'], r['first'], r['middle'])].append(i)
         short[(r['last'], r['first'])].append(i)
         no_suffix[(r['last'].split('|')[0], r['first'])].append(i)
+        untagged[(split_last(r['last'])[0], r['first'])].append(i)
 
     to_ret, how_of = {}, {}
     stats = defaultdict(int)
@@ -814,7 +1011,12 @@ def match_by_name(papers, roster, rows=None, non_school=frozenset()):
     paper_mids = defaultdict(lambda: defaultdict(int))
     for link in papers['author'].unique():
         l, f, m = parse_hein_name(link)
-        if m:
+        base, tag, _ = split_last(l)
+        if tag:
+            # (naming audit) a namesake Hein tags is another person under the same name: counted, as "#", so the
+            # untagged name is not taken for one person ("Kaye, David (I)" keeps "Kaye, David H." from dominating)
+            paper_mids[(base, f)]['#'] += int(rows_per_link[link])
+        elif m:
             paper_mids[(l.split('|')[0], f)][m[0]] += int(rows_per_link[link])
 
     def dominant_initial(last, first):
@@ -870,8 +1072,236 @@ def match_by_name(papers, roster, rows=None, non_school=frozenset()):
         elif len(people) > 1:
             decide(link, 'ambiguous', unsure=cands)
         else:
-            decide(link, 'not_faculty')
+            # (naming audit) the names meet only once Hein's namesake tag is set aside (a tagged paper, or a tagged
+            # listing): held back, for a faculty/edits.csv alias when it is the same person ("Cohen, David S. (I)")
+            base, tag, _ = split_last(last)
+            near = [i for i in untagged.get((base, first), []) if middles_compatible(middle, roster.at[i, 'middle'])
+                    and (tag or split_last(roster.at[i, 'last'])[1])]
+            if near:
+                decide(link, 'tag_unsure', unsure=near)
+            else:
+                decide(link, 'not_faculty')
+    name_variants(papers, roster, rows, to_ret, how_of, stats, unsure_rows, full, short, only_non_school, journal_schools)
     return to_ret, dict(stats), how_of, unsure_rows
+
+
+def name_variants(papers, roster, rows, to_ret, how_of, stats, unsure_rows, full, short, only_non_school, journal_schools):
+    '''(naming audit, 2026-10-26; the owner: "I need author to title and name information to be perfect") a second pass
+    of match_by_name over the spellings its rules leave uncredited, for the ways one person's name is written
+    differently. Decided per spelling (Hein can have several links for one), each rule credits a spelling only when
+    exactly one person on the faculty lists fits it; the guards come from reading every candidate by hand:
+      same_words       the same words with the comma elsewhere ("Reiser, Dana Brakman" = "Brakman Reiser, Dana"), or none
+                       ("Andrew Koppelman"); namesake tag and suffix equal; 8 letters or more
+      initial_name     an initial plus the name the person goes by ("Wright, R. George" = "Wright, Richard George";
+                       "Hemphill, C. Scott" = "Hemphill, Scott"; "Capers, Bennett" = "Capers, I. Bennett")
+      initials         initials only ("Balkin, J. M." = "Balkin, Jack M."; the listing must have a middle name)
+                       (these two only for a spelling with a paper from 1985 on: older ones were namesakes, e.g.
+                       "White, A. A." 1952-75 and "Holland, R. Paul" 1930)
+      no_comma         a string that lost its comma, read both ways ("Talley Eric L.", "Moran. Rachel F."): exactly one
+                       reading finds exactly one person
+      honorific        a title before the given name ("Diller, Dean Matthew", "O'Scannlain, Hon. Diarmuid F."; "Dean"
+                       only before a full word, so "Strang, Dean A." keeps its given name)
+      goes_by_middle   the middle name as the first ("Outterson, Kevin" = "Outterson, Michael Kevin"), with evidence; a
+                       middle initial on the paper must be the listing's first initial ("Smith, Douglas G." is not
+                       "Smith, Steven Douglas")
+      nickname         "Schragger, Rich" = "Schragger, Richard C.", with evidence; not when someone on the lists has
+                       the paper's own first name
+      middle_evidence  a middle initial the listing lacks (held back above as middle_unsure), with evidence, 2+ papers
+                       or a shared co-author, a paper from 1985 on, and one middle initial per person
+    Evidence: a paper under the spelling in a journal the person's own school publishes, or a co-author shared with
+    the person's papers already credited. Spellings found only in non-school journals are left alone.'''
+    links = papers['author'].unique()
+    parsed = {l: parse_hein_name(l) for l in links}
+    y1 = papers.groupby('author')['year'].max()
+    y0 = papers.groupby('author')['year'].min()
+    firsts = defaultdict(set)       # surname -> the first names written with it: a common surname has many
+    for l in links:
+        firsts[split_last(parsed[l][0])[0]].add(parsed[l][1])
+    search_name = lambda l: unquote(parse_qs(urlparse(str(l)).query).get('search_name', [''])[0]).strip()
+    n_papers = papers.groupby('author')['paper_key'].nunique()
+    n_rows = papers.groupby('author').size()
+    journals_of = papers.groupby('author')['journal'].agg(set)
+    pkeys_of = papers.groupby('author')['paper_key'].agg(set)
+    authors_of = papers.groupby('paper_key')['author'].agg(list)
+    spellings = defaultdict(list)
+    for l in links:
+        spellings[parsed[l]].append(l)
+    ident_rows = defaultdict(list)
+    for i, r in roster.iterrows():
+        if rows is None or i in rows:
+            ident_rows[(r['last'], r['first'], r['middle'])].append(i)
+    ident_of = {i: ident for ident, rs in ident_rows.items() for i in rs}
+    by_surname = defaultdict(list)
+    words_ix = defaultdict(set)
+    for ident in ident_rows:
+        base, tag, suf = split_last(ident[0])
+        by_surname[(base, tag)].append(ident)
+        words_ix[(ident[1] + ident[2].replace(' ', '') + base, tag, suf)].add(ident)
+    schools_of = {ident: {roster.at[i, 'school'] for i in rs} for ident, rs in ident_rows.items()}
+    credited_links = defaultdict(set)
+    for link, hits in to_ret.items():
+        for i in hits:
+            if i in ident_of:
+                credited_links[ident_of[i]].add(link)
+
+    def coauthors(ls, own):
+        out = set()
+        for l in ls:
+            for pk in pkeys_of.get(l, ()):
+                out.update(split_last(parsed[a][0])[0] for a in authors_of[pk] if a not in ls)
+        return out - {own, ''}
+
+    def evidence(ls, ident):
+        if not journal_schools:
+            return False, False
+        home = any(journal_schools.get(j, set()) & schools_of[ident] for l in ls for j in journals_of.get(l, ()))
+        own = split_last(ident[0])[0]
+        co = bool(coauthors(ls, own) & coauthors(credited_links.get(ident, ()), own))
+        return home, co
+
+    def career_ok(newest, ident):
+        '''a spelling whose newest paper is more than ten years older than the person's first credited paper is
+        another, older person ("Ball, David W." 1987-92 is not Santa Clara's W. David Ball)'''
+        ys = [int(y0.get(l, 9999)) for l in credited_links.get(ident, ())]
+        return newest >= 1985 and (not ys or newest >= min(ys) - 10)
+
+    def suffix_ok(ps, rs):
+        return not ps or not rs or ps == rs
+
+    def lookup(last, first, middle):
+        '''the one person an exact or first + last match finds (the rules above, without their guards), else None'''
+        hits = full.get((last, first, middle)) or [i for i in short.get((last, first), []) if middles_compatible(middle, roster.at[i, 'middle'])]
+        ids = {ident_of[i] for i in hits if i in ident_of}
+        return next(iter(ids)) if len(ids) == 1 else None
+
+    proposals = defaultdict(set)    # spelling -> {(person, rule)}
+    for key, ls in spellings.items():
+        open_ls = [l for l in ls if how_of.get(l) == 'not_faculty' and l not in only_non_school]
+        if not open_ls:
+            continue
+        last, first, middle = key
+        base, tag, suf = split_last(last)
+        P = [first] + middle.split() if first else []
+        newest = max(int(y1.get(l, 0)) for l in ls)
+        found = []
+        # same words, comma elsewhere (or none)
+        wk = (first + middle.replace(' ', '') + base, tag, suf)
+        if len(wk[0]) >= 8 and len(words_ix.get(wk, ())) == 1:
+            found.append((next(iter(words_ix[wk])), 'same_words'))
+        # a string with no comma: both readings
+        raw = unquote(parse_qs(urlparse(str(ls[0])).query).get('search_name', [''])[0]).strip()
+        if raw and ',' not in raw and len(raw.split()) >= 2 and not re.search(r'[\d:]', raw):
+            m = re.match(r'^([^\s.]+)\.\s+(.+)$', raw)
+            toks = raw.split()
+            readings = [m.group(1) + ', ' + m.group(2)] if m else [toks[0] + ', ' + ' '.join(toks[1:]), toks[-1] + ', ' + ' '.join(toks[:-1])]
+            hit = {lookup(*parse_hein_name(hein_profile_link(r))) for r in readings} - {None}
+            if len(hit) == 1:
+                found.append((next(iter(hit)), 'no_comma'))
+        if P and P[0] in HONORIFICS | {'chief', 'dean'}:
+            rest = P[2:] if P[0] == 'chief' and len(P) > 2 and P[1] in ('judge', 'justice') else P[1:]
+            if rest and len(rest[0]) > 1:                # "Dean A." keeps Dean as the given name
+                who = lookup(last, rest[0], ' '.join(rest[1:]))
+                # a judge's title only for someone listed at a court ("Henry, Justice John S." is not Loyola
+                # Marymount's John Henry)
+                if who and (P[0] not in BENCH or any(re.search(r'court|circuit|judicial', sc, re.I) for sc in schools_of[who])):
+                    found.append((who, 'honorific'))
+        if P:
+            fits = defaultdict(set)
+            for ident in by_surname.get((base, tag), []):
+                rbase, rtag, rsuf = split_last(ident[0])
+                if not suffix_ok(suf, rsuf):
+                    continue
+                R = [ident[1]] + ident[2].split()
+                if R == P:
+                    continue
+                # an initial plus the name the person goes by
+                if (len(P[0]) == 1 and len(P) > 1 and len(P[1]) > 1 and len(R) > 1 and len(R[0]) > 1 and R[0][0] == P[0]
+                        and R[1] == P[1] and middles_compatible(' '.join(P[2:]), ' '.join(R[2:]))):
+                    fits['initial_name'].add(ident)          # "R. George" / "Richard George"
+                if (len(R[0]) == 1 and len(R) > 1 and len(R[1]) > 1 and len(P[0]) > 1 and P[0] == R[1]
+                        and (len(P) == 1 or P[1][0] == R[0])):
+                    fits['initial_name_dropped'].add(ident)  # "Bennett" / "I. Bennett"; "Tiffany C." / "C. Tiffany"
+                if (len(P[0]) == 1 and len(P) > 1 and len(P[1]) > 1 and P[1] == R[0]
+                        and (len(R) == 1 or R[1][0] == P[0])):
+                    fits['initial_name_dropped'].add(ident)  # "C. Scott" / "Scott"
+                # initials only
+                if (len(P[0]) == 1 and len(P) > 1 and all(len(t) == 1 for t in P[1:]) and len(R[0]) > 1 and len(R) > 1
+                        and R[0][0] == P[0] and all(a == b[0] for a, b in zip(P[1:], R[1:])) and (not suf or suf == rsuf)):
+                    fits['initials'].add(ident)
+                # the middle name as the first
+                if (len(P[0]) > 1 and len(R) > 1 and len(R[0]) > 1 and len(R[1]) > 1 and P[0] == R[1]
+                        and (len(P) == 1 or P[1][0] == R[0][0])):
+                    fits['goes_by_middle'].add(ident)
+                # a nickname
+                if len(P[0]) > 1 and R[0] in NICK_OF.get(P[0], ()) and middles_compatible(middle, ident[2]):
+                    fits['nickname'].add(ident)
+            # an initial one side leaves off is weaker than one both give: with a common surname (Smith, Clark,
+            # Mitchell: more than COMMON_SURNAME first names written with it) it needs evidence too ("Smith, Gregory" is not LSU's
+            # N. Gregory Smith on its own)
+            dropped = fits.pop('initial_name_dropped', set())
+            if len(fits['initial_name'] | dropped) == 1:
+                who = next(iter(fits['initial_name'] | dropped))
+                if who in fits['initial_name'] or len(firsts.get(base, ())) <= COMMON_SURNAME or any(evidence(ls, who)):
+                    fits['initial_name'] = {who}
+                else:
+                    fits['initial_name'] = set()
+            for rule in ('initial_name', 'initials'):
+                if len(fits[rule]) == 1 and career_ok(newest, next(iter(fits[rule]))):
+                    found.append((next(iter(fits[rule])), rule))
+            own_first = any(i[1] == first for i in by_surname.get((base, tag), []))
+            for rule in ('goes_by_middle', 'nickname'):
+                if len(fits[rule]) == 1 and not (rule == 'nickname' and own_first):
+                    who = next(iter(fits[rule]))
+                    home, co = evidence(ls, who)
+                    if home or co:
+                        found.append((who, rule))
+        people = {w for w, _ in found}
+        if len(people) == 1 and not any((search_name(l), roster.at[i, 'hein_name'].strip(), roster.at[i, 'school']) in KNOWN_NAMESAKES
+                                        for l in ls for i in ident_rows[found[0][0]]):
+            proposals[key] = found[0]
+    # a middle initial the listing lacks, with evidence (one initial per person: the one with the most rows)
+    mids = defaultdict(list)
+    rows_of_link = defaultdict(set)
+    for i, ls in unsure_rows.items():
+        for l in ls:
+            rows_of_link[l].add(i)
+    for key, ls in spellings.items():
+        open_ls = [l for l in ls if how_of.get(l) == 'middle_unsure' and l not in only_non_school]
+        if not open_ls or not key[2]:
+            continue
+        rows_u = set().union(*(rows_of_link[l] for l in open_ls))
+        ids = {ident_of[i] for i in rows_u if i in ident_of}
+        if len(ids) != 1:
+            continue
+        who = next(iter(ids))
+        if max(int(y1.get(l, 0)) for l in ls) < 1985:
+            continue
+        home, co = evidence(ls, who)
+        if (home or co) and (sum(int(n_papers.get(l, 0)) for l in ls) >= 2 or co):
+            mids[who].append((sum(int(n_rows.get(l, 0)) for l in ls), key))
+    for who, cands in mids.items():
+        best = max(cands)[1][2][0]
+        for _, key in cands:
+            if key[2][0] == best and key not in proposals and not any(
+                    (search_name(l), roster.at[i, 'hein_name'].strip(), roster.at[i, 'school']) in KNOWN_NAMESAKES
+                    for l in spellings[key] for i in ident_rows[who]):
+                proposals[key] = (who, 'middle_evidence')
+    added = defaultdict(int)
+    for key, (who, rule) in proposals.items():
+        old = 'middle_unsure' if rule == 'middle_evidence' else 'not_faculty'
+        for l in spellings[key]:
+            if how_of.get(l) != old or l in only_non_school:
+                continue
+            stats[old] -= 1
+            stats[rule] += 1
+            how_of[l] = rule
+            to_ret[l] = list(ident_rows[who])
+            for i in ident_rows[who]:
+                unsure_rows[i].add(l)
+            added[rule] += 1
+    if added:
+        print('  name variants credited (second pass, by rule; author spellings):', dict(added))
+
 
 
 def same_school(a, b):
@@ -886,7 +1316,7 @@ def same_school(a, b):
 USE_PROFILE_METADATA = False
 
 
-def match_authors(papers, roster, non_school=frozenset()):
+def match_authors(papers, roster, non_school=frozenset(), journal_schools=None):
     """paper author link -> roster row indexes (a person listed at two schools gets both). `non_school`: the journals
     flagship_schools.csv marks "non_school" (see match_by_name).
 
@@ -935,7 +1365,8 @@ def match_authors(papers, roster, non_school=frozenset()):
             near_raw[key].append((k, raw_last(hein_profile_link(f))))
 
     alias = load_aliases(roster)
-    by_name, name_stats, name_how, unsure_rows = match_by_name(papers, roster, non_school=non_school)   # every faculty member
+    by_name, name_stats, name_how, unsure_rows = match_by_name(papers, roster, non_school=non_school,   # every faculty member
+                                                               journal_schools=journal_schools)
     # the name rules' decisions over the whole roster, without the profiled people (Hein has spoken for them), and
     # without giving a listing the other spellings of the other school's profile its link opens (that profile's
     # person wrote those; the listing's own exact name is still matched by the rules)
@@ -1209,7 +1640,10 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
     Node: {n: name, d: description, s: [[source, url]], c: [papers, papers since 2016, faculty], k: fields (an area) or
     j: [[journal id, papers, since 2016, faculty, counts toward the field (1/0)], ...] (a field)}"""
     research = subject_tree() or {'areas': [], 'approaches': [], 'sources': [], 'name': '', 'description': ''}
-    about = {}
+    about = {'General & Policy Journals': {'d': 'Journals whose own scope statement covers law, or law and public policy, generally, '
+                                                 'with no subject focus. Their papers count in the rankings when this group is chosen; '
+                                                 'they give no one an area.'},
+             'No subject focus': {'d': 'Placed here because the journal describes its scope as law or policy generally.'}}
     for top in research['areas'] + research['approaches']:
         about.setdefault(top['n'], top)
         for k in top.get('k', []):
@@ -1227,21 +1661,20 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         if j[3] and j[2] is None:
             in_field[j[3][0][0]].append(ji)
     score = lambda ji: journals[ji][3][0][2] if journals[ji][3][0][2] is not None else -1
-    areas, counted = [], []
+    areas, counted = [], []         # counted: every journal in the tree
     for g, area in enumerate(groups):
         fields = []
         for f in sorted((f for f in in_field if journals[in_field[f][0]][4][0][0] == g), key=lambda f: subjects[f]):
             jis = sorted(in_field[f], key=lambda ji: (-score(ji), journals[ji][0]))
-            use = [ji for ji in jis if ji in field_of]
             info = about.get(subjects[f], {})
-            fields.append({'n': subjects[f], 'd': info.get('d', ''), 's': info.get('s', []), 'c': count(use),
+            fields.append({'n': subjects[f], 'd': info.get('d', ''), 's': info.get('s', []), 'c': count(jis),
                            'j': [[ji] + count([ji]) + [1 if ji in field_of else 0] for ji in jis]})
-            counted += use
+            counted += jis
         if not fields:
             continue
         info = about.get(area, {})
         areas.append({'n': area, 'd': info.get('d', ''), 's': info.get('s', []),
-                      'c': count([ji for fl in fields for ji, *_, use in fl['j'] if use]), 'k': fields})
+                      'c': count([ji for fl in fields for ji, *_ in fl['j']]), 'k': fields})
     total = count(counted)
     return {'name': 'Subject areas of the specialty journals', 'generated': built,
             'counts': {'faculty_papers': total[0], 'faculty_papers_2016_on': total[1], 'faculty': total[2]},
@@ -1355,8 +1788,8 @@ def build():
 
     ##### journals and their categories
     # 2026-10-25 (the owner: "Use a drop down taxonomy for the specialty journals. So you click on a topic to see which
-    # journals fit that category"): specialty journals are grouped by the taxonomy (journal_taxonomy.csv: each
-    # journal's primary area > field, from research/taxonomy plus hand-mapped additions): areas are the groups,
+    # journals fit that category"): specialty journals are grouped by the taxonomy (journal_taxonomy_scope.csv: each
+    # journal's area > field, placed by its own scope statement and W&L subject; see TAXONOMY_FILE): areas are the groups,
     # fields the sub-items; a W&L specialty journal not mapped yet goes to "Other specialty journals" under its W&L
     # subject (and is printed)
     ranked = rankings[rankings['journal'].isin(papers['journal'].unique())]
@@ -1387,7 +1820,7 @@ def build():
             area_field[j] = ('Other specialty journals', rows['journal_type'].iloc[0])
             other.append(j)
     if by_subject:
-        print(f'  {by_subject} specialty journals placed by their W&L subject (not in journal_taxonomy.csv yet)')
+        print(f'  {by_subject} specialty journals placed by their W&L subject (not in journal_taxonomy_scope.csv yet)')
     if other:
         print(f'  !! {len(other)} specialty journals with a W&L subject the crosswalk lacks, under "Other specialty journals":', other[:10])
     used = {area_field[j] for j in set(spec['journal'])}
@@ -1454,6 +1887,22 @@ def build():
     # (review, 2026-10-23) Hein can list several separate pieces under one title in a volume (a "Chairman's Page" in each
     # issue, several tributes); each piece starts with a "first" author, so pieces are numbered, not merged into one
     # co-authored paper (which split each author's credit)
+    # (pairing audit, 2026-10-26) Hein lists some articles with their responses as one entry ("Kyoto at the Local Level
+    # ... (with Responses by Bill Becker & Amy Royden-Bloom and Roger R. Martella & James W. Coleman)"): the
+    # respondents are not the article's authors. An author whose surname is named after "with Response(s) / Reply /
+    # Comment(s) by" in the title is left out (unless that would leave no author).
+    tail = papers['title'].str.extract(r'(?i)\bwith\s+(?:a\s+)?(?:responses?|repl(?:y|ies)|comments?|commentar(?:y|ies))\s+by\b(.*)$')[0]
+    has_tail = tail.notna()
+    if has_tail.any():
+        fold_words = lambda t: ' ' + ' '.join(re.sub(r'[^a-z ]', ' ', unicodedata.normalize('NFKD', t.lower())).split()) + ' '
+        named = pd.Series([raw_last(a) and (' ' + raw_last(a) + ' ') in fold_words(t) if h else False
+                           for a, t, h in zip(papers['author'], tail.fillna(''), has_tail)], index=papers.index)
+        keep_all = named.groupby([papers['journal'], papers['volume_key'], papers['title_key']]).transform('all')
+        drop = named & ~keep_all
+        if drop.any():
+            print(f'  {int(drop.sum())} respondents left out of {papers[drop].groupby(["journal", "volume_key", "title_key"]).ngroups} '
+                  f'articles listed "with responses by"')
+            papers = papers[~drop]
     starts = papers['authorship_position'].astype(str).str.startswith('first')
     piece = starts.groupby([papers['journal'], papers['volume_key'], papers['title_key']], sort=False).cumsum().clip(lower=1)
     papers['paper_key'] = papers['journal'] + '|' + papers['volume_key'] + '|' + papers['title_key'] + '#' + piece.astype(str)
@@ -1470,7 +1919,13 @@ def build():
     # each issue (a "Chairman's Page") starts on a different page, a piece listed twice starts on the same one
     # (stress test, 2026-10-24) any page token ("[xv]", "iii", "125"), not only digits: two pieces both on an unnumbered
     # page were taken for the same piece
-    info['page'] = papers.groupby('paper_key')['raw'].first().str.extract(r'\bPage (\S+)')[0].fillna('')
+    # (pairing audit, 2026-10-26) the page from the record's LAST segment: a title with "Page" in it ("The Editors' Page |
+    # ... | Page v") gave "|" or "Comments" as the page and merged 262 distinct pieces; and issues that restart their
+    # page numbers put different pieces on one printed page, so collected pieces (Hein's page id in article_link) are
+    # the same piece only with the same id. A piece with no page (collected before raw records were kept) is never
+    # merged on a blank page.
+    info['page'] = papers.groupby('paper_key')['raw'].first().fillna('').str.extract(r'(?:^|\| )Page (\S+)\s*$')[0].fillna('')
+    info['hein_id'] = papers.groupby('paper_key')['article_link'].first().fillna('').str.extract(r'[?&]id=(\d+)')[0].fillna('')
     info['sig'] = list(zip(info['journal'], info['year'], info['title_key'], info['authors']))
     # the same piece twice: within a volume (listed twice) always one paper; across two volume numbers of the same year
     # (Urban Lawyer 42 and 43, "Volume 58 (Supplement)" inside vol 58) only when the two volumes duplicate each other
@@ -1494,13 +1949,25 @@ def build():
         for k in keys[1:]:
             v2 = info.at[k, 'volume_key']
             if v2 == v1:
-                if info.at[k, 'page'] == info.at[first, 'page']:     # same page too: listed twice
+                i1, i2 = info.at[first, 'hein_id'], info.at[k, 'hein_id']
+                p1, p2 = info.at[first, 'page'], info.at[k, 'page']
+                if (i1 == i2) if (i1 and i2) else (p1 != '' and p1 == p2):     # the same piece: listed twice
                     same[k], within = first, within + 1
             elif (info.at[first, 'journal'], *sorted([v1, v2])) in wholesale:
                 same[k], across = first, across + 1
+    # (pairing audit, 2026-10-26) an article Hein lists in two entries of one volume, the second marked "(cont.)",
+    # "(continued)" or "(concluded)", by the same authors: one paper
+    cont = 0
+    by_entry = {(r.journal, r.volume_key, r.authors, r.title_key): k for k, r in info.iterrows()}
+    for k, r in info.iterrows():
+        m = re.match(r'^(.+?)(?:cont|continued|concluded|conclusion)$', r.title_key)
+        if m and k not in same:
+            base = by_entry.get((r.journal, r.volume_key, r.authors, m.group(1)))
+            if base and base != k:
+                same[k], cont = same.get(base, base), cont + 1
     if same:
-        print(f'  {across} papers listed twice by Hein in the same year (two volume numbers) and {within} listed twice '
-              f'in one volume; counted once')
+        print(f'  {across} papers listed twice by Hein in the same year (two volume numbers), {within} listed twice '
+              f'in one volume and {cont} continued in a second entry; counted once')
         papers['paper_key'] = papers['paper_key'].map(lambda k: same.get(k, k))
     # co-authors counted as people: two spellings of one name in a paper ("McClurg, Andrew J." and "McClurg, Andrew
     # Jay") are one author (math check)
@@ -1514,7 +1981,19 @@ def build():
     write_faculty_list(roster)
     # (audit, 2026-10-25) the journals that are not a school's (flagship_schools.csv kind "non_school"): see match_by_name
     non_school = frozenset(j for j, v in flagship.items() if v[1][2] == 'non_school')
-    matched, stats, match_info = match_authors(papers, roster, non_school)
+    # (naming audit, 2026-10-26) the faculty-list schools that publish each journal (flagship_schools.csv,
+    # specialty_hosts.csv): a paper in the person's own school's journal is evidence for match_by_name's second pass
+    lists_of_usnews = defaultdict(set)
+    for s, v in us.items():
+        lists_of_usnews[v[0]].add(s)
+    journal_schools = defaultdict(set)
+    for j, v in flagship.items():
+        if v[1] and v[1][0]:
+            journal_schools[j] |= lists_of_usnews.get(v[1][0], set())
+    for j, (school, _) in hosts.items():
+        if school:
+            journal_schools[j] |= lists_of_usnews.get(school, set())
+    matched, stats, match_info = match_authors(papers, roster, non_school, journal_schools)
     print('  author matching:', stats)
     write_profile_wants(papers, roster, set(us) | set(aba), match_info)
 
@@ -1596,6 +2075,10 @@ def build():
         tk = k.rsplit('|', 1)[-1].split('#', 1)[0]
         if kind is None and (tk.startswith(('inmemoriam', 'memoriam', 'intribute')) or 'inmemoriam' in tk):
             kind = 'memorial or tribute'
+        # (pairing audit, 2026-10-26) a tribute, dedication, remembrance or transcript signed by more than ten people
+        # (a symposium's roundtable, a panel) is not a co-authored article: a short piece, like a memorial
+        if kind is None and n_authors.get(k, 1) > 10 and any(w in tk for w in MANY_SIGNER_WORDS):
+            kind = 'memorial or tribute'
         if kind == 'memorial or tribute' and not (length is not None and length == length and length >= 20):
             return True
         if length is not None and length == length and length >= 1:
@@ -1610,7 +2093,7 @@ def build():
     # flagship, then no inference is made. If they have multiple specialty then it might be multi tag. It should be low
     # level specialty grouped into 10 or so higher level areas. Do that instead of guessing area."): the fields and
     # areas of the specialty journals a person published in, and nothing else. Each specialty journal sits in one field
-    # (journal_taxonomy.csv), each field in one area; every credited piece counts, all years; no thresholds, no caps, no
+    # (journal_taxonomy_scope.csv), each field in one area; every credited piece counts, all years; no thresholds, no caps, no
     # guesses from titles. (Before, a person was tagged with their top area, a second only at half the top's count,
     # from two specialty articles up, and fields at a quarter of their articles.) The generalist policy journals the
     # taxonomy gives weight 0 say nothing about a field and count toward none (data['field_of'] tells the pages which

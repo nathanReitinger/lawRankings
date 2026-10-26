@@ -73,7 +73,7 @@
       const sc = wlScore(ji);
       li.appendChild(el('span', { class: 'tx-counts' }, (sc != null && sc >= 0 ? ' · W&L score ' + sc : ' · not scored by W&L') +
         ' · ' + num(papers) + ' paper' + (papers === 1 ? '' : 's') + ' by ' + num(faculty) + ' current faculty' +
-        (counts ? '' : ' · a general policy journal: counts toward no field')));
+        (counts ? '' : ' · general scope: gives no one an area')));
       ul.appendChild(li);
       return { li: li, ji: ji, text: fold(J[ji][0] + ' ' + host) };
     });
@@ -215,7 +215,7 @@
     if (c.kind === 'journal' && c.host) h += '<div>' + esc(c.host) + '</div>';
     if (c.kind === 'journal') h += '<div>' + (c.score != null && c.score >= 0 ? 'W&amp;L score ' + c.score : 'Not scored by W&amp;L') + '</div>';
     if (c.c && c.c[0] != null) h += '<div>' + num(c.c[0]) + ' papers · ' + num(c.c[1]) + ' since 2016 · ' + num(c.c[2]) + ' current faculty</div>';
-    if (c.kind === 'journal' && !c.counts) h += '<div>A general policy journal: counts toward no field</div>';
+    if (c.kind === 'journal' && !c.counts) h += '<div>General scope: gives no one an area</div>';
     if (c.kids && kidsWord) h += '<div>' + c.kids + ' ' + kidsWord + (c.kids === 1 ? '' : 's') + '</div>';
     if (c.d) h += '<div class="tx-tip-d">' + esc(c.d.length > 240 ? c.d.slice(0, 239).replace(/\s+\S*$/, '') + '…' : c.d) + '</div>';
     const hint = c.kind === 'root' ? ''
@@ -323,6 +323,7 @@
     note();
   }
 
+  if (window.LSR.crunch) window.LSR.crunch.show('Loading the tree');
   Promise.all(['data/taxonomy.json', 'data/data.json', 'data/meta.json'].map((u) => fetch(u, { cache: 'no-cache' }).then((r) => {
     if (!r.ok) throw new Error(u + ': ' + r.status);
     return r.json();
@@ -347,7 +348,9 @@
     const want = decodeURIComponent((location.hash || '').slice(1));
     if (want && !['tree', 'how', 'sources'].includes(want)) { $('find').value = want; filter(want); $('tree').scrollIntoView(); }
     else if (location.hash) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }
+    if (window.LSR.crunch) window.LSR.crunch.hide();
   }).catch((e) => {
+    if (window.LSR.crunch) window.LSR.crunch.hide(0);
     $('loading').textContent = 'The tree could not be loaded (' + e.message + '). Try reloading the page.';
   });
 })();

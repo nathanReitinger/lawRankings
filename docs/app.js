@@ -186,7 +186,7 @@
     'Property, Environment & Natural Resources': 'property & environment', 'International & Comparative Law': 'international',
     'Science, Technology & IP': 'tech & IP', 'Health Law & Bioethics': 'health law', 'Civil Rights, Equality & Family': 'civil rights & family',
     'Labor & Employment': 'labor & employment', 'Legal Profession & Education': 'profession & education',
-    'Legal Theory, Humanities & Society': 'theory & society', 'Interdisciplinary Methods': 'methods', 'Other specialty journals': 'other specialty',
+    'Legal Theory, Humanities & Society': 'theory & society', 'Interdisciplinary Methods': 'methods', 'General & Policy Journals': 'general & policy', 'Other specialty journals': 'other specialty',
   };
   function shortName(g) {
     return AREA_SHORT[g] || g.toLowerCase();
@@ -599,12 +599,14 @@
 
   ////////////////////////////////////////////// page
 
+  // (2026-10-25, the owner: "add in a spinner for crunching numbers") every recompute runs behind the spinner
+  // (masthead.js: LSR.crunch); quick successive changes are computed once, with the newest state
+  const crunch = (fn) => (window.LSR && window.LSR.crunch ? window.LSR.crunch.run(fn) : fn());
   function update() {
     saveState();
     syncPanel();
     renderDataLine();                       // the rank source may have changed
-    current = compute();
-    renderRanking();
+    crunch(() => { current = compute(); renderRanking(); });
   }
 
   function renderDataLine() {
@@ -646,10 +648,12 @@
     if (window.ResizeObserver) new ResizeObserver(sticky).observe($('controlsSticky'));
     window.addEventListener('hashchange', () => {
       const h = readHash();
-      if (h) { state = cleanState(h); syncPanel(); current = compute(); renderRanking(); }
+      if (h) { state = cleanState(h); syncPanel(); crunch(() => { current = compute(); renderRanking(); }); }
     });
   }
 
+  if (window.LSR && window.LSR.crunch) window.LSR.crunch.show('Loading the data');
+  const loaded = () => { if (window.LSR && window.LSR.crunch) window.LSR.crunch.hide(); };
   Promise.all([
     fetch('data/data.json').then((r) => r.json()),
     fetch('data/meta.json').then((r) => r.json()),
@@ -675,7 +679,9 @@
     buildPanel();
     wire();
     update();
+    loaded();
   }).catch((err) => {
+    loaded();
     $('rankingWindow').innerHTML = '<p class="empty-note">Could not load the data (' + esc(err.message) + ').</p>';
   });
 })();
