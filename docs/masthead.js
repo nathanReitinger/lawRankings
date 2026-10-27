@@ -366,7 +366,32 @@
     else line.appendChild(box);
     box.appendChild(b);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addPicker); else addPicker();
+  // each letter of the wordmark in its own span (--i: its place), for the masthead variants that bring letters in one
+  // by one (style.css); the words' own spans (.w1-.w3) stay, and the link keeps the name for screen readers
+  function splitLetters() {
+    const a = document.querySelector('.lsr-mast .lsr-mark > a');
+    if (!a || a.dataset.split) return;
+    a.dataset.split = '1';
+    a.setAttribute('aria-label', a.textContent.replace(/\s+/g, ' ').trim());
+    let i = 0;
+    const walk = (node) => [...node.childNodes].forEach((c) => {
+      if (c.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        [...c.textContent].forEach((ch) => {
+          const sp = document.createElement('span');
+          sp.className = 'ch';
+          sp.setAttribute('aria-hidden', 'true');
+          sp.style.setProperty('--i', i++);
+          sp.textContent = ch;
+          frag.appendChild(sp);
+        });
+        c.replaceWith(frag);
+      } else if (c.nodeType === 1) walk(c);
+    });
+    walk(a);
+  }
+  const ready = () => { splitLetters(); addPicker(); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
 
   window.LSR = { stampMasthead: stampMasthead, siteFooter: siteFooter, email: MAINTAINER_EMAIL, repo: REPO, crunch: crunch,
     openLogos: openGallery,

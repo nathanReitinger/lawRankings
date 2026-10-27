@@ -78,72 +78,109 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 :is(html[data-mast="10"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="10"]) .lsr-mast { --face: 'Source Serif 4', Georgia, serif; --weight: 600; --k: 0.98; --ls: 0.14em; }
 :is(html[data-mast="10"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="10"]) .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15em); }
 
-/* ---------- 11-25 (2026-10-25, the owner: "Have like 20-30 versions of the logo. Some inspired by minimalism. Some by
-   glassmorphism. Some colorful"; 2026-10-26: "drop the gaussian blur logo option. it looks bad. make all of these logos look
-   very very professional") ----------
-   11-15 minimal, 16-20 glass (a crisp frosted pane: hairline edge, light shadow, no blur), 21-25 color as a serious
-   publication uses it (deep inks, two-tone wordmarks, rules and bands). The words sit in spans (.w1-.w3) for the variants
-   that color them one by one. --k (calibrated) fits each face to the same width as 1. */
 .lsr-mark > a > span { display: inline; }
 
-/* 11. minimal: hairline sans, wide tracking, one rule under it */
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mast { --ink: #111; --face: 'Montserrat', Helvetica, Arial, sans-serif; --weight: 200; --ls: 0.3em; --k: 0.88; }
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark { border: 0; border-bottom: 1px solid var(--ink); padding: 0.16em 0 0.24em; }
-/* 12. minimal: an italic Didone, as a magazine sets its name */
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mast { --ink: #151515; --face: 'Bodoni Moda', Didot, 'Bodoni 72', Georgia, serif; --weight: 500; --ls: 0.01em; --k: 1.5; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark { border: 0; padding: 0.04em 0.1em 0.12em; text-transform: none; font-style: italic; }
-/* 13. minimal: a technical sans between two hairlines */
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mast { --ink: #1b2a3a; --face: 'IBM Plex Sans', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.22em; --k: 1.01; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { border: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 0.22em 0.1em 0.26em; }
-/* 14. minimal: a heavy grotesque and a slim crimson bar */
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mast { --ink: #111; --face: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif; --weight: 400; --ls: -0.005em; --k: 1.25; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark { position: relative; border: 0; padding: 0.06em 0 0.08em 0.5em; text-transform: none; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark::before { content: ""; position: absolute; left: 0; top: 0.16em; bottom: 0.18em; width: 0.12em; background: #a51c30; }
-/* 15. minimal: light serif, airy tracking, two vertical rules */
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mast { --ink: #2a2a2a; --face: 'Cormorant', 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 300; --ls: 0.4em; --k: 0.79; }
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark { border: 0; border-left: 1px solid var(--ink); border-right: 1px solid var(--ink); padding: 0.04em 0.75em 0.08em; }
+/* ---------- 11-25 restyled (2026-10-26, the owner: "use a variety of cooler-looking fonts. i want these logos to slap";
+   "use this for fonts [CSS text animations]. do not use 3D spin"): bold display faces, each with its own short text
+   animation on load (tracking-in, wipe reveals, rules and bars that draw, letters that rise, a shimmer, a sheen, a
+   highlighter sweep); nothing spins, nothing blurs; prefers-reduced-motion turns every one off. 11-15 minimal, 16-20 glass
+   (a crisp pane, never blurred), 21-25 color. masthead.js wraps each letter in <span class="ch" style="--i:n"> for the
+   letter-by-letter ones; the words sit in spans (.w1-.w3). --k (calibrated) fits each face to the same width as 1. */
+@keyframes m-track { from { letter-spacing: 0.7em; opacity: 0; } to { opacity: 1; } }
+@keyframes m-wipe { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes m-draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes m-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes m-rise { from { opacity: 0; transform: translateY(0.45em); } to { opacity: 1; transform: none; } }
+@keyframes m-slide { from { opacity: 0; transform: translateX(-0.35em); } to { opacity: 1; transform: none; } }
+@keyframes m-shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes m-sheen { 0%, 70% { transform: translateX(-120%) skewX(-18deg); } 100% { transform: translateX(260%) skewX(-18deg); } }
+@keyframes m-offset { from { box-shadow: inset 0 1px 0 #fff, 0 0 0 -1px #fff, 0 0 0 0 rgba(18, 52, 59, 0.2); } }
+@keyframes m-mark { from { background-size: 0% 0.42em; } to { background-size: 100% 0.42em; } }
+@keyframes m-fade { from { opacity: 0; } to { opacity: 1; } }
+.lsr-mark .ch { display: inline; white-space: pre; }
 
-/* glass: a frosted pane drawn crisply (a faint top-to-bottom tint, a hairline edge, a light top highlight, a short soft
-   shadow); nothing is blurred */
+/* 11. minimal: Bebas Neue, tracking in */
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mast { --ink: #111; --face: 'Bebas Neue', 'Oswald', Impact, sans-serif; --weight: 400; --ls: 0.2em; --k: 1.45; }
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark { border: 0; border-bottom: 2px solid var(--ink); padding: 0.08em 0 0.12em; }
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark > a { animation: m-track 1.1s cubic-bezier(.2,.7,.2,1) both; }
+/* 12. minimal: a black-weight italic Didone, wiped in */
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mast { --ink: #121212; --face: 'Playfair Display', Didot, Georgia, serif; --weight: 900; --ls: -0.005em; --k: 1.46; }
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark { border: 0; padding: 0.02em 0.06em 0.1em; text-transform: none; font-style: italic; }
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark > a { animation: m-wipe 1s cubic-bezier(.6,0,.2,1) both; }
+/* 13. minimal: Space Grotesk between hairlines that draw from the middle */
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mast { --ink: #12202f; --face: 'Space Grotesk', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.12em; --k: 1.18; }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { position: relative; border: 0; padding: 0.24em 0.1em 0.28em; }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark::before, :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark::after { content: ""; position: absolute; left: 0; right: 0; height: 1.5px; background: var(--ink); animation: m-draw .9s cubic-bezier(.6,0,.2,1) both; }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark::before { top: 0; } :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark::after { bottom: 0; animation-delay: .15s; }
+/* 14. minimal: Archivo Black; the crimson bar grows, the name slides in */
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mast { --ink: #0d0d0d; --face: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif; --weight: 400; --ls: -0.01em; --k: 1.21; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark { position: relative; border: 0; padding: 0.06em 0 0.08em 0.5em; text-transform: none; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark::before { content: ""; position: absolute; left: 0; top: 0.12em; bottom: 0.14em; width: 0.14em; background: #c8102e; transform-origin: bottom; animation: m-grow .6s cubic-bezier(.6,0,.2,1) both; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark > a { animation: m-slide .7s .25s cubic-bezier(.2,.7,.2,1) both; }
+/* 15. minimal: Gloock, letter by letter */
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mast { --ink: #1c1c1c; --face: 'Gloock', 'DM Serif Display', Georgia, serif; --weight: 400; --ls: 0.04em; --k: 1.36; }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark { border: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 0.14em 0.2em 0.18em; text-transform: none; }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch { display: inline-block; animation: m-rise .55s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 28ms); }
+
+/* glass: a crisp frosted pane (a faint tint, a hairline edge, a light top highlight, a short soft shadow); never blurred */
 :is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark, :is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark, :is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark, :is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark, :is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark {
-  border: 1px solid rgba(20, 30, 50, 0.14); border-radius: 0.3em;
+  position: relative; overflow: hidden; border: 1px solid rgba(20, 30, 50, 0.14); border-radius: 0.3em;
   background: linear-gradient(180deg, #ffffff 0%, #f1f4f8 100%);
   box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(16, 24, 40, 0.06), 0 0.18em 0.5em rgba(16, 24, 40, 0.07);
 }
-/* 16. glass: cool white */
-:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mast { --ink: #1d2340; --face: 'Plus Jakarta Sans', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0.13em; --k: 0.98; }
-/* 17. glass: a dark navy pane, white letters */
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mast { --ink: #16203a; --face: 'DM Serif Display', Georgia, serif; --weight: 400; --ls: 0.05em; --k: 1.26; }
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark { color: #fff; text-transform: none; border-color: #0f1828; background: linear-gradient(180deg, #24324d 0%, #152036 100%);
+/* 16. glass: Plus Jakarta Sans ExtraBold, a sheen crosses the pane now and then */
+:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mast { --ink: #141a33; --face: 'Plus Jakarta Sans', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.1em; --k: 1.0; }
+:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark::after { content: ""; position: absolute; top: -20%; bottom: -20%; left: 0; width: 22%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent); transform: translateX(-120%) skewX(-18deg);
+  animation: m-sheen 7s ease-in-out 1s infinite; pointer-events: none; }
+/* 17. glass: a dark navy pane, DM Serif Display in a slow gold shimmer */
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mast { --ink: #16203a; --face: 'DM Serif Display', Georgia, serif; --weight: 400; --ls: 0.03em; --k: 1.29; }
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark { text-transform: none; border-color: #0f1828; background: linear-gradient(180deg, #24324d 0%, #152036 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(16, 24, 40, 0.12), 0 0.18em 0.5em rgba(16, 24, 40, 0.14); }
-/* 18. glass: pale teal with an accent edge */
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mast { --ink: #0c2d3e; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.1em; --k: 0.96; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark { background: linear-gradient(180deg, #f8fbfc 0%, #e8f0f2 100%);
-  box-shadow: inset 0.14em 0 0 #0f6e7a, inset 0 1px 0 #ffffff, 0 1px 2px rgba(16, 24, 40, 0.06), 0 0.18em 0.5em rgba(16, 24, 40, 0.07); }
-/* 19. glass: an ivory pill */
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mast { --ink: #3d2241; --face: 'Fraunces', Georgia, serif; --weight: 600; --ls: 0.02em; --k: 1.22; }
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark { border-radius: 999px; padding-left: 1.1em; padding-right: 1.1em; text-transform: none; font-style: italic;
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a { color: #f3e3bd; background: linear-gradient(100deg, #f3e3bd 40%, #ffffff 50%, #f3e3bd 60%) 0 0 / 300% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: m-shine 6s linear 0.6s infinite; }
+/* 18. glass: Sora Bold on pale teal; the accent edge grows */
+:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mast { --ink: #0b2a3a; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.08em; --k: 0.96; }
+:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark { background: linear-gradient(180deg, #f8fbfc 0%, #e8f0f2 100%); padding-left: 1em; }
+:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 0.16em; background: #0f6e7a; transform-origin: top; animation: m-grow .7s cubic-bezier(.6,0,.2,1) both; }
+/* 19. glass: Fraunces Black Italic in an ivory pill, letters rising one by one */
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mast { --ink: #34193a; --face: 'Fraunces', Georgia, serif; --weight: 900; --ls: 0.01em; --k: 1.15; }
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark { border-radius: 999px; padding-left: 1em; padding-right: 1em; text-transform: none; font-style: italic;
   border-color: rgba(61, 34, 65, 0.16); background: linear-gradient(180deg, #fffdf9 0%, #f4eee6 100%); }
-/* 20. glass: two panes, offset */
-:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mast { --ink: #12343b; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.16em; --k: 0.98; }
-:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark { box-shadow: inset 0 1px 0 #ffffff, 0.2em 0.2em 0 -1px #ffffff, 0.2em 0.2em 0 0 rgba(18, 52, 59, 0.2), 0 0.18em 0.5em rgba(16, 24, 40, 0.06); }
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark .ch { display: inline-block; animation: m-rise .5s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 32ms); }
+/* 20. glass: Outfit Bold; the second pane slides out behind */
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mast { --ink: #10303a; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.14em; --k: 0.99; }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark { overflow: visible; box-shadow: inset 0 1px 0 #ffffff, 0.2em 0.2em 0 -1px #ffffff, 0.2em 0.2em 0 0 rgba(18, 52, 59, 0.2), 0 0.18em 0.5em rgba(16, 24, 40, 0.06);
+  animation: m-offset .8s .2s cubic-bezier(.2,.7,.2,1) both; }
 
-/* 21. color: a two-tone wordmark, navy and crimson, over a crimson rule */
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mast { --ink: #0b2545; --face: 'Libre Franklin', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.1em; --k: 1.1; }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark { border: 0; border-bottom: max(2px, 0.07em) solid #a51c30; padding: 0.12em 0.05em 0.2em; }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark .w3 { color: #a51c30; }
-/* 22. color: a forest-green band, an inner hairline */
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mast { --ink: #1e4d3b; --face: 'Spectral', Georgia, serif; --weight: 500; --ls: 0.15em; --k: 0.93; }
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark { border-color: #1e4d3b; background: #1e4d3b; color: #fff; outline: 1px solid rgba(255, 255, 255, 0.4); outline-offset: calc(-1 * max(4px, 0.16em)); }
-/* 23. color: navy letters between gold rules */
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mast { --ink: #0b2545; --face: 'Lora', Georgia, serif; --weight: 600; --ls: 0.04em; --k: 1.36; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark { border: 0; border-top: max(3px, 0.1em) solid #b08d57; border-bottom: 1px solid #b08d57; padding: 0.18em 0.2em 0.22em; text-transform: none; }
-/* 24. color: a burgundy band with gold letters */
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mast { --ink: #6b1d2a; --face: 'Cormorant SC', 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --ls: 0.12em; --k: 1.02; }
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark { border-color: #6b1d2a; background: #6b1d2a; color: #ead7a8; box-shadow: inset 0 0 0 max(3px, 0.1em) #6b1d2a, inset 0 0 0 max(4px, 0.13em) #ead7a8; }
-/* 25. color: a teal slab and an accent bar */
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mast { --ink: #0f4c5c; --face: 'Roboto Slab', Rockwell, Georgia, serif; --weight: 600; --ls: 0.1em; --k: 1.01; }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark { border: 0; border-left: max(5px, 0.2em) solid #0f4c5c; background: #eef5f6; padding-left: 0.7em; }
+/* 21. color: Inter Tight Black, navy and crimson; the rule draws, then RANKINGS comes up in crimson */
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mast { --ink: #0b2545; --face: 'Inter Tight', Helvetica, Arial, sans-serif; --weight: 900; --ls: 0.04em; --k: 1.24; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark { position: relative; border: 0; padding: 0.08em 0.04em 0.2em; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: max(3px, 0.08em); background: #c8102e; transform-origin: left; animation: m-draw .8s cubic-bezier(.6,0,.2,1) both; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark .w3 { color: #c8102e; animation: m-fade .6s .55s both; }
+/* 22. color: Big Shoulders Display on a forest-green band, wiped in */
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mast { --ink: #1e4d3b; --face: 'Big Shoulders Display', 'Oswald', Impact, sans-serif; --weight: 800; --ls: 0.1em; --k: 1.36; }
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark { padding-top: 0.16em; padding-bottom: 0.17em; border-color: #1e4d3b; background: #1e4d3b; color: #fff; outline: 1px solid rgba(255, 255, 255, 0.4); outline-offset: calc(-1 * max(4px, 0.16em));
+  animation: m-wipe .8s cubic-bezier(.6,0,.2,1) both; }
+/* 23. color: Abril Fatface in navy between gold rules that draw from the middle */
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mast { --ink: #0b2545; --face: 'Abril Fatface', 'Playfair Display', Georgia, serif; --weight: 400; --ls: 0.02em; --k: 1.42; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark { position: relative; border: 0; padding: 0.2em 0.2em 0.24em; text-transform: none; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark::before, :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark::after { content: ""; position: absolute; left: 0; right: 0; background: #b08d57; animation: m-draw .9s cubic-bezier(.6,0,.2,1) both; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark::before { top: 0; height: max(3px, 0.1em); } :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark::after { bottom: 0; height: 1px; animation-delay: .15s; }
+/* 24. color: Playfair Display SC Black, gold letters on a burgundy band, a slow shimmer */
+:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mast { --ink: #6b1d2a; --face: 'Playfair Display SC', Georgia, serif; --weight: 900; --ls: 0.08em; --k: 1.01; }
+:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark { border-color: #6b1d2a; background: #6b1d2a; box-shadow: inset 0 0 0 max(3px, 0.1em) #6b1d2a, inset 0 0 0 max(4px, 0.13em) #ead7a8; }
+:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark > a { color: #ead7a8; background: linear-gradient(100deg, #ead7a8 40%, #fff6dd 50%, #ead7a8 60%) 0 0 / 300% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: m-shine 7s linear .8s infinite; }
+/* 25. color: Bricolage Grotesque ExtraBold in teal; a highlighter sweeps in behind it */
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mast { --ink: #0f4c5c; --face: 'Bricolage Grotesque', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.06em; --k: 1.08; }
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark { border: 0; border-left: max(5px, 0.2em) solid #0f4c5c; padding-left: 0.6em; background: none; }
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a { background: linear-gradient(#bfe6e3, #bfe6e3) 0 88% / 100% 0.42em no-repeat; animation: m-mark .9s .2s cubic-bezier(.6,0,.2,1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lsr-mark, .lsr-mark *, .lsr-mark::before, .lsr-mark::after { animation: none !important; }
+}
+
 .lsr-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.32em; }
 .lsr-note { margin-left: auto; font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: max(12px, calc(0.323em / var(--k))); letter-spacing: 0.04em; text-align: right; }
 .lsr-about {

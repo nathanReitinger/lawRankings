@@ -62,7 +62,7 @@
     const a = T.areas[current];
     $('txName').textContent = a.n;
     $('txDesc').textContent = a.d || '';
-    $('txCounts').textContent = (a.k.reduce((s, f) => s + f.j.length, 0)) + ' specialty journals in ' + a.k.length + ' field' +
+    $('txCounts').textContent = (a.k.reduce((s, f) => s + f.j.length, 0)) + ' specialty journals in ' + a.k.length + ' group' +
       (a.k.length === 1 ? '' : 's') + ' · ' + counts(a.c);
     const src = $('txSrc');
     src.replaceChildren();
@@ -79,7 +79,25 @@
       src.appendChild(d);
     }
     drawTree(a);
+    renderGroups(a);
     renderBucket(a);
+  }
+
+  // the groups of this higher-level group: each one's definition and the journals' own scope words that hold it together
+  function renderGroups(a) {
+    const box = $('txGroups');
+    box.replaceChildren();
+    const dl = el('dl', { class: 'tx-groups' });
+    a.k.forEach((f) => {
+      const dt = el('dt');
+      dt.appendChild(el('b', null, f.n));
+      dt.appendChild(el('span', { class: 'tx-counts' }, ' · ' + f.j.length + ' journal' + (f.j.length === 1 ? '' : 's')));
+      const dd = el('dd');
+      if (f.d) dd.appendChild(el('div', null, f.d));
+      if (f.w) dd.appendChild(el('div', { class: 'text-muted tx-cite' }, 'In their own words: ' + clip(f.w, 400)));
+      dl.appendChild(dt); dl.appendChild(dd);
+    });
+    box.appendChild(dl);
   }
 
   function drawTree(a) {
@@ -101,15 +119,15 @@
     });
     const tip = (p) => {
       const c = p.custom || {};
-      if (c.kind === 'category') return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">Category</div><div>' + esc(counts(c.a.c)) + '</div></div>';
-      if (c.kind === 'field') return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">Field in ' + esc(c.up) + '</div><div>' +
-        c.f.j.length + ' specialty journal' + (c.f.j.length === 1 ? '' : 's') + ' · ' + esc(counts(c.f.c)) + '</div>' + (c.f.d ? '<div class="tx-tip-d">' + esc(clip(c.f.d, 220)) + '</div>' : '') + '</div>';
+      if (c.kind === 'category') return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">Higher-level group</div><div>' + esc(counts(c.a.c)) + '</div></div>';
+      if (c.kind === 'field') return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">Group in ' + esc(c.up) + '</div><div>' +
+        c.f.j.length + ' specialty journal' + (c.f.j.length === 1 ? '' : 's') + ' · ' + esc(counts(c.f.c)) + '</div>' + (c.f.d ? '<div class="tx-tip-d">' + esc(clip(c.f.d, 260)) + '</div>' : '') + '</div>';
       const [basis, words, , , , wl] = placed(c.ji);
       const sc = wlScore(c.ji);
       return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">' + esc(c.up) + ' &rarr; ' + esc(c.cat) + '</div>' +
         (hostText(c.ji) ? '<div>' + esc(hostText(c.ji)) + '</div>' : '') + '<div>' + (sc != null && sc >= 0 ? 'W&amp;L score ' + sc : 'Not scored by W&amp;L') + ' · ' +
         esc(counts(c.c)) + '</div><div class="tx-tip-d">Placed: ' + esc(ruleText(basis)) + (words ? ' (' + esc(clip(words, 140)) + ')' : '') + '</div>' +
-        (wl ? '<div class="tx-tip-h">W&amp;L subject: ' + esc(wl) + '</div>' : '') + (c.cnt ? '' : '<div class="tx-tip-h">General scope: gives no one a category</div>') +
+        (wl ? '<div class="tx-tip-h">W&amp;L subject: ' + esc(wl) + '</div>' : '') + (c.cnt ? '' : '<div class="tx-tip-h">General scope: puts no author in a bucket</div>') +
         '<div class="tx-tip-h">Click for its row in the table below</div></div>';
     };
     chart = Highcharts.chart(box, {
@@ -176,12 +194,12 @@
       const host = hostText(ji);
       if (host) td1.appendChild(el('div', { class: 'text-muted' }, host));
       td1.appendChild(el('div', { class: 'tx-counts' }, num(papers) + ' papers by ' + num(faculty) + ' current faculty'));
-      const td2 = el('td', { 'data-h': 'Field' }, f.n);
-      const td3 = el('td', { 'data-h': 'Category' });
+      const td2 = el('td', { 'data-h': 'Group', title: f.d || '' }, f.n);
+      const td3 = el('td', { 'data-h': 'Higher-level group' });
       const go = el('button', { type: 'button', class: 'tx-catlink' }, a.n);
       go.addEventListener('click', () => { current = ai; renderPicker(); renderCategory(); $('txFig').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' }); });
       td3.appendChild(go);
-      if (!cnt) td3.appendChild(el('div', { class: 'text-muted' }, 'gives no one a category'));
+      if (!cnt) td3.appendChild(el('div', { class: 'text-muted' }, 'puts no author in a bucket'));
       const td4 = el('td', { 'data-h': 'Placed by' });
       td4.appendChild(el('div', null, ruleText(basis)));
       if (words) td4.appendChild(el('div', { class: 'tx-words' }, '“' + clip(words.replace(/^["“\s]+|["”\s]+$/g, ''), 180) + '”'));

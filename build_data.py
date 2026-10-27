@@ -72,6 +72,11 @@ FLAGSHIP_FILE = os.path.join(SOURCE_DIR, 'flagship_schools.csv')
 # statement are in the file. Journals whose scope is law or policy generally sit in "General & Policy Journals" with
 # weight 0 (no area for anyone). The earlier table (journal_taxonomy.csv) used the faculty papers' titles; not read now.
 TAXONOMY_FILE = os.path.join(SOURCE_DIR, 'journal_taxonomy_scope.csv')
+# 2026-10-26 (the owner: "the real classification that i want you to work on is from the journal (specialty) to group to
+# higher-level group"): the groups, built from the journals up within the same higher-level groups (three independent
+# designs, a judge, then two blind placers who re-placed all 231 journals from the definitions alone and agreed with
+# the design on every one): each group's definition and the journals' own scope words that hold it together
+GROUPS_FILE = os.path.join(SOURCE_DIR, 'journal_groups.csv')
 SPECIALTY_HOSTS = os.path.join(SOURCE_DIR, 'specialty_hosts.csv')    # 2026-10-25: specialty journal -> host law school
 WL_CROSSWALK = os.path.join(SOURCE_DIR, 'wl_subject_taxonomy.csv')    # W&L subject -> area > field, for journals not mapped yet
 # the order the areas are listed in (research/taxonomy: 13 subject areas, then the methods)
@@ -1570,15 +1575,33 @@ def write_missing_homepages(roster, info, home_of, school_csv, csv_schools, with
           f'faculty_runs/missing_homepages.csv')
 
 
+def default_to(data):
+    '''(2026-10-26, the audit of why the list differs from U.S. News: "the default end year follows the visitor's clock",
+    and one 2027-dated paper would make 2017-2027 the default on New Year's Day) the default window's last year: the
+    latest year whose credited articles in the default journals are at least 75% of the five years before it (2026 is
+    85% today), never later than this year'''
+    journals = {i for i, j in enumerate(data['journals']) if j[2] and 1 <= j[2] <= DEFAULT_FLAGSHIP_TOP}
+    per = defaultdict(int)
+    P = data['papers']
+    for p in data['credits']['paper']:
+        if P['journal'][p] in journals:
+            per[int(P['year'][p])] += 1
+    for y in range(min(datetime.now().year, max(per or [0])), min(per or [0]), -1):
+        prev = [per.get(y - k, 0) for k in range(1, 6)]
+        if prev and per.get(y, 0) >= 0.75 * (sum(prev) / len(prev)):
+            return y
+    return min(datetime.now().year, max(data['papers']['year']))
+
+
 def default_ranking(data, years=10, top=30):
-    '''the site's default view in Python (DEFAULT_VIEW): main law reviews of the US News top 25, last `years`
-    years, US law schools'''
-    last = min(datetime.now().year, max(data['papers']['year']))   # the site's own default window (app.js)
+    '''the site's default view in Python (DEFAULT_VIEW): main law reviews of the US News top 25, the last `years` year
+    labels ending at default_to (2026-10-26: ten labels, 2017-2026, where it had been eleven), US law schools'''
+    last = default_to(data)                                       # the site's own default window (app.js)
     journals = {i for i, j in enumerate(data['journals']) if j[2] and 1 <= j[2] <= DEFAULT_FLAGSHIP_TOP}
     score, faculty = defaultdict(float), defaultdict(set)
     P = data['papers']
     for p, person in zip(data['credits']['paper'], data['credits']['person']):
-        if P['journal'][p] in journals and last - years <= P['year'][p] <= last:
+        if P['journal'][p] in journals and last - years + 1 <= P['year'][p] <= last:
             for s in data['people'][person][1]:
                 if data['schools'][s][1]:
                     score[s] += 1 / P['authors'][p]
@@ -1658,6 +1681,10 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         about.setdefault(top['n'], top)
         for k in top.get('k', []):
             about.setdefault(k['n'], k)
+    # the groups' own definitions (and the scope words behind them) win over the older research fields' descriptions
+    if os.path.exists(GROUPS_FILE):
+        for r in pd.read_csv(GROUPS_FILE, dtype=str).fillna('').itertuples():
+            about[r.group] = {'d': r.definition, 'w': r.why, 's': about.get(r.group, {}).get('s', [])}
     papers_in, people_in = defaultdict(set), defaultdict(set)
     bucket = defaultdict(lambda: defaultdict(int))     # area id -> person -> articles in its journals (as people[i][4])
     area_of_journal = {ji: journals[ji][4][0][0] for ji in field_of}
@@ -1682,7 +1709,7 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         for f in sorted((f for f in in_field if journals[in_field[f][0]][4][0][0] == g), key=lambda f: subjects[f]):
             jis = sorted(in_field[f], key=lambda ji: (-score(ji), journals[ji][0]))
             info = about.get(subjects[f], {})
-            fields.append({'n': subjects[f], 'd': info.get('d', ''), 's': info.get('s', []), 'c': count(jis),
+            fields.append({'n': subjects[f], 'd': info.get('d', ''), 'w': info.get('w', ''), 's': info.get('s', []), 'c': count(jis),
                            'j': [[ji] + count([ji]) + [1 if ji in field_of else 0] for ji in jis]})
             counted += jis
         if not fields:
@@ -1765,7 +1792,8 @@ def split_for_site(data):
     per = defaultdict(int)
     for pk, _ in pairs:
         per[pk] += 1
-    credits = {'who': [q for _, q in pairs], 'more': [[pk, n] for pk, n in sorted(per.items()) if n != 1]}
+    # every paper whose count is not 1 (0 too: a paper whose only credit was taken back, e.g. a student note)
+    credits = {'who': [q for _, q in pairs], 'more': [[pk, per.get(pk, 0)] for pk in range(len(years)) if per.get(pk, 0) != 1]}
     core = dict(data, papers=papers, credits=credits, people=[[p[0], p[1]] for p in data['people']])
     details = [[p[3], p[4], p[5], p[6]] for p in data['people']]
     return core, details
@@ -1811,6 +1839,99 @@ def coauthorship(papers, n_authors, is_short, journals):
                 c = counts.loc[(k, y)].tolist() if (k, y) in counts.index else [0, 0, 0, 0]
                 series.append([int(sum(c))] + [int(x) for x in c] + [int(total.get((k, y), 0))])
             out[name][k] = series
+    return out
+
+
+TITLE_SINCE = 1980     # insights: title length per year from here (fewer collected volumes before)
+TITLE_MIN_N = 30       # a year's point is shown from this many titles in its band
+TITLE_BANDS = [('Top 14', 1, 14), ('15–25', 15, 25), ('26–50', 26, 50), ('51–100', 51, 100), ('101 & below, unranked', 101, 10 ** 6)]   # the Insights page's groups
+# the section labels HeinOnline appends to a title ("... Note", "... Book Review", "... Recent Developments 2016-2017");
+# only labels that never end a real title, so a title like "Judicial Review" or "A Reply" keeps its last word
+TITLE_LABEL = re.compile(
+    r'(?:\s+(?:Student\s+)?(?:Notes?|Comments?|Casenotes?|Case\s+(?:Notes?|Comments?)|Recent\s+(?:Cases?|Developments?|Decisions?)|'
+    r'Essays?|Articles?|Book\s+(?:Reviews?|Notes?)|Symposium|Foreword|Commentary|Commentaries|Lectures?|Tribute|'
+    r'Notes\s+(?:and|&)\s+Comments|Articles\s+(?:and|&)\s+Essays|Annual\s+Survey|Current\s+Developments?(?:\s+\d{4}(?:-\d{2,4})?)?))+\s*$')
+STUDENT_LABEL = re.compile(r'\b(?:Notes?|Comments?|Casenotes?|Case\s+(?:Notes?|Comments?)|Recent\s+(?:Cases?|Decisions?))\b')
+BOOK_LABEL = re.compile(r'\bBook\s+(?:Reviews?|Notes?)\s*$')
+
+
+def title_lengths(papers, is_short, journals, paper_keys, credit_paper, credit_person, people, schools):
+    '''insights.json['titles'] (2026-10-26, the owner: "add analysis on title character length over time. break it out
+    per law review rank and school rank"): the median length in characters of research-article titles per year,
+    (1) by the U.S. News rank of the school whose main law review published it (every article in those reviews,
+    whoever wrote it) and (2) by the U.S. News rank of the school of the current faculty member credited with it (any
+    journal; a piece by authors at schools in two bands counts once in each). Bands as elsewhere on the Insights page.
+
+    HeinOnline glues section headings onto titles with no separator ("... Note", "... Symposium: Law and the
+    Internet"), so a title is measured only when its heading can be taken off for certain: the labels in TITLE_LABEL
+    are removed, and a title whose last 2-8 words end two or more other titles of the same volume (a symposium's or a
+    survey's heading) is left out rather than cut at a guess. Also left out: short pieces (as on the rankings page),
+    book reviews (the book's title), and in (1) the pieces labelled as student work (Note, Comment, Casenote, Recent
+    Case). Each point: [median characters, mean, titles, share with a subtitle (a colon)], or None under TITLE_MIN_N
+    titles; per band 'y' (each year, the table) and 'p' (the year and the years either side pooled, the chart's line);
+    *_summary: 2000-2004 and the last five full years, per band and for all bands together.'''
+    t = papers.drop_duplicates('paper_key').set_index('paper_key')[['journal', 'volume_key', 'title', 'year']]
+    t['title'] = t['title'].astype(str).str.strip()
+    stripped = t['title'].map(lambda s: TITLE_LABEL.sub('', s).rstrip(' -:;,'))
+    ends = defaultdict(lambda: defaultdict(set))          # (journal, volume) -> last-n-words -> titles ending so
+    for k, j, v, s in zip(t.index, t['journal'], t['volume_key'], stripped):
+        w = s.split()
+        for n in range(2, min(8, len(w) - 2) + 1):
+            ends[(j, v)][' '.join(w[-n:])].add(s)
+    def glued(j, v, s):
+        w, e = s.split(), ends[(j, v)]
+        return any(len(e.get(' '.join(w[-n:]), ())) >= 3 for n in range(2, min(8, len(w) - 2) + 1))
+    t['clean'] = stripped
+    t['ok'] = [not glued(j, v, s) and not BOOK_LABEL.search(raw) and not is_short(k) and len(s) > 0
+               for k, j, v, s, raw in zip(t.index, t['journal'], t['volume_key'], stripped, t['title'])]
+    t['student'] = [bool(m and STUDENT_LABEL.search(m.group(0))) for m in map(TITLE_LABEL.search, t['title'])]
+    t['chars'] = t['clean'].str.len()
+    t['colon'] = t['clean'].str.contains(':', regex=False)
+    last = min(int(t['year'].max()), datetime.now().year)     # (a few volumes are labelled with next year)
+    t = t[(t['year'] >= TITLE_SINCE) & (t['year'] <= last)]
+    years = list(range(TITLE_SINCE, last + 1))
+
+    def band(rank):
+        rank = rank or 10 ** 6 - 1          # unranked: with 101 and below, as elsewhere on the Insights page
+        return next(b for b, lo, hi in TITLE_BANDS if lo <= rank <= hi)
+
+    def stat(rows):
+        n = len(rows)
+        return ([float(rows['chars'].median()), round(float(rows['chars'].mean()), 1), n, round(float(rows['colon'].mean()), 3)]
+                if n >= TITLE_MIN_N else None)
+
+    def series(rows):
+        # per year: that year's titles ('y', the table) and the three years around it pooled ('p', the chart's line)
+        by = dict(tuple(rows.groupby('year')))
+        none = rows.iloc[:0]
+        return {'y': [stat(by.get(y, none)) for y in years],
+                'p': [stat(pd.concat([by.get(x, none) for x in (y - 1, y, y + 1) if TITLE_SINCE <= x <= last])) for y in years]}
+
+    full = min(last, datetime.now().year - 1)            # the summary's last five years: full years only
+    windows = [[2000, 2004], [full - 4, full]]
+    def summary(rows):
+        return [stat(rows[(rows['year'] >= a) & (rows['year'] <= b)]) for a, b in windows]
+
+    flagship = {j[0]: band(j[2]) for j in journals if j[2] is not None and j[2] >= 0}
+    rev = t[t['ok'] & ~t['student'] & t['journal'].isin(flagship)].copy()
+    rev['band'] = rev['journal'].map(flagship)
+
+    school_band = [band(rank_number(s[2])) if s[1] else None for s in schools]      # US law schools only
+    pairs = set()
+    for pk, person in zip(credit_paper, credit_person):
+        for s in people[person][1]:
+            if school_band[s] is not None:
+                pairs.add((paper_keys[pk], school_band[s]))
+    fac = pd.DataFrame(sorted(pairs), columns=['paper_key', 'band'])
+    fac = fac.join(t[t['ok']], on='paper_key', how='inner')
+    out = {'years': years, 'bands': [b for b, _, _ in TITLE_BANDS], 'min_n': TITLE_MIN_N, 'windows': windows,
+           'columns': ['median characters', 'mean', 'titles', 'share with a subtitle'],
+           'counts': {'review_titles': int(len(rev)), 'school_titles': int(fac['paper_key'].nunique()),
+                      'measured': int(t['ok'].sum()), 'all': int(len(t)), 'left_out': int((~t['ok']).sum())}}
+    for name, rows in (('review', rev), ('school', fac)):
+        out[name] = {b: series(rows[rows['band'] == b]) for b, _, _ in TITLE_BANDS}
+        out[name + '_summary'] = {b: summary(rows[rows['band'] == b]) for b, _, _ in TITLE_BANDS}
+        out[name + '_summary']['all'] = summary(rows.drop_duplicates('paper_key') if name == 'school' else rows)
     return out
 
 
@@ -2148,6 +2269,21 @@ def build():
                 seen.add(key)
                 credit_paper.append(key[0])
                 credit_person.append(key[1])
+    # (2026-10-26, the audit of why the list differs from U.S. News) a student Note (HeinOnline ends its title with
+    # "Note" or "Notes") is not credited to a faculty member whose other credited work began 5 or more years before it:
+    # a namesake student wrote it (NYU's Liam B. Murphy was credited with a 2022 Vanderbilt Law Review note). "Comment"
+    # is left alone: some reviews' Comments are faculty pieces.
+    note = [bool(re.search(r'\bNotes?\s*$', str(first_rows.at[k, 'title']))) for k in paper_keys]
+    year_of = [int(first_rows.at[k, 'year']) for k in paper_keys]
+    first_year = {}
+    for pk, person in zip(credit_paper, credit_person):
+        if not note[pk]:
+            first_year[person] = min(first_year.get(person, 9999), year_of[pk])
+    keep = [not (note[pk] and first_year.get(person, 9999) <= year_of[pk] - 5) for pk, person in zip(credit_paper, credit_person)]
+    if not all(keep):
+        print(f'  {keep.count(False)} student notes not credited to faculty whose credited work began 5+ years earlier')
+        credit_paper = [x for x, k in zip(credit_paper, keep) if k]
+        credit_person = [x for x, k in zip(credit_person, keep) if k]
 
 
     p = first_rows.loc[paper_keys]
@@ -2269,6 +2405,7 @@ def build():
                            'default_top': DEFAULT_FLAGSHIP_TOP},
         'default_view': DEFAULT_VIEW,
         'years': {'min': int(min(data['papers']['year'])), 'max': int(max(data['papers']['year']))},
+        'default_to': default_to(data),
         'counts': {'papers': len(paper_keys), 'credits': len(credit_paper), 'faculty_with_papers': len(people),
                    'minor_papers': int(sum(1 for m in data['papers']['minor'] if m)),
                    'classified_papers': int(sum(1 for k in data['papers']['kind'] if k >= 0)),
@@ -2323,6 +2460,10 @@ def build():
     if os.path.isdir(os.path.join(OUT_DIR, 'titles')) and not os.listdir(os.path.join(OUT_DIR, 'titles')):
         os.rmdir(os.path.join(OUT_DIR, 'titles'))
     insights = coauthorship(papers, n_authors, is_short, journals)
+    insights['titles'] = title_lengths(papers, is_short, journals, paper_keys, credit_paper, credit_person, data['people'], data['schools'])
+    tc = insights['titles']['counts']
+    print(f"  insights: title length of {tc['measured']} of {tc['all']} titles since {TITLE_SINCE} ({tc['left_out']} left out: short, "
+          f"book reviews, or a heading glued on); {tc['review_titles']} in main law reviews, {tc['school_titles']} by current faculty")
     print(f"  insights: co-authorship of {insights['pieces']} pieces in {len(journals)} journals, "
           f"{insights['years'][0]}-{insights['years'][-1]} ({insights['panel']['journals']} journals publishing since {insights['panel']['since']})")
     core, details = split_for_site(data)

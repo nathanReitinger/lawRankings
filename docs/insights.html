@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Insights · Law School Rankings</title>
-  <meta name="description" content="Who publishes where, and with whom: law school faculty and the law reviews they publish in, and how co-authorship has grown.">
+  <meta name="description" content="Who publishes where, and with whom: law school faculty and the law reviews they publish in, how co-authorship has grown, and how long their titles run.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="data/data.json" as="fetch" crossorigin>
@@ -15,7 +15,7 @@
   <noscript><link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;0,700;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="insights.css">
-  <script>/* the masthead: one of twenty-five (style.css, [data-mast]): the visitor's favorite if they voted for one (masthead.js), else a new one on each visit and again after twenty minutes, in an order that moves between the families (minimal, glass, color, classic) */(function(){var F=["","EB+Garamond:wght@500","Cormorant+Garamond:wght@600","Crimson+Pro:wght@500","Libre+Caslon+Text","Playfair+Display+SC","Cinzel:wght@500","Zilla+Slab:wght@600","EB+Garamond:ital,wght@1,500","Source+Serif+4:wght@600","Montserrat:wght@200","Bodoni+Moda:ital,wght@1,500","IBM+Plex+Sans:wght@500","Archivo+Black","Cormorant:wght@300","Plus+Jakarta+Sans:wght@600","DM+Serif+Display","Sora:wght@500","Fraunces:ital,wght@1,600","Outfit:wght@500","Libre+Franklin:wght@700","Spectral:wght@500","Lora:wght@600","Cormorant+SC:wght@600","Roboto+Slab:wght@600"],O=[11,16,21,1,6,12,17,22,2,7,13,18,23,3,8,14,19,24,4,9,15,20,25,5,10],N=25,v,now=Date.now();try{var pin=+(localStorage.getItem('lsr.mastPin')||0);var s=JSON.parse(localStorage.getItem('lsr.mast4')||'null');if(pin>=1&&pin<=N){s={n:0,v:pin,t:now};}else if(!s||!sessionStorage.getItem('lsr.mastOn')||now-s.t>12e5){var n=s?s.n+1:Math.floor(Math.random()*N);s={n:n,v:O[n%N],t:now};localStorage.setItem('lsr.mast4',JSON.stringify(s));sessionStorage.setItem('lsr.mastOn','1');}v=s.v;}catch(e){v=O[Math.floor(Math.random()*N)];}var q=/[?&]mast=([1-9]|1[0-9]|2[0-5])\b/.exec(location.search);if(q)v=+q[1];document.documentElement.setAttribute('data-mast',v);window.LSR_MAST={fonts:F,n:N,v:v};if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
+  <script>/* the masthead: one of twenty-five (style.css, [data-mast]): the visitor's favorite if they voted for one (masthead.js), else a new one on each visit and again after twenty minutes, in an order that moves between the families (minimal, glass, color, classic) */(function(){var F=["","EB+Garamond:wght@500","Cormorant+Garamond:wght@600","Crimson+Pro:wght@500","Libre+Caslon+Text","Playfair+Display+SC","Cinzel:wght@500","Zilla+Slab:wght@600","EB+Garamond:ital,wght@1,500","Source+Serif+4:wght@600","Bebas+Neue","Playfair+Display:ital,wght@1,900","Space+Grotesk:wght@700","Archivo+Black","Gloock","Plus+Jakarta+Sans:wght@800","DM+Serif+Display","Sora:wght@700","Fraunces:ital,wght@1,900","Outfit:wght@700","Inter+Tight:wght@900","Big+Shoulders+Display:wght@800","Abril+Fatface","Playfair+Display+SC:wght@900","Bricolage+Grotesque:wght@800"],O=[11,16,21,1,6,12,17,22,2,7,13,18,23,3,8,14,19,24,4,9,15,20,25,5,10],N=25,v,now=Date.now();try{var pin=+(localStorage.getItem('lsr.mastPin')||0);var s=JSON.parse(localStorage.getItem('lsr.mast4')||'null');if(pin>=1&&pin<=N){s={n:0,v:pin,t:now};}else if(!s||!sessionStorage.getItem('lsr.mastOn')||now-s.t>12e5){var n=s?s.n+1:Math.floor(Math.random()*N);s={n:n,v:O[n%N],t:now};localStorage.setItem('lsr.mast4',JSON.stringify(s));sessionStorage.setItem('lsr.mastOn','1');}v=s.v;}catch(e){v=O[Math.floor(Math.random()*N)];}var q=/[?&]mast=([1-9]|1[0-9]|2[0-5])\b/.exec(location.search);if(q)v=+q[1];document.documentElement.setAttribute('data-mast',v);window.LSR_MAST={fonts:F,n:N,v:v};if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
 </head>
 <body class="ins">
 <div class="container">
@@ -35,11 +35,12 @@
   <div class="ins-hero">
     <p class="ins-kicker">Insights</p>
     <h2 class="ins-title">Who publishes where, and with whom</h2>
-    <p class="ins-dek">Two questions about legal scholarship, answered from the same HeinOnline metadata as the rankings: where faculty at each law school publish, and whether law professors write alone less often than they used to.</p>
+    <p class="ins-dek">Three questions about legal scholarship, answered from the same HeinOnline metadata as the rankings: where faculty at each law school publish, whether law professors write alone less often than they used to, and whether their titles are getting shorter.</p>
     <nav class="ins-toc" aria-label="Sections">
       <a href="#where"><span>1</span>Who publishes where</a>
       <a href="#coauthor"><span>2</span>Co-authorship over time</a>
-      <a href="#method"><span>3</span>How these are computed</a>
+      <a href="#titles"><span>3</span>Title length</a>
+      <a href="#method"><span>4</span>How these are computed</a>
     </nav>
   </div>
 
@@ -168,11 +169,43 @@
     </figure>
   </section>
 
-  <!-- ===================================================== 3. method -->
+  <!-- ===================================================== 3. title length -->
+  <section class="ins-section" id="titles" hidden>
+    <header class="ins-head">
+      <p class="ins-q">Question 3</p>
+      <h2>Are law review titles getting shorter?</h2>
+      <p class="ins-lede" id="tiLede"></p>
+    </header>
+
+    <div class="ins-tiles" id="tiTiles"></div>
+
+    <figure class="ins-card" id="figTitles">
+      <figcaption>
+        <h3 id="tiTitle">Median title length, in characters</h3>
+        <p id="tiNote"></p>
+      </figcaption>
+      <div class="ins-row">
+        <div class="ins-seg" id="tiBy" role="radiogroup" aria-label="Group the articles by">
+          <button type="button" data-by="review" aria-pressed="true">By the law review's rank</button>
+          <button type="button" data-by="school" aria-pressed="false">By the author's school's rank</button>
+        </div>
+        <div class="ins-seg" id="tiMeasure" role="radiogroup" aria-label="What to plot">
+          <button type="button" data-m="0" aria-pressed="true">Median length</button>
+          <button type="button" data-m="3" aria-pressed="false">With a subtitle</button>
+        </div>
+      </div>
+      <div class="ins-legend" id="tiLegend"></div>
+      <div class="ins-chart" id="tiChart"></div>
+      <details class="ins-table"><summary>The numbers, by year</summary><div id="tiTable"></div></details>
+    </figure>
+  </section>
+
+  <!-- ===================================================== 4. method -->
   <section class="ins-section prose ins-method" id="method" hidden>
     <h2>How these are computed</h2>
     <p><b>Who publishes where</b> uses the rankings' own data. "Who publishes in a journal" shows every institution on the faculty lists (courts and non-US schools included); the rest of question 1 uses the articles of current faculty at U.S. law schools, credited to the school where each author teaches now. Article counts and the shares in the tiles and the row view count each article once (an article with authors from two groups of schools counts once in each group); the column view and the lines count it once for each school with an author on it. Flagship law reviews (each school's main law review) are placed by their school's rank, under the ranking chosen above (<i>U.S. News</i> overall, or its peer-reputation score via TaxProf Blog); schools tied at a rank sit together, and schools listed in a range ("175–194") at its top. "Online editions &amp; other general journals" are the general journals that are not a school's main review; specialty journals are the rest (including two general journals that W&amp;L also lists under a subject, the <i>Journal of Legal Analysis</i> and the <i>University of Chicago Legal Forum</i>, here and in question 2).</p>
     <p><b>Co-authorship</b> counts every piece in every journal collected here (<span id="mPieces"></span> pieces), not only those by current faculty, so the trend is not an artifact of who teaches today. A piece's authors are the names HeinOnline lists for it. "Research articles only" leaves out short pieces (under 10 pages by HeinOnline's page numbers, or a memorial under 20; where the length is not known, the short-piece classifier described on the <a href="faq.html#short">About page</a> decides). "Same journals throughout" keeps only the <span id="mPanel"></span> journals with articles in every five years since 1980, so a rise is not just newer journals joining. The latest year is partial until its volumes are complete.</p>
+    <p><b>Title length</b> counts the characters of research-article titles from 1980 on, subtitle included. HeinOnline glues a section heading onto many titles with no separator ("&hellip; Note", "&hellip; Symposium: Law and the Internet"), so a title is measured only when that heading can be taken off for certain: the labels HeinOnline uses for sections (Note, Comment, Essay, Article, Symposium, Foreword, Recent Developments and the like) are removed, and a title whose last words also end two or more other titles in the same volume (a symposium's or a survey's heading) is left out rather than cut at a guess. Short pieces and book reviews (the title is the book's) are left out too, and by the law review's rank, so are pieces HeinOnline labels as student work (Note, Comment, Casenote, Recent Case). By the law review's rank counts every such article in each school's main law review, whoever wrote it; by the author's school counts the articles of current faculty in every journal collected here, under the school where each author teaches now. Groups are by U.S. News overall rank; each point on the chart pools a year with the years either side, and the table gives single years.</p>
     <p>The numbers behind every chart are in <code>data/data.json</code> and <code>data/insights.json</code> on <a href="https://github.com/nathanReitinger/lawRankings/tree/main/docs/data">GitHub</a>. The charts are drawn with Highcharts and d3.</p>
   </section>
 

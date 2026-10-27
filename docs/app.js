@@ -52,8 +52,10 @@
   ////////////////////////////////////////////// state: URL hash > localStorage > defaults
 
   function defaultState() {
-    const to = Math.min(new Date().getFullYear(), META.years.max);
-    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: to - 10, to: to, region: 'us', minor: false, src: 'usnews', host: 'any' };
+    // (2026-10-26, from the audit of why the list differs from U.S. News) ten year labels ending at the build's
+    // default_to, the latest well-collected year, not at the visitor's clock (eleven labels before)
+    const to = META.default_to || Math.min(new Date().getFullYear(), META.years.max);
+    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: to - 9, to: to, region: 'us', minor: false, src: 'usnews', host: 'any' };
   }
 
   function clampYear(y, fallback) {
@@ -246,8 +248,8 @@
     DATA.groups.forEach((g, gi) => {
       const subs = groupSubjects[g] || [];
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td><span class="hovertip" data-group-toggle="' + gi + '" title="Show/hide fields">&#9658;</span> <label for="grp' + gi + '">' + esc(g) + '</label>' +
-        '<div class="sub-list" id="grpList' + gi + '" hidden><p>fields (open one to see its journals)</p><table><tbody>' +
+      tr.innerHTML = '<td><span class="hovertip" data-group-toggle="' + gi + '" title="Show/hide groups">&#9658;</span> <label for="grp' + gi + '">' + esc(g) + '</label>' +
+        '<div class="sub-list" id="grpList' + gi + '" hidden><p>groups (open one to see its journals)</p><table><tbody>' +
         subs.map((s, si) => '<tr><td><span class="hovertip" data-field-toggle="' + gi + '_' + si + '" title="Show/hide journals">&#9658;</span> ' +
           '<label for="sub' + gi + '_' + si + '">' + esc(s) + '</label> <small class="text-muted">(' + fieldJournalIds(s).length + ')</small>' +
           '<div class="sub-list" id="fieldList' + gi + '_' + si + '" data-field="' + esc(s) + '" hidden></div></td>' +
@@ -598,7 +600,7 @@
       '</ul></li>').join('');
     return '<div class="works"><div class="bars-title">What they work on, from specialty journals (' + state.from + '–' + state.to + ')</div>' + tagLine +
       '<p class="works-lede">' + (state.minor ? '' : '<span class="text-muted">Short pieces included. </span>') + who + ': ' + specialty + ' specialty-journal article' +
-      (specialty === 1 ? '' : 's') + (flagship ? ', besides ' + flagship + ' in flagship law reviews' : '') + '. Each journal sits in one field, each field in one area.</p>' +
+      (specialty === 1 ? '' : 's') + (flagship ? ', besides ' + flagship + ' in flagship law reviews' : '') + '. Each journal sits in one group, each group in one higher-level group.</p>' +
       '<ul class="works-list works-tree">' + tree + '</ul></div>';
   }
 

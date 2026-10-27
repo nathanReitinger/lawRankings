@@ -33,8 +33,9 @@
 
   let DATA, META, INS;
   const st = { from: 0, to: 0, src: 'usnews', skipShort: true, band: 0, school: null, journal: null, matrix: 'row',
-               measure: '2', articles: true, panel: false };
+               measure: '2', articles: true, panel: false, tiBy: 'review', tiM: 0 };
   let W1 = null;   // question 1's aggregates for the current filters
+  let tiDone = false;   // question 3 drawn (lazily)
 
   ////////////////////////////////////////////////////////////////////////// tooltip (hover, focus and tap)
 
@@ -1177,6 +1178,140 @@
     });
   }
 
+  ////////////////////////////////////////////////////////////////////////// question 3: title length (insights.json 'titles')
+
+  // (2026-10-26, the owner: "add analysis on title character length over time. break it out per law review rank and
+  // school rank") the bands' colors: the reference categorical order (blue, orange, aqua, yellow, magenta), which passes
+  // the adjacent-pair color-vision checks on white; three sit under 3:1, so every line carries a direct label and the
+  // numbers are in the table
+  const TI_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
+  const tiShort = (b) => (b === '101 & below, unranked' ? '101+' : b);
+  const tiFmt = (m) => (m === 3 ? (v) => Math.round(100 * v) + '%' : (v) => String(Math.round(v)));
+  const tiSpan = (w) => w[0] + '–' + String(w[1]).slice(2);
+
+  function renderTitlesText() {
+    const T = INS.titles, [w0, w1] = T.windows;
+    const R = T.review_summary, S = T.school_summary;
+    const low = T.bands[T.bands.length - 1];
+    const val = (s, k, c) => (s[k] && s[k][c] && s[k][c][0] != null ? s[k][c] : null);
+    const t = $('tiTiles');
+    t.replaceChildren();
+    const tile = (a, b, l, f) => {
+      if (a == null || b == null) return;
+      const d = el('div', { class: 'ins-tile' });
+      const v = el('div', { class: 'v' });
+      v.append(f(a));
+      v.appendChild(el('span', { class: 'arrow' }, '→'));
+      v.append(f(b));
+      d.appendChild(v);
+      d.appendChild(el('div', { class: 'l' }, l));
+      t.appendChild(d);
+    };
+    const span = tiSpan(w0) + ' → ' + tiSpan(w1);
+    const chars = (x) => String(Math.round(x));
+    tile(R['Top 14'][0] && R['Top 14'][0][0], R['Top 14'][1] && R['Top 14'][1][0], 'characters in the median title, Top 14 law reviews (' + span + ')', chars);
+    tile(R[low][0] && R[low][0][0], R[low][1] && R[low][1][0], 'in reviews ranked 101 and below, or unranked', chars);
+    tile(R['Top 14'][0] && R['Top 14'][0][3], R['Top 14'][1] && R['Top 14'][1][3], 'of Top 14 review titles had a subtitle (a colon)', pct);
+    const a = val(R, 'Top 14', 0), b = val(R, 'Top 14', 1), c = val(R, low, 0), d = val(R, low, 1);
+    const fa = val(S, 'Top 14', 0), fb = val(S, 'Top 14', 1), fc = val(S, low, 0), fd = val(S, low, 1);
+    const lede = $('tiLede');
+    lede.replaceChildren();
+    if (!a || !b || !c || !d) return;
+    const drop = (b[0] - a[0]) / a[0], dropLow = (d[0] - c[0]) / c[0];
+    lede.append(drop <= -0.15 && dropLow > -0.1 ? 'At the top, yes. ' : drop <= -0.15 ? 'Yes. ' : 'Not much. ');
+    lede.append('The median research-article title in the Top 14 law reviews ran ');
+    lede.appendChild(el('b', null, Math.round(a[0]) + ' characters'));
+    lede.append(' in ' + w0[0] + '–' + w0[1] + ' and ');
+    lede.appendChild(el('b', null, String(Math.round(b[0]))));
+    lede.append(' in ' + w1[0] + '–' + w1[1] + '; in reviews ranked 101 and below, or unranked, ' + Math.round(c[0]) + ' and ' + Math.round(d[0]) + '.');
+    if (fa && fb && fc && fd) {
+      lede.append(' By the author\'s school, titles by current faculty at Top 14 schools went from ' + Math.round(fa[0]) + ' to ' + Math.round(fb[0]) +
+        ' characters, and at schools ranked 101 and below from ' + Math.round(fc[0]) + ' to ' + Math.round(fd[0]) + '.');
+    }
+  }
+
+  function renderTitlesChart() {
+    const T = INS.titles;
+    const box = $('tiChart');
+    const W = box.clientWidth;
+    const wide = W >= 700;
+    const H = wide ? 380 : 300;
+    const m = { l: 44, r: wide ? 120 : 52, t: 12, b: 30 };
+    const by = st.tiBy, mi = st.tiM, fmt = tiFmt(mi);
+    const first = T.years[0], last = T.years[T.years.length - 1];
+    $('tiTitle').textContent = mi === 3 ? 'Share of titles with a subtitle (a colon)' : 'Median title length, in characters';
+    $('tiNote').textContent = by === 'review'
+      ? 'Research articles in each school\'s main law review, grouped by the U.S. News rank of the school that publishes it, whoever wrote them (student notes and comments left out). Each point pools the year with the years either side.'
+      : 'Research articles by current faculty in any journal collected here, grouped by the U.S. News rank of the author\'s school (an article by authors in two groups counts in both). Each point pools the year with the years either side.';
+    const series = T.bands.map((b, k) => ({ b: b, k: k, pts: T[by][b].p.map((r, i) => (r ? { y: T.years[i], v: r[mi], n: r[2] } : null)).filter(Boolean) }));
+    const all = series.flatMap((s) => s.pts.map((d) => d.v));
+    const x = d3.scaleLinear().domain([first, last]).range([m.l, W - m.r]);
+    const y = (mi === 3 ? d3.scaleLinear().domain([0, Math.max(0.1, d3.max(all) || 1)]) : d3.scaleLinear().domain([Math.max(0, (d3.min(all) || 0) - 5), (d3.max(all) || 100) + 5]))
+      .nice().range([H - m.b, m.t]);
+    const lg = $('tiLegend');
+    lg.replaceChildren();
+    series.forEach((s) => { const e = el('span'); const i = el('i'); i.style.background = TI_COLORS[s.k]; e.appendChild(i); e.append(s.b); lg.appendChild(e); });
+    box.replaceChildren();
+    const svg = d3.select(box).append('svg').attr('width', W).attr('height', H).attr('viewBox', [0, 0, W, H].join(' '))
+      .attr('role', 'img').attr('aria-label', $('tiTitle').textContent + ', by year, by ' + (by === 'review' ? 'the law review\'s rank' : 'the author\'s school\'s rank'));
+    svg.append('g').attr('transform', 'translate(0,' + (H - m.b) + ')').call(d3.axisBottom(x).ticks(wide ? 8 : 4).tickFormat(d3.format('d')).tickSizeOuter(0))
+      .call((g) => g.select('.domain').attr('stroke', css('--axis'))).call((g) => g.selectAll('.tick line').attr('stroke', css('--axis')));
+    svg.append('g').attr('transform', 'translate(' + m.l + ',0)').call(d3.axisLeft(y).ticks(5).tickFormat(fmt).tickSize(-(W - m.l - m.r)).tickPadding(6))
+      .call((g) => g.select('.domain').remove());
+    const line = d3.line().x((d) => x(d.y)).y((d) => y(d.v)).curve(d3.curveMonotoneX);
+    series.forEach((s) => {
+      svg.append('path').datum(s.pts).attr('d', line).attr('fill', 'none').attr('stroke', TI_COLORS[s.k]).attr('stroke-width', 2)
+        .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
+    });
+    const ends = series.filter((s) => s.pts.length).map((s) => ({ k: s.k, b: s.b, d: s.pts[s.pts.length - 1] }));
+    ends.forEach((e) => svg.append('circle').attr('cx', x(e.d.y)).attr('cy', y(e.d.v)).attr('r', 4).attr('fill', TI_COLORS[e.k]).attr('stroke', '#fff').attr('stroke-width', 2));
+    placeLabels(ends.map((e) => ({ y: y(e.d.v), text: (wide ? tiShort(e.b) + ' ' : '') + fmt(e.d.v) })), m.t, H - m.b)
+      .forEach((l) => svg.append('text').attr('class', 'direct').attr('x', W - m.r + 8).attr('y', l.y).attr('dy', '0.32em').text(l.text));
+    // crosshair: snaps to the nearest year, one readout for every band
+    const cross = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).attr('stroke', css('--ink-2')).attr('stroke-opacity', 0.5).style('display', 'none');
+    const dots = series.map((s) => svg.append('circle').attr('r', 4.5).attr('fill', TI_COLORS[s.k]).attr('stroke', '#fff').attr('stroke-width', 2).style('display', 'none'));
+    const move = (evt) => {
+      const [px] = d3.pointer(evt, svg.node());
+      const yr = Math.max(first, Math.min(last, Math.round(x.invert(px))));
+      cross.style('display', null).attr('x1', x(yr)).attr('x2', x(yr));
+      series.forEach((s, k) => { const d = s.pts.find((p) => p.y === yr); dots[k].style('display', d ? null : 'none'); if (d) dots[k].attr('cx', x(yr)).attr('cy', y(d.v)); });
+      showTip(evt, (t) => {
+        t.appendChild(el('div', { class: 'tt' }, yr + ' (' + Math.max(first, yr - 1) + '–' + String(Math.min(last, yr + 1)).slice(2) + ')'));
+        series.slice().sort((p, q) => { const a = p.pts.find((d) => d.y === yr), b = q.pts.find((d) => d.y === yr); return (b ? b.v : -1) - (a ? a.v : -1); })
+          .forEach((s) => { const d = s.pts.find((p) => p.y === yr); if (d) tipLine(t, s.b, fmt(d.v) + (mi === 3 ? '' : ' chars') + ' · ' + num(d.n) + ' titles', TI_COLORS[s.k]); });
+      });
+    };
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b).attr('fill', 'transparent')
+      .on('pointermove', move).on('pointerdown', move)
+      .on('pointerleave', () => { cross.style('display', 'none'); dots.forEach((d) => d.style('display', 'none')); hideTip(); });
+
+    // the table behind the chart: single years, not pooled
+    const tbl = el('table');
+    const hr = el('tr');
+    hr.appendChild(el('th', null, 'Year'));
+    T.bands.forEach((b) => hr.appendChild(el('th', null, tiShort(b))));
+    tbl.appendChild(el('thead')).appendChild(hr);
+    const tb = el('tbody');
+    T.years.slice().reverse().forEach((yr) => {
+      const i = T.years.indexOf(yr);
+      const tr = el('tr');
+      tr.appendChild(el('td', null, String(yr)));
+      T.bands.forEach((b) => {
+        const r = T[by][b].y[i];
+        const td = el('td', null, r ? fmt(r[mi]) : '–');
+        if (r) { td.appendChild(el('span', { class: 'text-muted' }, ' · ' + num(r[2]))); td.title = num(r[2]) + ' titles'; }
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+    $('tiTable').replaceChildren(el('p', { class: 'text-muted' }, 'Single years (not pooled); after each value, the number of titles. A dash: fewer than ' + T.min_n + ' titles.'), tbl);
+  }
+  function renderTitles() {
+    renderTitlesText();
+    renderTitlesChart();
+  }
+
   ////////////////////////////////////////////////////////////////////////// controls
 
   // (2026-10-25, the owner: "add in a spinner for crunching numbers") the years, rank source or short-piece switch
@@ -1271,6 +1406,13 @@
       document.querySelectorAll('#trendMeasure button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
       renderTrend();
     }));
+    [['tiBy', 'by', (v) => { st.tiBy = v; }], ['tiMeasure', 'm', (v) => { st.tiM = +v; }]].forEach(([id, key, set]) => {
+      document.querySelectorAll('#' + id + ' button').forEach((b) => b.addEventListener('click', () => {
+        set(b.dataset[key]);
+        document.querySelectorAll('#' + id + ' button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        renderTitlesChart();
+      }));
+    });
     $('cArticles').addEventListener('change', () => { st.articles = $('cArticles').checked; renderCo(); });
     $('cPanel').addEventListener('change', () => { st.panel = $('cPanel').checked; renderCo(); });
 
@@ -1283,7 +1425,7 @@
       if (Math.abs(w - lastW) < 2) return;
       lastW = w;
       clearTimeout(timer);
-      timer = setTimeout(() => { hideTip(); renderJournal(); renderNetwork(); renderMatrix(); renderScatter(); renderTrend(); renderTeams(); renderViolin(); }, 120);
+      timer = setTimeout(() => { hideTip(); renderJournal(); renderNetwork(); renderMatrix(); renderScatter(); renderTrend(); renderTeams(); renderViolin(); if (tiDone) renderTitlesChart(); }, 120);
     }).observe(document.body);
     document.addEventListener('pointerdown', (e) => { if (!e.target.closest('svg, .ins-matrix')) hideTip(); });
   }
@@ -1300,16 +1442,21 @@
     document.querySelectorAll('.ins-section').forEach((s) => { s.hidden = false; });
     setup();
     renderWhere();
-    // (2026-10-26, the owner: "use lazy loading") the co-authorship section is computed when it comes into view
-    // (or a few seconds after the first section is up, whichever comes first)
-    const co = document.getElementById('coauthor');
-    let coDone = false;
-    const drawCo = () => { if (!coDone) { coDone = true; renderCo(); } };
-    if (co && 'IntersectionObserver' in window) {
-      const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); drawCo(); } }, { rootMargin: '400px 0px' });
-      io.observe(co);
-      setTimeout(() => { io.disconnect(); drawCo(); }, 2500);
-    } else drawCo();
+    // (2026-10-26, the owner: "use lazy loading") the co-authorship and title sections are computed when they come
+    // into view (or a few seconds after the first section is up, whichever comes first)
+    const lazy = (id, draw, wait) => {
+      const sec = document.getElementById(id);
+      let done = false;
+      const go = () => { if (!done) { done = true; draw(); } };
+      if (sec && 'IntersectionObserver' in window) {
+        const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); go(); } }, { rootMargin: '400px 0px' });
+        io.observe(sec);
+        setTimeout(() => { io.disconnect(); go(); }, wait);
+      } else go();
+    };
+    lazy('coauthor', renderCo, 2500);
+    if (INS.titles) lazy('titles', () => { tiDone = true; renderTitles(); }, 3500);
+    else $('titles').remove();
     LSR.people(DATA).then(() => { if (jn.journal != null) renderJournal(); });   // authors' faculty pages in the journal view
     if (LSR.crunch) LSR.crunch.hide();
     if (location.hash) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }

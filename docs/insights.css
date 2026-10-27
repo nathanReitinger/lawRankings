@@ -251,3 +251,7 @@
 .tx-srcs summary { cursor: pointer; color: var(--muted); }
 .tx-srcs ul { margin: 4px 0 0; padding-left: 1.2em; columns: 2 300px; column-gap: 24px; }
 .tx-srcs li { break-inside: avoid; padding: 1px 0; }
+.tx-groups-box { margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 8px; }
+.tx-groups { margin: 4px 0 0; font-size: 13.5px; }
+.tx-groups dt { margin-top: 8px; }
+.tx-groups dd { margin: 2px 0 0 0; line-height: 1.45; color: var(--ink-2); }
