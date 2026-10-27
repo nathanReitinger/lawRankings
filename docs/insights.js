@@ -1234,6 +1234,7 @@
     const T = INS.titles;
     const box = $('tiChart');
     const W = box.clientWidth;
+    if (W < 160) return;          // not laid out yet (a hidden tab): the ResizeObserver draws it once it has a width
     const wide = W >= 700;
     const H = wide ? 380 : 300;
     const m = { l: 44, r: wide ? 120 : 84, t: 12, b: 30 };
