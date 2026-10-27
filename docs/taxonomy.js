@@ -134,7 +134,7 @@
       chart: { height: Math.max(220, rows * (narrow ? 20 : 22) + 40), backgroundColor: 'transparent', spacing: [8, 4, 8, 4],
         marginLeft: narrow ? 6 : 16, marginRight: narrow ? 150 : 360, style: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' } },
       title: { text: null }, credits: { enabled: false }, exporting: { enabled: false },
-      accessibility: { enabled: true, description: a.n + ': its fields and every specialty journal in them. The table below lists the same journals with what each placement rests on.' },
+      accessibility: { enabled: true, description: a.n + ': its groups and every specialty journal in them. The table below lists the same journals with what each placement rests on.' },
       tooltip: { useHTML: true, outside: false, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)', borderRadius: 8,
         shadow: { opacity: 0.08 }, style: { fontSize: '12.5px', color: '#52514e' }, formatter() { return tip(this.point || this); } },
       series: [{
@@ -170,7 +170,7 @@
     const box = $('txBucket');
     box.replaceChildren();
     const [n, top] = a.b || [0, []];
-    if (!n) { box.appendChild(el('p', { class: 'tx-none' }, 'No one is placed in this group: its journals have no subject focus.')); return; }
+    if (!n) { box.appendChild(el('p', { class: 'tx-none' }, 'No one is placed in this higher-level group: its journals have no subject focus.')); return; }
     box.appendChild(el('p', { class: 'tx-label' }, num(n) + ' current faculty in this bucket: everyone with an article in these journals. Most articles:'));
     const ol = el('ol', { class: 'tx-bucket' });
     top.forEach(([name, schools, home, k]) => {
@@ -268,7 +268,7 @@
     }, 150);
   }
 
-  if (window.LSR.crunch) window.LSR.crunch.show('Loading the categories');
+  if (window.LSR.crunch) window.LSR.crunch.show('Loading the subject areas');
   Promise.all(['data/taxonomy.json', 'data/meta.json'].map((u) => fetch(u).then((r) => {   // (2026-10-26) a plain fetch, so the <head>'s preload is used
     if (!r.ok) throw new Error(u + ': ' + r.status);
     return r.json();
@@ -293,6 +293,6 @@
     if (window.LSR.crunch) window.LSR.crunch.hide();
   }).catch((e) => {
     if (window.LSR.crunch) window.LSR.crunch.hide(0);
-    $('loading').textContent = 'The categories could not be loaded (' + e.message + '). Try reloading the page.';
+    $('loading').textContent = 'The subject areas could not be loaded (' + e.message + '). Try reloading the page.';
   });
 })();

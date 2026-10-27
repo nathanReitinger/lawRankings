@@ -24,7 +24,7 @@ import io
 import subprocess
 import time
 import unicodedata
-from collections import defaultdict
+from collections import Counter, defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, unquote, quote
@@ -86,7 +86,7 @@ AREA_ORDER = ['Constitutional & Public Law', 'Courts, Litigation & Dispute Resol
               'Civil Rights, Equality & Family', 'Labor & Employment', 'Legal Profession & Education',
               'Legal Theory, Humanities & Society', 'Interdisciplinary Methods', 'General & Policy Journals']
 DEFAULT_FLAGSHIP_TOP = 25     # the site's default view: main law reviews of the US News top 25 (tiers 1-3 and 4-25)
-DEFAULT_VIEW = f'flagship law reviews of the US News top {DEFAULT_FLAGSHIP_TOP} schools, last ten years, US law schools'
+DEFAULT_VIEW = f'flagship law reviews of the US News top {DEFAULT_FLAGSHIP_TOP} schools, the ten years ending at the latest well-collected year, US law schools'
 
 
 # Short pieces (the owner, 2026-10-23: a real classifier, not title rules; 2026-10-25: a trained model with stratified
@@ -1578,8 +1578,9 @@ def write_missing_homepages(roster, info, home_of, school_csv, csv_schools, with
 def default_to(data):
     '''(2026-10-26, the audit of why the list differs from U.S. News: "the default end year follows the visitor's clock",
     and one 2027-dated paper would make 2017-2027 the default on New Year's Day) the default window's last year: the
-    latest year whose credited articles in the default journals are at least 75% of the five years before it (2026 is
-    85% today), never later than this year'''
+    latest year whose credits in the default journals (one per current-faculty author per paper, short pieces
+    included) are at least 75% of their mean over the five years before it (2026 is about 90% today), never later than
+    this year'''
     journals = {i for i, j in enumerate(data['journals']) if j[2] and 1 <= j[2] <= DEFAULT_FLAGSHIP_TOP}
     per = defaultdict(int)
     P = data['papers']
@@ -1700,7 +1701,7 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         return [len(ps), sum(1 for pk in ps if paper_year[pk] >= 2016), len(fs)]
     in_field = defaultdict(list)            # field id -> its specialty journals, best W&L score first
     for ji, j in enumerate(journals):
-        if j[3] and j[2] is None:
+        if j[3]:      # (review) also the two General journals W&L lists under a subject: all 231 in the tree
             in_field[j[3][0][0]].append(ji)
     score = lambda ji: journals[ji][3][0][2] if journals[ji][3][0][2] is not None else -1
     areas, counted = [], []         # counted: every journal in the tree
@@ -1851,8 +1852,9 @@ TITLE_LABEL = re.compile(
     r'(?:\s+(?:Student\s+)?(?:Notes?|Comments?|Casenotes?|Case\s+(?:Notes?|Comments?)|Recent\s+(?:Cases?|Developments?|Decisions?)|'
     r'Essays?|Articles?|Book\s+(?:Reviews?|Notes?)|Symposium|Foreword|Commentary|Commentaries|Lectures?|Tribute|'
     r'Notes\s+(?:and|&)\s+Comments|Articles\s+(?:and|&)\s+Essays|Annual\s+Survey|Current\s+Developments?(?:\s+\d{4}(?:-\d{2,4})?)?))+\s*$')
-STUDENT_LABEL = re.compile(r'\b(?:Notes?|Comments?|Casenotes?|Case\s+(?:Notes?|Comments?)|Recent\s+(?:Cases?|Decisions?))\b')
+STUDENT_LABEL = re.compile(r'\b(?:Notes?|Comments?|Casenotes?|Case\s+(?:Notes?|Comments?)|Recent\s+(?:Cases?|Decisions?)|Student\s+\w+)\b')
 BOOK_LABEL = re.compile(r'\bBook\s+(?:Reviews?|Notes?)\s*$')
+BOOK_SURVEY = re.compile(r'\bSurvey of Books Relat(?:ing|ed) to the Law\b')
 
 
 def title_lengths(papers, is_short, journals, paper_keys, credit_paper, credit_person, people, schools):
@@ -1864,26 +1866,38 @@ def title_lengths(papers, is_short, journals, paper_keys, credit_paper, credit_p
 
     HeinOnline glues section headings onto titles with no separator ("... Note", "... Symposium: Law and the
     Internet"), so a title is measured only when its heading can be taken off for certain: the labels in TITLE_LABEL
-    are removed, and a title whose last 2-8 words end two or more other titles of the same volume (a symposium's or a
-    survey's heading) is left out rather than cut at a guess. Also left out: short pieces (as on the rankings page),
-    book reviews (the book's title), and in (1) the pieces labelled as student work (Note, Comment, Casenote, Recent
-    Case). Each point: [median characters, mean, titles, share with a subtitle (a colon)], or None under TITLE_MIN_N
-    titles; per band 'y' (each year, the table) and 'p' (the year and the years either side pooled, the chart's line);
-    *_summary: 2000-2004 and the last five full years, per band and for all bands together.'''
+    are removed, and a title is left out rather than cut at a guess when its last 2-8 words end two or more other
+    titles of the same volume, or any five words in a row of it appear in two or more other titles of the volume (a
+    symposium's, a survey's or a panel's heading, wherever it sits). Also left out: short pieces (as on the rankings
+    page), book reviews (the book's title; also the Michigan Law Review's "Survey of Books Relating to the Law"), and
+    in (1) the pieces labelled as student work (Note, Comment, Casenote, Recent Case, Student ...). Each point:
+    [median characters, mean, titles, share with a subtitle (a colon)], or None under TITLE_MIN_N titles; per band
+    'y' (each year, the table) and 'p' (the year and the years either side pooled, the chart's line); *_summary:
+    2000-2004 and the last five full years, per band and for all bands together. (review, 2026-10-27) Because the
+    left-out pieces are many and differ by band and era, the output also says how many the heading rule left out
+    (*_left_out) and what the summaries would be with each glued heading cut off at the longest ending it shares
+    instead (*_summary_cut, a check only: the cut is a guess that is right about five times in six).'''
     t = papers.drop_duplicates('paper_key').set_index('paper_key')[['journal', 'volume_key', 'title', 'year']]
     t['title'] = t['title'].astype(str).str.strip()
-    stripped = t['title'].map(lambda s: TITLE_LABEL.sub('', s).rstrip(' -:;,'))
-    ends = defaultdict(lambda: defaultdict(set))          # (journal, volume) -> last-n-words -> titles ending so
-    for k, j, v, s in zip(t.index, t['journal'], t['volume_key'], stripped):
-        w = s.split()
-        for n in range(2, min(8, len(w) - 2) + 1):
-            ends[(j, v)][' '.join(w[-n:])].add(s)
-    def glued(j, v, s):
-        w, e = s.split(), ends[(j, v)]
-        return any(len(e.get(' '.join(w[-n:]), ())) >= 3 for n in range(2, min(8, len(w) - 2) + 1))
-    t['clean'] = stripped
-    t['ok'] = [not glued(j, v, s) and not BOOK_LABEL.search(raw) and not is_short(k) and len(s) > 0
-               for k, j, v, s, raw in zip(t.index, t['journal'], t['volume_key'], stripped, t['title'])]
+    t['clean'] = t['title'].map(lambda s: TITLE_LABEL.sub('', s).rstrip(' -:;,'))
+    glued, cut = set(), {}
+    for _, g in t.groupby(['journal', 'volume_key'], sort=False):
+        ends, runs = Counter(), Counter()
+        for s in set(g['clean']):
+            w = s.split()
+            ends.update({' '.join(w[-n:]) for n in range(2, min(8, len(w) - 2) + 1)})
+            runs.update({' '.join(w[i:i + 5]) for i in range(len(w) - 4)})
+        for k, s in zip(g.index, g['clean']):
+            w = s.split()
+            end = next((n for n in range(min(8, len(w) - 2), 1, -1) if ends[' '.join(w[-n:])] >= 3), 0)
+            if end or any(runs[' '.join(w[i:i + 5])] >= 3 for i in range(len(w) - 4)):
+                glued.add(k)
+                if end:
+                    cut[k] = ' '.join(w[:-end]).rstrip(' -:;,')
+    t['eligible'] = [not BOOK_LABEL.search(raw) and not BOOK_SURVEY.search(raw) and not is_short(k) and len(s) > 0
+                     for k, s, raw in zip(t.index, t['clean'], t['title'])]
+    t['glued'] = t.index.isin(glued)
+    t['ok'] = t['eligible'] & ~t['glued']
     t['student'] = [bool(m and STUDENT_LABEL.search(m.group(0))) for m in map(TITLE_LABEL.search, t['title'])]
     t['chars'] = t['clean'].str.len()
     t['colon'] = t['clean'].str.contains(':', regex=False)
@@ -1909,12 +1923,20 @@ def title_lengths(papers, is_short, journals, paper_keys, credit_paper, credit_p
 
     full = min(last, datetime.now().year - 1)            # the summary's last five years: full years only
     windows = [[2000, 2004], [full - 4, full]]
+    within = lambda rows, w: rows[(rows['year'] >= w[0]) & (rows['year'] <= w[1])]
     def summary(rows):
-        return [stat(rows[(rows['year'] >= a) & (rows['year'] <= b)]) for a, b in windows]
+        return [stat(within(rows, w)) for w in windows]
+    def left_out(rows):                                  # of the eligible pieces, the share the heading rule left out
+        return [round(float(within(rows, w)['glued'].mean()), 3) if len(within(rows, w)) else None for w in windows]
+    def summary_cut(rows):                               # the check: glued headings cut off instead of left out
+        r = rows[~rows['glued'] | rows.index.isin(cut)].copy()
+        r['chars'] = [len(cut[k]) if k in cut else c for k, c in zip(r.index, r['chars'])]
+        r['colon'] = [(':' in cut[k]) if k in cut else c for k, c in zip(r.index, r['colon'])]
+        return summary(r)
 
     flagship = {j[0]: band(j[2]) for j in journals if j[2] is not None and j[2] >= 0}
-    rev = t[t['ok'] & ~t['student'] & t['journal'].isin(flagship)].copy()
-    rev['band'] = rev['journal'].map(flagship)
+    rev_all = t[t['eligible'] & ~t['student'] & t['journal'].isin(flagship)].copy()
+    rev_all['band'] = rev_all['journal'].map(flagship)
 
     school_band = [band(rank_number(s[2])) if s[1] else None for s in schools]      # US law schools only
     pairs = set()
@@ -1922,16 +1944,20 @@ def title_lengths(papers, is_short, journals, paper_keys, credit_paper, credit_p
         for s in people[person][1]:
             if school_band[s] is not None:
                 pairs.add((paper_keys[pk], school_band[s]))
-    fac = pd.DataFrame(sorted(pairs), columns=['paper_key', 'band'])
-    fac = fac.join(t[t['ok']], on='paper_key', how='inner')
+    fac_all = pd.DataFrame(sorted(pairs), columns=['paper_key', 'band'])
+    fac_all = fac_all.join(t[t['eligible']], on='paper_key', how='inner').set_index('paper_key', drop=False)
+    rev, fac = rev_all[~rev_all['glued']], fac_all[~fac_all['glued']]
     out = {'years': years, 'bands': [b for b, _, _ in TITLE_BANDS], 'min_n': TITLE_MIN_N, 'windows': windows,
            'columns': ['median characters', 'mean', 'titles', 'share with a subtitle'],
            'counts': {'review_titles': int(len(rev)), 'school_titles': int(fac['paper_key'].nunique()),
-                      'measured': int(t['ok'].sum()), 'all': int(len(t)), 'left_out': int((~t['ok']).sum())}}
-    for name, rows in (('review', rev), ('school', fac)):
+                      'measured': int(t['ok'].sum()), 'all': int(len(t)), 'left_out': int((~t['ok']).sum()),
+                      'glued': int(t['glued'].sum())}}
+    for name, rows, every in (('review', rev, rev_all), ('school', fac, fac_all)):
+        once = (lambda r: r.drop_duplicates('paper_key')) if name == 'school' else (lambda r: r)
         out[name] = {b: series(rows[rows['band'] == b]) for b, _, _ in TITLE_BANDS}
-        out[name + '_summary'] = {b: summary(rows[rows['band'] == b]) for b, _, _ in TITLE_BANDS}
-        out[name + '_summary']['all'] = summary(rows.drop_duplicates('paper_key') if name == 'school' else rows)
+        for suffix, f, src in (('_summary', summary, rows), ('_left_out', left_out, every), ('_summary_cut', summary_cut, every)):
+            out[name + suffix] = {b: f(src[src['band'] == b]) for b, _, _ in TITLE_BANDS}
+            out[name + suffix]['all'] = f(once(src))
     return out
 
 
@@ -2272,8 +2298,11 @@ def build():
     # (2026-10-26, the audit of why the list differs from U.S. News) a student Note (HeinOnline ends its title with
     # "Note" or "Notes") is not credited to a faculty member whose other credited work began 5 or more years before it:
     # a namesake student wrote it (NYU's Liam B. Murphy was credited with a 2022 Vanderbilt Law Review note). "Comment"
-    # is left alone: some reviews' Comments are faculty pieces.
-    note = [bool(re.search(r'\bNotes?\s*$', str(first_rows.at[k, 'title']))) for k in paper_keys]
+    # is left alone: some reviews' Comments are faculty pieces. (review) Nor are an editor's, editorial, research or
+    # historical note: the faculty member's own piece (Family Court Review's "Editorial Notes", Law & Society Review's
+    # "Research Note"); Harvard's "Book Notes" stay, a student section.
+    faculty_note = re.compile(r"(?i)\b(?:Editor'?s'?|Editors'?|Co-Editors'?|Editorial|Research|Historical)\s+Notes?\s*$")
+    note = [bool(re.search(r'\bNotes?\s*$', t)) and not faculty_note.search(t) for t in (str(first_rows.at[k, 'title']) for k in paper_keys)]
     year_of = [int(first_rows.at[k, 'year']) for k in paper_keys]
     first_year = {}
     for pk, person in zip(credit_paper, credit_person):
@@ -2388,6 +2417,7 @@ def build():
     ##### when the metadata was last updated
     used = coverage[coverage['journal'].isin(journal_id)]
     roster_times = roster['collected'].dropna()
+    credited_ids = sorted(set(credit_paper))
     meta = {
         'built': datetime.now().strftime('%Y-%m-%d'),
         'papers_collected': {'from': used['collected'].min(), 'to': used['collected'].max(), 'journals': int(len(used))},
@@ -2406,13 +2436,14 @@ def build():
         'default_view': DEFAULT_VIEW,
         'years': {'min': int(min(data['papers']['year'])), 'max': int(max(data['papers']['year']))},
         'default_to': default_to(data),
-        'counts': {'papers': len(paper_keys), 'credits': len(credit_paper), 'faculty_with_papers': len(people),
-                   'minor_papers': int(sum(1 for m in data['papers']['minor'] if m)),
-                   'classified_papers': int(sum(1 for k in data['papers']['kind'] if k >= 0)),
-                   'measured_papers': int(sum(1 for k in data['papers']['length'] if k >= 1)),
+        # (review) over the papers that still have a credit: the student-note rule leaves a few with none
+        'counts': {'papers': len(credited_ids), 'credits': len(credit_paper), 'faculty_with_papers': len(people),
+                   'minor_papers': int(sum(1 for i in credited_ids if data['papers']['minor'][i])),
+                   'classified_papers': int(sum(1 for i in credited_ids if data['papers']['kind'][i] >= 0)),
+                   'measured_papers': int(sum(1 for i in credited_ids if data['papers']['length'][i] >= 1)),
                    # the pieces without a measured length that the deployed short-piece model decided (audit: the FAQ
                    # counted only the older classifier's 88)
-                   'model_papers': int(sum(1 for k, n in zip(paper_keys, data['papers']['length']) if n < 1 and k in model_flags))},
+                   'model_papers': int(sum(1 for i in credited_ids if data['papers']['length'][i] < 1 and paper_keys[i] in model_flags))},
         'piece_kinds': PIECE_KINDS,
         'short_model': model_info,
         'matching': stats,

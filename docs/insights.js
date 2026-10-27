@@ -1226,7 +1226,7 @@
     lede.append(' in ' + w1[0] + '–' + w1[1] + '; in reviews ranked 101 and below, or unranked, ' + Math.round(c[0]) + ' and ' + Math.round(d[0]) + '.');
     if (fa && fb && fc && fd) {
       lede.append(' By the author\'s school, titles by current faculty at Top 14 schools went from ' + Math.round(fa[0]) + ' to ' + Math.round(fb[0]) +
-        ' characters, and at schools ranked 101 and below from ' + Math.round(fc[0]) + ' to ' + Math.round(fd[0]) + '.');
+        ' characters, and at schools ranked 101 and below, or unranked, from ' + Math.round(fc[0]) + ' to ' + Math.round(fd[0]) + '.');
     }
   }
 
@@ -1236,12 +1236,12 @@
     const W = box.clientWidth;
     const wide = W >= 700;
     const H = wide ? 380 : 300;
-    const m = { l: 44, r: wide ? 120 : 52, t: 12, b: 30 };
+    const m = { l: 44, r: wide ? 120 : 84, t: 12, b: 30 };
     const by = st.tiBy, mi = st.tiM, fmt = tiFmt(mi);
     const first = T.years[0], last = T.years[T.years.length - 1];
     $('tiTitle').textContent = mi === 3 ? 'Share of titles with a subtitle (a colon)' : 'Median title length, in characters';
     $('tiNote').textContent = by === 'review'
-      ? 'Research articles in each school\'s main law review, grouped by the U.S. News rank of the school that publishes it, whoever wrote them (student notes and comments left out). Each point pools the year with the years either side.'
+      ? 'Research articles in each school\'s main law review, grouped by the U.S. News rank of the school that publishes it, whoever wrote them (pieces labelled as student work left out). Each point pools the year with the years either side.'
       : 'Research articles by current faculty in any journal collected here, grouped by the U.S. News rank of the author\'s school (an article by authors in two groups counts in both). Each point pools the year with the years either side.';
     const series = T.bands.map((b, k) => ({ b: b, k: k, pts: T[by][b].p.map((r, i) => (r ? { y: T.years[i], v: r[mi], n: r[2] } : null)).filter(Boolean) }));
     const all = series.flatMap((s) => s.pts.map((d) => d.v));
@@ -1265,7 +1265,7 @@
     });
     const ends = series.filter((s) => s.pts.length).map((s) => ({ k: s.k, b: s.b, d: s.pts[s.pts.length - 1] }));
     ends.forEach((e) => svg.append('circle').attr('cx', x(e.d.y)).attr('cy', y(e.d.v)).attr('r', 4).attr('fill', TI_COLORS[e.k]).attr('stroke', '#fff').attr('stroke-width', 2));
-    placeLabels(ends.map((e) => ({ y: y(e.d.v), text: (wide ? tiShort(e.b) + ' ' : '') + fmt(e.d.v) })), m.t, H - m.b)
+    placeLabels(ends.map((e) => ({ y: y(e.d.v), text: tiShort(e.b) + ' ' + fmt(e.d.v) })), m.t, H - m.b)   // the band named at every width: five lines, not two
       .forEach((l) => svg.append('text').attr('class', 'direct').attr('x', W - m.r + 8).attr('y', l.y).attr('dy', '0.32em').text(l.text));
     // crosshair: snaps to the nearest year, one readout for every band
     const cross = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).attr('stroke', css('--ink-2')).attr('stroke-opacity', 0.5).style('display', 'none');
@@ -1306,6 +1306,19 @@
     });
     tbl.appendChild(tb);
     $('tiTable').replaceChildren(el('p', { class: 'text-muted' }, 'Single years (not pooled); after each value, the number of titles. A dash: fewer than ' + T.min_n + ' titles.'), tbl);
+  }
+  // the method note's numbers: how much the heading rule leaves out, and the check with headings cut off instead
+  function renderTitlesMethod() {
+    const T = INS.titles, [w0, w1] = T.windows, low = T.bands[T.bands.length - 1];
+    const L = T.review_left_out, C = T.review_summary_cut;
+    const box = $('tiLeftOut');
+    if (!box || !L || !C || !L['Top 14'] || !L[low]) return;
+    const p = (x) => (x == null ? '–' : Math.round(100 * x) + '%');
+    const m = (r) => (r && r[0] != null ? String(Math.round(r[0])) : '–');
+    box.textContent = 'This rule is not small: of the research articles otherwise measured in the main law reviews, it leaves out ' +
+      p(L['Top 14'][0]) + ' in the Top 14 reviews in ' + w0[0] + '–' + w0[1] + ' and ' + p(L['Top 14'][1]) + ' in ' + w1[0] + '–' + w1[1] +
+      ', and ' + p(L[low][0]) + ' and ' + p(L[low][1]) + ' in reviews ranked 101 and below, or unranked. As a check, keeping those titles with the shared ending cut off instead (a guess, right about five times in six) gives medians of ' +
+      m(C['Top 14'][0]) + ' and ' + m(C['Top 14'][1]) + ' characters for the Top 14 reviews, and ' + m(C[low][0]) + ' and ' + m(C[low][1]) + ' for those ranked 101 and below.';
   }
   function renderTitles() {
     renderTitlesText();
@@ -1357,8 +1370,9 @@
 
   function setup() {
     const maxY = Math.min(new Date().getFullYear(), META.years.max);
-    st.to = maxY;
-    st.from = maxY - 10;
+    // (2026-10-26) the same default window as the rankings page: ten year labels ending at the build's default_to
+    st.to = Math.min(META.default_to || maxY, maxY);
+    st.from = st.to - 9;
     for (let y = maxY; y >= Math.max(META.years.min, 1950); y--) { $('wFrom').add(new Option(y, y)); $('wTo').add(new Option(y, y)); }
     $('wFrom').value = st.from;
     $('wTo').value = st.to;
@@ -1455,7 +1469,7 @@
       } else go();
     };
     lazy('coauthor', renderCo, 2500);
-    if (INS.titles) lazy('titles', () => { tiDone = true; renderTitles(); }, 3500);
+    if (INS.titles) { renderTitlesMethod(); lazy('titles', () => { tiDone = true; renderTitles(); }, 3500); }
     else $('titles').remove();
     LSR.people(DATA).then(() => { if (jn.journal != null) renderJournal(); });   // authors' faculty pages in the journal view
     if (LSR.crunch) LSR.crunch.hide();

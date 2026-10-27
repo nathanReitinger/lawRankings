@@ -68,6 +68,7 @@
     const out = Object.assign({}, d, s || {});
     if (!out.groups || typeof out.groups !== 'object' || Array.isArray(out.groups)) out.groups = {};
     delete out.latest;                                   // a stored view's marker, not part of the state
+    delete out.v;
     out.bands = (Array.isArray(out.bands) ? out.bands : d.bands).filter((b) => BANDS.some((x) => x.id === b));
     const groups = {};
     Object.entries(out.groups || {}).forEach(([g, subs]) => {
@@ -119,12 +120,14 @@
     const d = defaultState();
     const same = JSON.stringify(cleanState(state)) === JSON.stringify(d);
     if (same) { try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* private mode */ } return; }
-    store(STORAGE_KEY, JSON.stringify(Object.assign({}, state, state.to === d.to ? { latest: state.to - state.from } : {})));
+    store(STORAGE_KEY, JSON.stringify(Object.assign({}, state, { v: 5 }, state.to === d.to ? { latest: state.to - state.from } : {})));
   }
 
   // a stored view: a window that ended at the latest year then ends at the latest year now
   function restoreSaved(saved) {
     if (!saved || typeof saved !== 'object') return null;
+    // (2026-10-26) the default window was eleven year labels before; a view stored then as "the latest 11" is now the latest 10
+    if (!saved.v && saved.latest === 10) saved = Object.assign({}, saved, { latest: 9 });
     if (typeof saved.latest === 'number' && saved.latest >= 0) {
       const d = defaultState();
       saved = Object.assign({}, saved, { to: d.to, from: d.to - saved.latest });
