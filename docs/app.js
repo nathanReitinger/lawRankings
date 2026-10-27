@@ -101,7 +101,7 @@
       from: years[0], to: years[1], region: h.get('r'), minor: h.get('m') === '1', src: h.get('k') || 'usnews', host: h.get('h') || 'any' };
   }
 
-  function saveState() {
+  function saveState(persist) {
     const h = new URLSearchParams();
     h.set('f', state.bands.join('.') || 'none');
     const parts = Object.entries(state.groups).map(([g, subs]) =>
@@ -114,6 +114,7 @@
     if (state.src !== 'usnews') h.set('k', state.src);
     if (state.host !== 'any') h.set('h', state.host);
     history.replaceState(null, '', '#' + h.toString());
+    if (persist === false) return;   // (review) a view opened from a link or a reloaded tab is not the visitor's own choice
     // (stress test, 2026-10-24) the untouched default view was stored on the first visit, so that visitor's year
     // window never moved on with new data: only a view that differs from the default is stored, and a window that
     // ends at the latest year is stored as "the latest N years"
@@ -128,6 +129,8 @@
     if (!saved || typeof saved !== 'object') return null;
     // (2026-10-26) the default window was eleven year labels before; a view stored then as "the latest 11" is now the latest 10
     if (!saved.v && saved.latest === 10) saved = Object.assign({}, saved, { latest: 9 });
+    // 2.0.0 and earlier (before 2026-10-24 23:39) stored every view, the default 2016-2026 included, without 'latest'
+    if (!saved.v && saved.latest == null && +saved.from === 2016 && +saved.to === 2026) saved = Object.assign({}, saved, { latest: 9 });
     if (typeof saved.latest === 'number' && saved.latest >= 0) {
       const d = defaultState();
       saved = Object.assign({}, saved, { to: d.to, from: d.to - saved.latest });
@@ -622,8 +625,8 @@
     const cats = [...n.keys()].sort((a, b) => n.get(b) - n.get(a) || a - b);   // most to least
     if (!cats.length) return '';
     const max = Math.max(...n.values());
-    return '<div class="bars" role="img" aria-label="Articles by journal group, ' + state.from + '–' + state.to + '">' +
-      '<div class="bars-title">Articles by journal group, ' + state.from + '–' + state.to + '</div>' +
+    return '<div class="bars" role="img" aria-label="Where they publish, ' + state.from + '–' + state.to + '">' +
+      '<div class="bars-title">Where they publish, ' + state.from + '–' + state.to + '</div>' +
       cats.map((c) => {
         const tip = catLabel(c) + ': ' + n.get(c) + ' article' + (n.get(c) === 1 ? '' : 's') + ' (adjusted for co-authors: ' + one(adj.get(c)) + ')';
         return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + esc(catLabel(c)) + '</span>' +
@@ -637,8 +640,8 @@
   // (2026-10-25, the owner: "add in a spinner for crunching numbers") every recompute runs behind the spinner
   // (masthead.js: LSR.crunch); quick successive changes are computed once, with the newest state
   const crunch = (fn) => (window.LSR && window.LSR.crunch ? window.LSR.crunch.run(fn) : fn());
-  function update() {
-    saveState();
+  function update(persist) {
+    saveState(persist);
     syncPanel();
     renderDataLine();                       // the rank source may have changed
     crunch(() => { current = compute(); renderRanking(); });
@@ -709,11 +712,12 @@
     });
     let saved = null;
     try { saved = JSON.parse(recall(STORAGE_KEY) || 'null'); } catch (e) { saved = null; }
-    state = cleanState(readHash() || restoreSaved(saved));
+    const fromHash = readHash();
+    state = cleanState(fromHash || restoreSaved(saved));
     renderMeta();
     buildPanel();
     wire();
-    update();
+    update(!fromHash);
     loaded();
     // (2026-10-26, the owner: "use lazy loading so that the main ranking shows first") homepages and categories for
     // the faculty rows, once the ranking is on screen; an open school is drawn again when they arrive

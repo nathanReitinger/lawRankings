@@ -2038,7 +2038,7 @@ def build():
             area = 'Interdisciplinary Methods' if parts[0] == 'Approaches' else parts[0]
             area_field[r.journal] = (area, parts[1])
     spec = ranked[ranked['journal_type'] != 'General'].copy()
-    # a journal not mapped by name takes the field of its best W&L subject (wl_subject_taxonomy.csv); a W&L subject
+    # a journal not mapped by name takes the group of its best W&L subject (wl_subject_taxonomy.csv); a W&L subject
     # not in that crosswalk either: "Other specialty journals" (printed)
     cross = {}
     if os.path.exists(WL_CROSSWALK):
@@ -2301,7 +2301,7 @@ def build():
     # is left alone: some reviews' Comments are faculty pieces. (review) Nor are an editor's, editorial, research or
     # historical note: the faculty member's own piece (Family Court Review's "Editorial Notes", Law & Society Review's
     # "Research Note"); Harvard's "Book Notes" stay, a student section.
-    faculty_note = re.compile(r"(?i)\b(?:Editor'?s'?|Editors'?|Co-Editors'?|Editorial|Research|Historical)\s+Notes?\s*$")
+    faculty_note = re.compile(r"(?i)\b(?:Editor'?s'?|Editors'?|Co-Editors'?|Editorial|Research|Historical)\s+Notes?(?:\s+Notes?)?\s*$")
     note = [bool(re.search(r'\bNotes?\s*$', t)) and not faculty_note.search(t) for t in (str(first_rows.at[k, 'title']) for k in paper_keys)]
     year_of = [int(first_rows.at[k, 'year']) for k in paper_keys]
     first_year = {}
@@ -2309,6 +2309,14 @@ def build():
         if not note[pk]:
             first_year[person] = min(first_year.get(person, 9999), year_of[pk])
     keep = [not (note[pk] and first_year.get(person, 9999) <= year_of[pk] - 5) for pk, person in zip(credit_paper, credit_person)]
+    # (review) HeinOnline sometimes labels a volume's faculty articles "Note" (Vanderbilt L. Rev. 55 and 57, the 2017
+    # Boston College L. Rev. symposium) or ends a section heading with it (AJIL "Book Reviews and Notes"): a student
+    # Note is written alone, and a volume has at most one by a namesake
+    out = [pk for pk, k in zip(credit_paper, keep) if not k]
+    per_paper, per_vol = Counter(out), defaultdict(set)
+    for pk in out:
+        per_vol[paper_keys[pk].rsplit('|', 1)[0]].add(pk)
+    keep = [k or per_paper[pk] >= 2 or len(per_vol[paper_keys[pk].rsplit('|', 1)[0]]) >= 2 for k, pk in zip(keep, credit_paper)]
     if not all(keep):
         print(f'  {keep.count(False)} student notes not credited to faculty whose credited work began 5+ years earlier')
         credit_paper = [x for x, k in zip(credit_paper, keep) if k]
@@ -2382,9 +2390,10 @@ def build():
     with open(CREDITED_KEYS + '.tmp', 'w', encoding='utf-8') as f:   # what the classifier does next
         f.write('\n'.join(paper_keys))
     os.replace(CREDITED_KEYS + '.tmp', CREDITED_KEYS)
-    print(f'  short pieces: {sum(short_flags)} of {len(paper_keys)} credited pieces; '
-          f'{sum(1 for k in paper_keys if k in classes)} classified, '
-          f'{sum(1 for k in paper_keys if length_of.get(k) == length_of.get(k) and length_of.get(k) is not None)} with a measured length')
+    credited_ids = sorted(set(credit_paper))   # (review) the papers that still have a credit, as in meta.counts
+    print(f'  short pieces: {sum(short_flags[i] for i in credited_ids)} of {len(credited_ids)} credited pieces; '
+          f'{sum(1 for i in credited_ids if paper_keys[i] in classes)} classified, '
+          f'{sum(1 for i in credited_ids if paper_keys[i] in length_of and length_of[paper_keys[i]] == length_of[paper_keys[i]] and int(length_of[paper_keys[i]]) >= 1)} with a measured length')
     data = {
         'schools': [[s, s in us or s in aba, us.get(s, (None, None, None))[1], us.get(s, (None, None, None))[2]] for s in schools],
         # 2026-10-25 (the owner: "Add in another ranking. Use tax prof ... allow a user to select that as the source"):
@@ -2417,7 +2426,6 @@ def build():
     ##### when the metadata was last updated
     used = coverage[coverage['journal'].isin(journal_id)]
     roster_times = roster['collected'].dropna()
-    credited_ids = sorted(set(credit_paper))
     meta = {
         'built': datetime.now().strftime('%Y-%m-%d'),
         'papers_collected': {'from': used['collected'].min(), 'to': used['collected'].max(), 'journals': int(len(used))},
@@ -2582,7 +2590,8 @@ def publish(meta):
            f"W&L {meta['rankings']['edition']}\n"
            f"papers {meta['counts']['papers']} ({ch.get('papers', 0):+d}), "
            f"faculty with papers {meta['counts']['faculty_with_papers']} ({ch.get('faculty_with_papers', 0):+d}), "
-           f"{len(ch.get('moved', []))} of the default top 30 moved")
+           + ("the default view changed, so its top 30 is not compared" if ch.get('view_changed')
+              else f"{len(ch.get('moved', []))} of the default top 30 moved"))
     # only docs/ is committed (other staged or changed files in the repo stay as they are); git never waits
     # for a password prompt; a push that failed last time is retried even when there is nothing new
     env = dict(os.environ, GIT_TERMINAL_PROMPT='0')
