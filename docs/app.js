@@ -15,6 +15,7 @@
   ];
   const SOURCE_SHORT = { usnews: 'US News', peer: 'Peer rank' };
   const HOST_TIERS = ['any', '25', '50', '100'];
+  const PER_PROF_MIN = 10;          // the per-professor option ranks schools with at least this many people listed
   const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
   const STORAGE_KEY = 'lawRankings.v4';
   const MAINTAINER_EMAIL = 'nathan.reitinger@law.northwestern.edu';   // the owner asked for an email button (2026-10-24)
@@ -55,7 +56,8 @@
     // (2026-10-26, from the audit of why the list differs from U.S. News) ten year labels ending at the build's
     // default_to, the latest well-collected year, not at the visitor's clock (eleven labels before)
     const to = META.default_to || Math.min(new Date().getFullYear(), META.years.max);
-    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: to - 9, to: to, region: 'us', minor: false, src: 'usnews', host: 'any' };
+    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: to - 9, to: to, region: 'us', minor: false, src: 'usnews', host: 'any',
+             perProf: false, noHome: false };
   }
 
   function clampYear(y, fallback) {
@@ -85,6 +87,9 @@
     if (!sources().includes(out.src)) out.src = 'usnews';
     if (!HOST_TIERS.includes(out.host)) out.host = 'any';
     out.minor = !!out.minor;
+    // (2026-10-27) the two options need their data (build 2.18.1 on); off when it is missing
+    out.perProf = !!out.perProf && !!DATA.school_faculty;
+    out.noHome = !!out.noHome && !!DATA.journal_school;
     return out;
   }
 
@@ -98,7 +103,8 @@
     });
     const years = (h.get('y') || '').split('-');
     return { bands: (h.get('f') || '').split('.').filter(Boolean), groups, cutoff: h.get('c'),
-      from: years[0], to: years[1], region: h.get('r'), minor: h.get('m') === '1', src: h.get('k') || 'usnews', host: h.get('h') || 'any' };
+      from: years[0], to: years[1], region: h.get('r'), minor: h.get('m') === '1', src: h.get('k') || 'usnews', host: h.get('h') || 'any',
+      perProf: h.get('p') === '1', noHome: h.get('o') === '1' };
   }
 
   function saveState(persist) {
@@ -113,6 +119,8 @@
     if (state.minor) h.set('m', '1');
     if (state.src !== 'usnews') h.set('k', state.src);
     if (state.host !== 'any') h.set('h', state.host);
+    if (state.perProf) h.set('p', '1');
+    if (state.noHome) h.set('o', '1');
     history.replaceState(null, '', '#' + h.toString());
     if (persist === false) return;   // (review) a view opened from a link or a reloaded tab is not the visitor's own choice
     // (stress test, 2026-10-24) the untouched default view was stored on the first visit, so that visitor's year
@@ -206,6 +214,7 @@
     if (!A) return { areas, rows: [] };
     const jAreas = DATA.journals.map((j, ji) => areas.reduce((acc, ar, i) => (ar.journals.has(ji) ? acc.concat(i) : acc), []));
     const P = DATA.papers, C = DATA.credits;
+    const own = state.noHome ? DATA.journal_school : null;   // per journal, the schools that publish it
     const bySchool = new Map();
     for (let k = 0; k < C.paper.length; k++) {
       const p = C.paper[k];
@@ -218,6 +227,7 @@
       const w = 1 / P.authors[p];
       for (const s of DATA.people[person][1]) {
         if (state.region === 'us' && !DATA.schools[s][1]) continue;
+        if (own && own[P.journal[p]].includes(s)) continue;   // the option: not in the school's own journals
         let e = bySchool.get(s);
         if (!e) { e = { areas: new Float64Array(A), faculty: new Map() }; bySchool.set(s, e); }
         let f = e.faculty.get(person);
@@ -231,7 +241,12 @@
     bySchool.forEach((e, s) => {
       let prod = 1;
       e.areas.forEach((c) => { prod *= c + 1; });
-      rows.push({ school: s, score: snap(Math.pow(prod, 1 / A)), faculty: e.faculty });
+      const score = snap(Math.pow(prod, 1 / A));
+      if (!state.perProf) { rows.push({ school: s, score: score, faculty: e.faculty }); return; }
+      // (2026-10-27) per professor: the count (the geometric mean less the one added to each area) over the people on
+      // the school's faculty list; a list shorter than PER_PROF_MIN is too small to divide by
+      const listed = DATA.school_faculty[s] || 0;
+      if (listed >= PER_PROF_MIN) rows.push({ school: s, score: snap((score - 1) / listed), faculty: e.faculty, listed: listed });
     });
     rows.sort((a, b) => b.score - a.score || DATA.schools[a.school][0].localeCompare(DATA.schools[b.school][0]));
     return { areas, rows };
@@ -291,6 +306,10 @@
         return;
       } else if (t.id === 'skipMinor') {
         state.minor = t.checked;
+      } else if (t.id === 'perProf') {
+        state.perProf = t.checked;
+      } else if (t.id === 'noHome') {
+        state.noHome = t.checked;
       } else if (t.id === 'cutoff') {
         state.cutoff = t.value;
       } else if (t.id === 'rankSource') {
@@ -394,6 +413,10 @@
     $('hostTier').value = state.host;
     BANDS.forEach((b) => { const l = $('bandLabel' + b.id); if (l) l.textContent = bandLabel(b); });
     $('skipMinor').checked = state.minor;
+    $('perProf').checked = state.perProf;
+    $('noHome').checked = state.noHome;
+    $('perProf').disabled = !DATA.school_faculty;
+    $('noHome').disabled = !DATA.journal_school;
     $('fromYear').value = state.from;
     $('toYear').value = state.to;
     $('region').value = state.region;
@@ -439,7 +462,8 @@
     const win = $('rankingWindow');
     const { areas, rows } = current;
     const nAreas = areas.length;
-    $('summary').textContent = nAreas ? rows.length + ' schools · ' + areas.map((a) => a.label).join(' + ') : '';
+    $('summary').textContent = nAreas ? rows.length + ' schools · ' + areas.map((a) => a.label).join(' + ') +
+      (state.perProf ? ' · per professor' : '') + (state.noHome ? ' · own journals left out' : '') : '';
     $('drawerDone').textContent = rows.length ? 'Show ' + rows.length + ' schools' : 'Show rankings';
     if (!nAreas) {
       win.innerHTML = '<p class="empty-note">Select at least one group of journals on the left' +
@@ -452,8 +476,11 @@
       return;
     }
     let html = '<table class="ranking"><thead><tr><th class="num rank-cell">#</th><th>Institution</th>' +
-      '<th class="num"><abbr title="Geometric mean, across the selected areas, of the adjusted article counts plus one">Count</abbr></th>' +
-      '<th class="num"><abbr title="Faculty with at least one counted article">Faculty</abbr></th></tr></thead><tbody>';
+      (state.perProf
+        ? '<th class="num"><abbr title="The count (geometric mean, across the selected areas, of the adjusted article counts plus one, less one) divided by the number of people on the school\'s faculty list">Per prof.</abbr></th>' +
+          '<th class="num"><abbr title="Faculty with at least one counted article, of the people on the school\'s faculty list">Faculty</abbr></th>'
+        : '<th class="num"><abbr title="Geometric mean, across the selected areas, of the adjusted article counts plus one">Count</abbr></th>' +
+          '<th class="num"><abbr title="Faculty with at least one counted article">Faculty</abbr></th>') + '</tr></thead><tbody>';
     let rank = 0;
     rows.forEach((r, i) => {
       const open = openSchools.has(r.school);
@@ -461,7 +488,7 @@
       html += '<tr class="school' + (i % 2 ? '' : ' alt') + '" data-school="' + r.school + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="num rank-cell">' + rank + '</td>' +
         '<td><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span>&nbsp;' + esc(DATA.schools[r.school][0]) + '</td>' +
-        '<td class="num">' + one(r.score) + '</td><td class="num">' + r.faculty.size + '</td></tr>';
+        '<td class="num">' + (state.perProf ? r.score.toFixed(2) : one(r.score)) + '</td><td class="num">' + r.faculty.size + (state.perProf ? ' / ' + r.listed : '') + '</td></tr>';
       if (open) html += facultyRows(r);
     });
     win.innerHTML = html + '</tbody></table>';

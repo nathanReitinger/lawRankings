@@ -2285,6 +2285,7 @@ def build():
             p[1].append(sid)
     write_missing_homepages(roster, match_info, home_of, school_csv, csv_schools, set(person_rows))
 
+    listed = roster.assign(_pk=match_info['pk']).groupby('school')['_pk'].nunique()   # people on each school's list
     credit_paper, credit_person = [], []
     seen = set()
     for r in credited[['paper_key', 'author']].itertuples(index=False):
@@ -2418,6 +2419,12 @@ def build():
         'credits': {'paper': credit_paper, 'person': credit_person},
         # per journal: the field its articles count toward on "Who works on what" and in the tags (-1: none)
         'field_of': [field_of.get(i, -1) for i in range(len(journal_names))],
+        # (2026-10-27, the owner: "Add per-professor and exclude-own-review toggles to the rankings page, off by default")
+        # per school, the people on its faculty list (the per-professor option divides by it); per journal, the
+        # faculty-list schools that publish it (flagship_schools.csv, specialty_hosts.csv), whose own faculty's articles
+        # there the "own journals" option leaves out
+        'school_faculty': [int(listed.get(s, 0)) for s in schools],
+        'journal_school': [sorted(school_id[x] for x in journal_schools.get(j, ()) if x in school_id) for j in journal_names],
     }
 
     # paper titles and links are no longer published (2026-10-24, the owner dropped them from the site): no
