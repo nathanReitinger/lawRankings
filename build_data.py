@@ -59,10 +59,11 @@ MAJOR = 2
 SITE_FILES = ['docs/*.html', 'docs/*.js', 'docs/*.css']
 # (2026-10-28, audit R97; the owner, 2026-10-24: "use a hash of the database info, the authors and substantive info")
 # the digest covers the substantive data only: papers, credits, people, schools, journals, their ranks and groups.
-# Fields derived for a view (field_of, school_faculty, journal_school) stay out, so a site feature that adds or changes
-# one is a patch, not a data update. Until 2026-10-28 every key of data counted (meta.json had no digest_keys then).
+# Fields derived for a view (field_of, journal_school) stay out, so a site feature that adds or changes one is a patch,
+# not a data update; each school's faculty-list headcount (school_faculty) counts, since a list refresh changes it and
+# the per-professor option divides by it. Until 2026-10-28 every key of data counted (meta.json had no digest_keys then).
 DIGEST_KEYS = ['schools', 'rank_sources', 'journal_ranks', 'host_ranks', 'people', 'subjects', 'groups', 'journals',
-               'papers', 'credits']
+               'papers', 'credits', 'school_faculty']
 
 # Faculty corrections anyone can propose with a GitHub pull request (faculty/README.md says how); applied on top of
 # Hein's faculty lists in every build. The full list the build used is written to faculty/list-<letter>.csv.
@@ -341,7 +342,7 @@ def first_label_year(volume):
     return min(years) if years else None
 
 
-def volume_years(vols):
+def volume_years(vols, unfinished=frozenset(), max_chain=2):
     '''(2026-10-28, audit R96: volumes whose label carries two years should take the earliest) a paper's year is the
     latest year of its volume's label (journal_store.infer_year), so a journal that mixes range labels and single-year
     labels gets two volumes in one year and none in the year before: Vanderbilt Law Review 78 "(2025-2026)" and 79
@@ -351,6 +352,9 @@ def volume_years(vols):
     Cornell Law Review 109-110). Nothing moves when no free year is reached (the run starts the journal, a volume is
     missing from the store, or a single-year label is in the way), so no new collision is made: an unfinished newest
     volume ("60 #1 (2025)" after "59 (2024-2025)") would otherwise shift a journal's whole run of range labels.
+    (review, 2026-10-28) A collision with an unfinished newest volume (its label still names issues: "50 #1 (2025)")
+    moves at most max_chain volumes: Vermont Law Review's whole run of 37 would otherwise move a year and move back once
+    Hein completes the label.
     vols: [(volume key, first year, last year)] for one journal -> {volume key: year} for the volumes re-dated'''
     order = sorted(vols, key=lambda v: (js.volume_number(v[0]), v[2], v[0]))
     num = [js.volume_number(v[0]) for v in order]
@@ -361,8 +365,10 @@ def volume_years(vols):
         new, k = year[:], i
         while True:
             new[k] = new[k + 1] - 1
-            if new[k] < order[k][1] or k == 0 or num[k] - num[k - 1] != 1 or new[k - 1] > new[k]:
-                break                     # outside its own label, or no previous volume to show the year is free
+            if (new[k] < order[k][1] or k == 0 or num[k] - num[k - 1] != 1 or new[k - 1] > new[k]
+                    or (order[i + 1][0] in unfinished and i - k + 1 > max_chain)):
+                break                     # outside its own label, no previous volume to show the year is free, or a long
+                                          # run behind an unfinished volume
             if new[k - 1] < new[k]:
                 year = new                # a free year
                 break
@@ -401,13 +407,19 @@ def load_papers():
         span = df[df['year'].notna()].assign(first=df['volume'].map(first_label_year)).groupby('volume_key').agg(
             first=('first', 'min'), last=('year', 'max'), lo=('year', 'min'), label=('volume', 'first'))
         span = span[(span['lo'] == span['last']) & span['first'].notna()]
-        moved = volume_years([(k, int(a), int(b)) for k, a, b in zip(span.index, span['first'], span['last'])])
+        unfinished = {k for k in span.index if '#' in str(span.at[k, 'label'])}
+        moved = volume_years([(k, int(a), int(b)) for k, a, b in zip(span.index, span['first'], span['last'])], unfinished)
         if moved is None:
             refused.append(journal)
         elif moved:
             hit = df['volume_key'].isin(moved)
             df.loc[hit, 'year'] = df.loc[hit, 'volume_key'].map(moved)
             redated += [(journal, js.clean_label(span.at[k, 'label']), y) for k, y in moved.items()]
+        # (review) a label that runs into next year ("29 #1 (2026-2027)") takes its first year: no article is dated in
+        # the future
+        future = df['year'] > datetime.now().year
+        if future.any():
+            df.loc[future, 'year'] = df.loc[future, 'volume'].map(lambda v: first_label_year(v) or infer_year(v))
         rows.append(df)
         vols = state.get('volumes', {})
         newest_volume = max((v.get(js.COLLECTED_AT) or '' for v in vols.values()), default='')
@@ -1743,8 +1755,12 @@ def subject_tree():
         for r in pd.read_csv(sp, dtype=str).fillna('').itertuples():
             # (2026-10-28, audit R48) in the page's words: the research's approaches are the Interdisciplinary Methods
             # group now, and "journal_map: X" (a research file's name) is the citation for X's placement
-            supports = re.sub(r'(^|; )Approaches > ', r'\1Interdisciplinary Methods > ', clean(r.what_it_supports))
+            # (review) critical legal theory is an approach whose journals are placed by subject, not a methods group;
+            # "root" is a whole scheme
+            supports = re.sub(r'(^|; )Approaches > (Critical[^;]*)', r'\1\2 (an approach: its journals are placed by subject)', clean(r.what_it_supports))
+            supports = re.sub(r'(^|; )Approaches > ', r'\1Interdisciplinary Methods > ', supports)
             supports = re.sub(r'(^|; )journal_map: ', r'\1Placement of ', supports)
+            supports = re.sub(r'^root$', 'The scheme as a whole (its top-level divisions)', supports)
             sources.append([clean(r.title), r.url, supports, r.verified == 'yes'])
     return {'name': clean(t.get('name')), 'description': clean(t.get('description')), 'version': t.get('version'),
             'generated': t.get('generated'), 'counts': t.get('counts'),
@@ -2454,7 +2470,21 @@ def build():
         gaps = [b for a, b in zip(ys, ys[1:]) if b - a >= ISOLATED_YEARS]
         if gaps:
             resumes[person] = gaps[-1]
-    keep = [year_of[pk] >= resumes.get(person, 0) for pk, person in zip(credit_paper, credit_person)]
+    # (review, 2026-10-28) but an early credit under the very spelling of the person's latest run is theirs (Houston's
+    # Robert A. Ragazzo, 1984-95 takeover articles; Merrick B. Garland, 1985-87), within the last fifty years and when
+    # the spelling has a middle name or initial or is the only one of its first and last name
+    middles = defaultdict(set)
+    for link in papers['author'].unique():
+        n = parse_hein_name(link)
+        middles[n[:2]].add(n[2])
+    latest = defaultdict(set)
+    for pk, person in zip(credit_paper, credit_person):
+        if year_of[pk] >= resumes.get(person, 0):
+            latest[person].add(parse_hein_name(seen[(pk, person)])[:3])
+    def plainly_theirs(pk, person):
+        n = parse_hein_name(seen[(pk, person)])[:3]
+        return n in latest[person] and year_of[pk] >= datetime.now().year - 50 and bool(n[2] or len(middles[n[:2]]) == 1)
+    keep = [year_of[pk] >= resumes.get(person, 0) or plainly_theirs(pk, person) for pk, person in zip(credit_paper, credit_person)]
     if not all(keep):
         out = [(pk, person) for pk, person, k in zip(credit_paper, credit_person, keep) if not k]
         review = write_isolated_review([

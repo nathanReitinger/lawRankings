@@ -1,3 +1,5 @@
 action,hein_name,school,name,homepage,note
 alias,"Prieto, Dennis C.",Rutgers University,"Kim-Prieto, Dennis",,"same person: the Rutgers faculty list has him as both Kim-Prieto, Dennis and Prieto, Dennis, with one faculty page, https://law.rutgers.edu/bio/dprieto"
 alias,"Prieto, Dennis",Rutgers University,"Kim-Prieto, Dennis",,"his second listing on the Rutgers faculty list (same faculty page), so its articles are his too"
+remove,"Prieto, Dennis",Rutgers University,,,"duplicate listing of Kim-Prieto, Dennis (same faculty page): his articles count under his main listing"
+alias,"Kim-Prieto, Dinnis C.",Rutgers University,"Kim-Prieto, Dennis",,"a misspelling in the table of contents (AALL Spectrum 10)"

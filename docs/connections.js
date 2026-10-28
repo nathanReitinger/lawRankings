@@ -94,7 +94,7 @@
     const NA = (DATA.groups || []).length;
     const R = {
       from, to, eFrom, eTo, sRank, sBand, ownJ, col, NJ,
-      papers: 0, cross: 0, pairs: new Map(), drivers: new Map(), crossOf: new Int32Array(NS),        // 1. co-authors across schools
+      papers: 0, cross: 0, pairs: new Map(), drivers: new Map(), crossOf: new Int32Array(NS), crossList: [],   // 1. co-authors across schools
       flagTot: new Int32Array(NS), flagHome: new Int32Array(NS),                                      // 2. the school's own review
       tier: BANDS.map(() => new Float64Array(NA)), tierAll: new Float64Array(NA),                     // 3. areas by group of schools
       teamTot: new Float64Array(NA), teamMulti: new Float64Array(NA), hasAuthors: !!P.authors,         // 4. co-authored, by area
@@ -135,6 +135,7 @@
       }
       if (schools.length >= 2) {
         R.cross++;
+        R.crossList.push(schools.slice());        // each such article's schools, once (for the wheel's per-school count)
         schools.forEach((s) => { R.crossOf[s]++; });
         for (let i = 0; i < schools.length; i++) {
           for (let k = i + 1; k < schools.length; k++) {
@@ -236,14 +237,21 @@
     const S = DATA.schools, people = DATA.people, NS = R.NS;
     const all = [...R.pairs.entries()].map(([key, n]) => ({ a: Math.floor(key / NS), b: key % NS, n, key }));
     all.sort((x, y) => y.n - x.n || S[x.a][0].localeCompare(S[y.a][0]) || S[x.b][0].localeCompare(S[y.b][0]));
-    const top = all.slice(0, 20);
+    // the 20 busiest pairs, and every pair tied with the 20th (a cut through a tie would drop pairs by their names)
+    const cut = all.length > 20 ? all[19].n : 0;
+    const top = all.filter((o) => o.n >= cut);
     if (!top.length) return null;
+    // each school's articles with a co-author at a school it is joined to on the wheel, each article once (an article
+    // with authors at three wheel schools sits in two of its ribbons)
+    const onWheel = new Set(top.map((o) => o.key)), wheelN = new Int32Array(NS);
+    R.crossList.forEach((ss) => ss.forEach((s) => { if (ss.some((o) => o !== s && onWheel.has(Math.min(s, o) * NS + Math.max(s, o)))) wheelN[s]++; }));
     top.forEach((o) => {
       const dm = R.drivers.get(o.key);
-      let best = null;
-      if (dm) dm.forEach((n, pk) => { if (!best || n > best[1]) best = [pk, n]; });
+      let best = null, ties = 0;
+      if (dm) dm.forEach((n, pk) => { if (!best || n > best[1]) { best = [pk, n]; ties = 1; } else if (n === best[1]) ties++; });
       o.by = best ? best[0].split(',').map((x) => people[+x][0]) : null;
       o.byN = best ? best[1] : 0;
+      o.tied = ties > 1;          // another pair of authors has as many (the one shown is the first found)
     });
     const share = R.cross / (R.papers || 1);
     const first = top[0];
@@ -255,12 +263,12 @@
       'One article in ' + Math.round(1 / share) + ' is written across law schools, and ' + elite[0] + ' of the ' + top.length + ' busiest pairs are two top-' + elite[1] + ' schools',
       'Research articles by current faculty at U.S. law schools, ' + R.from + '–' + R.to + ', with authors at two or more of those schools (' +
       num(R.cross) + ' of ' + num(R.papers) + ', ' + pct1(share) + '). The wheel joins the ' + top.length + ' pairs of schools with the most such articles; ' +
-      'the wider the ribbon, the more articles. Each author counts at the school where they teach now. Tap a ribbon for the count and the two authors behind most of it.');
+      'the wider the ribbon, the more articles. Each author counts at the school where they teach now. Tap a ribbon for the count and the two authors with the most of those articles.');
     // the nugget: a tie between two schools that is one partnership
     const solo = top.filter((o) => o.n >= 10 && o.byN / o.n >= 0.75).sort((x, y) => y.byN / y.n - x.byN / x.n)[0];
     c.foot.textContent = 'The busiest pair: ' + S[first.a][0] + ' and ' + S[first.b][0] + ', ' + num(first.n) + ' articles.' +
       (solo ? ' Some ties are one partnership: ' + (solo.byN === solo.n ? 'all ' + num(solo.n) : num(solo.byN) + ' of the ' + num(solo.n)) + ' ' + name(solo.a) + '–' + name(solo.b) + ' articles are by ' + solo.by.join(' and ') + '.' : '');
-    table(c.tb, ['Schools', 'Articles together', 'Most by'], top.map((o) => [S[o.a][0] + ' & ' + S[o.b][0], num(o.n), o.by ? o.by.join(' & ') + ' (' + o.byN + ')' : '']));
+    table(c.tb, ['Schools', 'Articles together', 'Most by'], top.map((o) => [S[o.a][0] + ' & ' + S[o.b][0], num(o.n), o.by ? o.by.join(' & ') + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '']));
     if (!has('dependencywheel')) { noChart(c); return { c, first, share, solo, elite, n: top.length }; }
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
@@ -292,11 +300,11 @@
           const pt = this.point || this;
           if (pt.isNode) {
             const s = pt.custom && pt.custom.s;
-            return '<b>' + esc(S[s][0]) + '</b><br>' + num(R.crossOf[s]) + ' articles with a co-author at another U.S. law school<br>' + num(pt.sum) + ' with the schools on the wheel';
+            return '<b>' + esc(S[s][0]) + '</b><br>' + num(R.crossOf[s]) + ' articles with a co-author at another U.S. law school<br>' + num(wheelN[s]) + ' with the schools it is joined to on the wheel';
           }
           const o = pt.custom || {};
           return '<b>' + esc(name(o.a)) + ' & ' + esc(name(o.b)) + '</b><br>' + num(o.n) + ' article' + (o.n === 1 ? '' : 's') + ' together, ' + R.from + '–' + R.to +
-            (o.by ? '<br>Most by ' + esc(o.by.join(' & ')) + ' (' + o.byN + ')' : '');
+            (o.by ? '<br>Most by ' + esc(o.by.join(' & ')) + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '');
         } },
         series: [{
           type: 'dependencywheel', name: 'Articles together', keys: ['from', 'to', 'weight'],
@@ -333,11 +341,11 @@
     const t14 = rows.filter((r) => bandOf(r.rank) === 0).sort((x, y) => y.share - x.share);
     const ownName = (s) => R.ownJ[s].map((ji) => J[ji][0]).join(' or ');
     const c = card('cnHome',
-      'The middle school places one in ' + Math.round(1 / mid) + ' of its faculty’s flagship-review articles in its own law review' +
+      'The median law school places one in ' + Math.round(1 / mid) + ' of its faculty’s flagship-review articles in its own law review' +
         (third.length >= 2 ? '; at ' + third.length + ' schools it is a third or more' : ''),
       'One dot per U.S. law school with its own flagship review and at least 20 flagship-review articles by its current faculty, ' + R.from + '–' + R.to +
       ' (' + rows.length + ' schools): across, its U.S. News rank; up, the share of those articles that appeared in its own review. The line is each group of schools with their articles pooled.');
-    c.foot.textContent = 'The middle school: ' + pct1(mid) + '.' +
+    c.foot.textContent = 'The median school: ' + pct1(mid) + '.' +
       (t14.length > 2 && t14[0].share > 1.5 * t14[Math.floor(t14.length / 2)].share
         ? ' Among the top 14, ' + S[t14[0].s][0].replace(/^University/, 'the University') + ' stands out: ' + pct(t14[0].share) + ' (' + num(t14[0].home) + ' of ' + num(t14[0].tot) + ') in the ' + ownName(t14[0].s) + '.' : '');
     table(c.tb, ['School', 'U.S. News', 'In its own review', 'Flagship-review articles', 'Share'],
@@ -352,6 +360,10 @@
       if (t14.length) label.add(t14[0].s);
       const ranked = rows.filter((r) => r.rank != null);
       const maxX = Math.max(...ranked.map((r) => r.rank));
+      // on a phone a labelled dot less than 3 points below a higher labelled dot labelled on the same side is labelled
+      // under the dot (Highcharts would hide one of two labels that overlap)
+      const under = new Set(), lab = ranked.filter((r) => label.has(r.s)), right = (r) => r.rank > maxX * 0.7;
+      if (narrow) lab.forEach((r, i) => { if (lab.slice(0, i).some((q) => !under.has(q.s) && right(q) === right(r) && q.share - r.share < 0.03)) under.add(r.s); });
       const line = [];
       pooled.forEach((g) => { if (g.share != null) line.push({ x: g.lo, y: 100 * g.share, custom: g }, { x: Math.min(g.hi, maxX), y: 100 * g.share, custom: g }, { x: Math.min(g.hi, maxX) + 0.5, y: null }); });
       makeChart(c.box, {
@@ -370,7 +382,7 @@
           { type: 'scatter', name: 'Each school', zIndex: 2, color: blue, marker: { symbol: 'circle', radius: narrow ? 3.5 : 4.5, lineWidth: 1, lineColor: '#ffffff' },
             data: ranked.map((r) => ({ x: r.rank, y: 100 * r.share, custom: r,
               dataLabels: label.has(r.s) ? { enabled: true, format: instLabel(S[r.s][0], narrow ? 18 : 24), align: r.rank > maxX * 0.7 ? 'right' : 'left',
-                x: r.rank > maxX * 0.7 ? -7 : 7, y: 9, crop: false, overflow: 'allow', style: { fontSize: '11.5px', fontWeight: '500', color: ink, textOutline: '3px #ffffff' } } : undefined })) },
+                x: r.rank > maxX * 0.7 ? -7 : 7, y: under.has(r.s) ? 22 : 9, crop: false, overflow: 'allow', style: { fontSize: '11.5px', fontWeight: '500', color: ink, textOutline: '3px #ffffff' } } : undefined })) },
         ],
       }, W);
     } });
@@ -410,10 +422,12 @@
         data.push({ x: k, y, value: v, custom: { a, k }, dataLabels: { color: Math.abs(v) > 1.15 ? '#ffffff' : ink } });
       }));
       makeChart(c.box, {
-        chart: { type: 'heatmap', height: areas.length * (narrow ? 27 : 30) + (narrow ? 112 : 104), marginTop: 30 },
+        // (on a phone the ranges take two lines, "26–" over "50", so the column heads do not run together)
+        chart: { type: 'heatmap', height: areas.length * (narrow ? 27 : 30) + (narrow ? 124 : 104), marginTop: narrow ? 42 : 30 },
         accessibility: { description: 'A table-like heat map: subject areas down, groups of law schools across, each cell the share of that group’s specialty-journal articles in that area.' },
         xAxis: { categories: BANDS.map((b) => b.short), opposite: true, lineWidth: 0, tickLength: 0,
-          labels: { autoRotation: false, overflow: 'allow', style: { color: css('--ink-2', '#52514e'), fontSize: narrow ? '10px' : '12px', fontWeight: '600', textOverflow: 'none' } } },
+          labels: { autoRotation: false, overflow: 'allow', formatter() { const t = String(this.value); return narrow && t.length > 4 ? t.replace('–', '–<br>') : t; },
+            style: { color: css('--ink-2', '#52514e'), fontSize: narrow ? '10px' : '12px', fontWeight: '600', textOverflow: 'none' } } },
         yAxis: { categories: areas.map((a) => areaLabel(G[a], narrow)), reversed: true, title: { text: null }, gridLineWidth: 0, lineWidth: 0,
           labels: { style: { color: css('--ink-2', '#52514e'), fontSize: narrow ? '11px' : '12px', textOverflow: 'none', whiteSpace: 'nowrap' } } },
         colorAxis: { min: -2, max: 2, tickPositions: [-2, -1, 0, 1, 2],
@@ -530,14 +544,15 @@
     const nTop = DATA.journals.filter((j, ji) => R.col[ji] === 0).length;
     const c = card('cnFew',
       'Half of the top-14 law reviews’ articles by today’s faculty come from ' + num(hTop) + ' people',
-      'Current faculty at U.S. law schools with at least one research article ' + R.from + '–' + R.to + ' (' + num(N) + ' people), most prolific first, and the running share of their articles: ' +
-      'in every journal collected here, and in the ' + nTop + ' flagship reviews of the schools U.S. News ranks in its top 14. An article by two of them counts once for each.');
+      'Current faculty at U.S. law schools with at least one research article ' + R.from + '–' + R.to + ' (' + num(N) + ' people), ranked by their number of articles (each curve ranks them by its own count), and the running share of those articles: ' +
+      'in every journal collected here, and in the ' + nTop + ' flagship reviews of the schools U.S. News ranks in its top 14. ' +
+      'An article by two of them counts once for each (one author credit each), so the totals in the table run above the number of articles.');
     c.foot.textContent = num(hTop) + ' people (' + pct1(hTop / N) + ' of those who published) wrote half of the top-14-review articles; half of all their articles took ' + num(hAll) +
       ' (' + pct1(hAll / N) + '). ' + num(topV.length) + ' people (' + pct(topV.length / N) + ') had any top-14-review article.';
     const marks = [0.01, 0.05, 0.1, 0.2, 0.5];
     table(c.tb, ['Most prolific', 'People', 'Share of top-14-review articles', 'Share of all articles'],
       marks.map((f) => { const k = Math.round(f * N); return [pct(f), num(k), pct1(cum(topV, k) / Tt), pct1(cum(allV, k) / T)]; })
-        .concat([['Every author', num(N), '100% (' + num(Tt) + ')', '100% (' + num(T) + ')']]));
+        .concat([['Every author', num(N), '100% (' + num(Tt) + ' author credits)', '100% (' + num(T) + ' author credits)']]));
     if (!has('line')) { noChart(c); return { c, hTop, N, hAll }; }
     const blue = css('--flagship', '#2a78d6'), ink2 = css('--ink-2', '#52514e'), rule = css('--axis', '#c3c2b7');
     legendKey(c, [['Top-14 law reviews', blue, ''], ['Every journal', ink2, ''], ['If everyone wrote the same', rule, 'dash']]);
@@ -567,8 +582,11 @@
         tooltip: { shared: true, formatter() {
           const pts = this.points || [this], p0 = pts[0].point || pts[0];
           const k = p0.custom;
-          const lines = pts.filter((p) => (p.series || {}).name !== 'Equal shares').map((p) => esc(p.series.name) + ': <b>' + pct((p.y) / 100) + '</b>');
-          return '<b>The most prolific ' + pct1(k / N) + '</b> (' + num(k) + ' people)<br>wrote ' + lines.join('<br>');
+          // (each curve ranks the people by its own count: the k most prolific in the top-14 reviews are not the k most
+          // prolific overall)
+          const lines = pts.filter((p) => (p.series || {}).name !== 'Equal shares').map((p) => 'The ' + num(k) + ' with the most ' +
+            (p.series.name === 'Every journal' ? 'articles in any journal' : 'top-14-review articles') + ' wrote <b>' + pct(p.y / 100) + '</b> of them');
+          return '<b>' + num(k) + ' people (' + pct1(k / N) + ' of those who published)</b><br>' + lines.join('<br>');
         } },
         plotOptions: { series: { marker: { enabled: false }, states: { hover: { lineWidthPlus: 0 } } } },
         series: [
@@ -599,7 +617,7 @@
         F.pairs.elite[1] + ' schools (the busiest: ' + instLabel(S[F.pairs.first.a][0], 20) + ' and ' + instLabel(S[F.pairs.first.b][0], 20) + ', ' + num(F.pairs.first.n) + ' articles). ');
     }
     if (F.home) {
-      say('The middle school places ');
+      say('The median law school places ');
       bold(pct1(F.home.mid));
       say(' of its faculty’s flagship-review articles in its own law review' + (F.home.third.length >= 2 ? ', but ' + F.home.third.length + ' schools place a third or more there' : '') + '. ');
     }

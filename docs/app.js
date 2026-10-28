@@ -570,9 +570,10 @@
     return '<div class="school-summary">' + trendBox({ school: s }) + tags + '</div>';
   }
 
-  // the chart under an opened school or person: their counted articles per year in the selected journals, one stacked
-  // colour per selected area, over the twenty years up to the window's end (the selected years shaded), so a recent rise
-  // shows against what came before. Highcharts is loaded the first time one is opened, not with the page.
+  // the chart under an opened school or person: their counted articles per year in the selected journals, one line per
+  // selected area (at most five, the smaller ones folded into one) and their total, over the twenty years up to the
+  // window's end, or the whole window if it is longer (the selected years shaded), so a recent rise shows against what
+  // came before. Highcharts is loaded the first time one is opened, not with the page.
   const TREND_COLORS = ['#377eb8', '#ff7f00', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
   const trendCharts = new Set();
   let trendSeq = 0, hcLoad = null;
@@ -586,12 +587,15 @@
   function highcharts() {
     if (!hcLoad) {
       const base = 'https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/';
-      hcLoad = (window.Highcharts ? Promise.resolve() : loadScript(base + 'highcharts.js').then(() => loadScript(base + 'modules/accessibility.js')))
+      // (review) the accessibility module is an extra: a blocked or failed load of it does not stop the charts; and a
+      // failed load is not kept, so the next school or person opened tries again
+      hcLoad = (window.Highcharts ? Promise.resolve() : loadScript(base + 'highcharts.js').then(() => loadScript(base + 'modules/accessibility.js').catch(() => null)))
         .then(() => {
           window.Highcharts.setOptions({ credits: { enabled: false }, tooltip: { followTouchMove: false },
             chart: { style: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' } } });
           return window.Highcharts;
-        });
+        })
+        .catch((e) => { hcLoad = null; throw e; });
     }
     return hcLoad;
   }
@@ -603,18 +607,22 @@
     }
     return schoolPeople.get(s) || [];
   }
-  // adjusted counts per year and selected area, by the ranking's own rules (selected journals, short pieces, own journals)
+  // adjusted counts per year and selected area, by the ranking's own rules (selected journals, short pieces, own journals);
+  // out.total counts each article once, as compute()'s By year strip does (a journal can sit in two selected areas)
   function yearlyCounts(people, school, y0, y1) {
     const P = DATA.papers, jAreas = current.jAreas, own = state.noHome ? DATA.journal_school : null;
     const out = current.areas.map(() => new Float64Array(y1 - y0 + 1));
+    const total = new Float64Array(y1 - y0 + 1);
     people.forEach((person) => (personPapers.get(person) || []).forEach((p) => {
       const y = P.year[p];
       if (y < y0 || y > y1 || (state.minor && P.minor[p])) return;
       const ji = P.journal[p], as = jAreas[ji];
       if (!as.length || (own && own[ji].includes(school))) return;
       const w = 1 / P.authors[p];
+      total[y - y0] += w;
       as.forEach((a) => { out[a][y - y0] += w; });
     }));
+    out.total = total;
     return out;
   }
   function destroyTrends(root) {
@@ -631,17 +639,31 @@
       const counts = yearlyCounts(who.person != null ? [who.person] : peopleAt(who.school), who.school, y0, y1);
       const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i);
       const name = who.person != null ? DATA.people[who.person][0] : DATA.schools[who.school][0];
-      let series = current.areas.map((a, i) => ({ name: a.label, color: TREND_COLORS[i % TREND_COLORS.length],
-        data: [...counts[i]].map((v) => Math.round(v * 100) / 100) })).filter((x) => x.data.some((v) => v > 0));
-      // (the owner, 2026-10-28: "line chart not bar") one line per selected area, and their total when there are several
-      if (series.length > 1) {
-        series = [{ name: 'All selected', color: '#333', lineWidth: 2.5, zIndex: 2,
-          data: years.map((_, k) => Math.round(series.reduce((t, x) => t + x.data[k], 0) * 100) / 100) }].concat(series);
+      // (review) one decimal, rounded as the By year strip rounds, so a year reads the same in the chart and the strip
+      const r1 = (v) => +one(v);
+      const lines = current.areas.map((a, i) => ({ name: a.label, raw: counts[i] })).filter((x) => x.raw.some((v) => v > 0));
+      // (review) at most five area lines, each its own colour: Flagship and the biggest groups, in their usual order, and
+      // the rest folded into one line (the total below still counts them all)
+      const MAX_LINES = 5;
+      let shown = lines;
+      if (lines.length > MAX_LINES) {
+        const sum = (x) => x.raw.reduce((t, v) => t + v, 0);
+        const first = lines[0].name === 'Flagship' ? 1 : 0;
+        const big = new Set(lines.slice(first).sort((a, b) => sum(b) - sum(a)).slice(0, MAX_LINES - 1 - first));
+        const rest = lines.filter((x, j) => j >= first && !big.has(x));
+        shown = lines.filter((x, j) => j < first || big.has(x)).concat([{ name: rest.length + ' other selected groups', color: '#999',
+          raw: years.map((_, k) => rest.reduce((t, x) => t + x.raw[k], 0)) }]);
       }
+      const series = shown.map((x, i) => ({ name: x.name, color: x.color || TREND_COLORS[i], data: [...x.raw].map(r1) }));
+      // (the owner, 2026-10-28: "line chart not bar") one line per selected area, and their total when there are several:
+      // each article once, as in the By year strip
+      if (series.length > 1) series.unshift({ name: 'All selected', color: '#333', lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
       box.innerHTML = '';
       if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + y0 + '–' + y1 + '.</p>'; return; }
+      // (review) the legend gets its own room (a row per line on a phone, two to a row wider), so the plot keeps its height
+      const legendRows = series.length > 1 ? (box.clientWidth < 500 ? series.length : Math.ceil(series.length / 2)) : 0;
       trendCharts.add(H.chart(box, {
-        chart: { type: 'line', height: 190, spacing: [6, 4, 4, 0], backgroundColor: 'transparent' },
+        chart: { type: 'line', height: 190 + 18 * legendRows, spacing: [6, 4, 4, 0], backgroundColor: 'transparent' },
         title: { text: 'Counted articles per year, ' + y0 + '–' + y1, align: 'left', style: { fontSize: '12px', fontWeight: '600', color: '#333' } },
         accessibility: { description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + y0 + '–' + y1 + '.' },
         xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: '#666' } },
@@ -649,7 +671,9 @@
             label: { text: 'selected years', style: { fontSize: '10px', color: '#777' }, y: 12 } }] : [] },
         yAxis: { title: { text: null }, min: 0, allowDecimals: true, gridLineColor: '#eee', labels: { style: { fontSize: '10px', color: '#666' } } },
         legend: { enabled: series.length > 1, itemStyle: { fontSize: '11px', fontWeight: '400', color: '#333' }, margin: 4, padding: 2 },
-        tooltip: { shared: true, valueDecimals: 1, headerFormat: '<b>{point.key}</b><br>' },
+        // (review) only the lines with articles that year, so the tooltip stays short
+        tooltip: { shared: true, headerFormat: '<b>{point.key}</b><br>', pointFormatter: function () {
+          return this.y ? '<span style="color:' + this.color + '">●</span> ' + esc(this.series.name) + ': <b>' + this.y.toFixed(1) + '</b><br/>' : ''; } },
         plotOptions: { line: { lineWidth: 2, marker: { radius: 2.5, symbol: 'circle' }, states: { hover: { lineWidth: 2.5 } } } },
         series: series,
       }));

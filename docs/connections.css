@@ -12,11 +12,15 @@
 .cn-legend i.dash { height: 0; border-top: 1.5px dashed var(--axis); background: none !important; }
 .cn-foot { color: var(--ink-2); font-size: 14px; line-height: 1.45; max-width: 820px; }
 .cn-none { font-family: var(--sans); font-size: 13.5px; padding: 12px 0; margin: 0; }
-.cn-card .ins-table td { overflow-wrap: anywhere; }
+.cn-card .ins-table td { overflow-wrap: break-word; }
 .cn-card .ins-table th { vertical-align: bottom; font-weight: 600; color: var(--ink-2); }
 
 @media (max-width: 767px) {
   .cn-foot { font-size: 13.5px; }
   .cn-card .ins-table table { font-size: 12px; }
   .cn-card .ins-table th, .cn-card .ins-table td { padding: 3px 4px; }
+  /* the subject-area table has seven columns: a size smaller and tighter, so it fits a phone without breaking a word
+     or a number (break-word above breaks only a token wider than its whole column) */
+  #cnTiers .ins-table table { font-size: 11px; }
+  #cnTiers .ins-table th, #cnTiers .ins-table td { padding: 3px 2px; }
 }

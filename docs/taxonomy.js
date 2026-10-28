@@ -94,7 +94,7 @@
     src.replaceChildren();
     if (a.s && a.s.length) {        // the outside schemes this category matches, cited (folded: there can be 20+)
       const d = el('details', { class: 'tx-srcs' });
-      d.appendChild(el('summary', null, 'Matches ' + a.s.length + ' outside scheme' + (a.s.length === 1 ? '' : 's') + ' (law faculties, libraries, research classifications)'));
+      d.appendChild(el('summary', null, 'Matches ' + a.s.length + ' node' + (a.s.length === 1 ? '' : 's') + ' in outside schemes (law faculties, libraries, research classifications)'));
       const ul = el('ul');
       a.s.forEach(([title, url]) => {
         const li = el('li');
