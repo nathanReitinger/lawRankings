@@ -508,16 +508,20 @@
   // counts occurred. I want to spot recent trends like a school or person that published in top reviews recently but
   // didn't used to")
 
-  // a row's counted articles per selected year as a strip of small bars, oldest on the left, scaled to the row's own
-  // busiest year (the exact numbers in its tooltip)
+  // a row's counted articles per selected year as a small line, oldest on the left, scaled to the row's own busiest
+  // year, the last year marked (the exact numbers in its tooltip; the owner, 2026-10-28: "line chart not bar")
   function sparkHtml(years, who) {
     if (!years || !years.length) return '';
     const max = Math.max(...years);
     if (!(max > 0)) return '';
     const tip = who + ', counted articles per year (adjusted for co-authors): ' +
       [...years].map((v, i) => (state.from + i) + ' ' + one(v)).join(', ');
-    return '<span class="spark" title="' + esc(tip) + '" role="img" aria-label="' + esc(tip) + '">' +
-      [...years].map((v) => '<i style="height:' + (v > 0 ? Math.max(8, Math.round(100 * v / max)) : 0) + '%"></i>').join('') + '</span>';
+    const W = 54, H = 16, n = years.length;
+    const x = (i) => (n === 1 ? W / 2 : 1.5 + (i * (W - 3)) / (n - 1)), y = (v) => (H - 1.5 - (v / max) * (H - 3));
+    const pts = [...years].map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+    return '<span class="spark" title="' + esc(tip) + '" role="img" aria-label="' + esc(tip) + '"><svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">' +
+      '<line x1="0" y1="' + (H - 0.5) + '" x2="' + W + '" y2="' + (H - 0.5) + '" class="spark-base"/>' +
+      '<polyline points="' + pts + '" class="spark-line"/><circle cx="' + x(n - 1).toFixed(1) + '" cy="' + y(years[n - 1]).toFixed(1) + '" r="1.8" class="spark-end"/></svg></span>';
   }
 
   // a school's subject areas: the higher-level groups of the specialty journals its current faculty published in, in the
@@ -627,21 +631,26 @@
       const counts = yearlyCounts(who.person != null ? [who.person] : peopleAt(who.school), who.school, y0, y1);
       const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i);
       const name = who.person != null ? DATA.people[who.person][0] : DATA.schools[who.school][0];
-      const series = current.areas.map((a, i) => ({ name: a.label, color: TREND_COLORS[i % TREND_COLORS.length],
+      let series = current.areas.map((a, i) => ({ name: a.label, color: TREND_COLORS[i % TREND_COLORS.length],
         data: [...counts[i]].map((v) => Math.round(v * 100) / 100) })).filter((x) => x.data.some((v) => v > 0));
+      // (the owner, 2026-10-28: "line chart not bar") one line per selected area, and their total when there are several
+      if (series.length > 1) {
+        series = [{ name: 'All selected', color: '#333', lineWidth: 2.5, zIndex: 2,
+          data: years.map((_, k) => Math.round(series.reduce((t, x) => t + x.data[k], 0) * 100) / 100) }].concat(series);
+      }
       box.innerHTML = '';
       if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + y0 + '–' + y1 + '.</p>'; return; }
       trendCharts.add(H.chart(box, {
-        chart: { type: 'column', height: 190, spacing: [6, 4, 4, 0], backgroundColor: 'transparent' },
+        chart: { type: 'line', height: 190, spacing: [6, 4, 4, 0], backgroundColor: 'transparent' },
         title: { text: 'Counted articles per year, ' + y0 + '–' + y1, align: 'left', style: { fontSize: '12px', fontWeight: '600', color: '#333' } },
         accessibility: { description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + y0 + '–' + y1 + '.' },
         xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: '#666' } },
-          plotBands: state.from > y0 ? [{ from: state.from - y0 - 0.5, to: y1 - y0 + 0.5, color: 'rgba(55,126,184,0.07)',
+          plotBands: state.from > y0 ? [{ from: state.from - y0, to: y1 - y0, color: 'rgba(55,126,184,0.07)',
             label: { text: 'selected years', style: { fontSize: '10px', color: '#777' }, y: 12 } }] : [] },
-        yAxis: { title: { text: null }, allowDecimals: true, gridLineColor: '#eee', labels: { style: { fontSize: '10px', color: '#666' } } },
+        yAxis: { title: { text: null }, min: 0, allowDecimals: true, gridLineColor: '#eee', labels: { style: { fontSize: '10px', color: '#666' } } },
         legend: { enabled: series.length > 1, itemStyle: { fontSize: '11px', fontWeight: '400', color: '#333' }, margin: 4, padding: 2 },
         tooltip: { shared: true, valueDecimals: 1, headerFormat: '<b>{point.key}</b><br>' },
-        plotOptions: { column: { stacking: 'normal', borderWidth: 0, groupPadding: 0.06, pointPadding: 0.04 } },
+        plotOptions: { line: { lineWidth: 2, marker: { radius: 2.5, symbol: 'circle' }, states: { hover: { lineWidth: 2.5 } } } },
         series: series,
       }));
     })).catch(() => boxes.forEach((box) => { box.innerHTML = '<p class="detail-note">The chart could not be loaded.</p>'; }));
