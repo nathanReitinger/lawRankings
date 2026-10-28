@@ -54,7 +54,7 @@
 .ins-card figcaption p { font-family: var(--serif); font-size: 15px; line-height: 1.45; color: var(--ink-2); margin: 0 0 12px; max-width: 760px; }
 .ins-foot { font-family: var(--serif); font-size: 13.5px; color: var(--muted); margin: 8px 0 0; }
 .ins-chart { position: relative; width: 100%; }
-.ins-chart svg, .ins-network svg { display: block; overflow: visible; font-family: var(--sans); }
+.ins-chart .highcharts-container, .jn-graph .highcharts-container { font-family: var(--sans); }
 .ins-row { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 10px; font-family: var(--sans); font-size: 13.5px; color: var(--ink-2); }
 .ins-pick { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 
@@ -72,29 +72,18 @@
 .ins-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .ins-legend i { display: inline-block; width: 18px; height: 2px; border-radius: 2px; }
 .ins-legend i.box { width: 12px; height: 12px; border-radius: 3px; }
+.ins-legend i.dot { width: 8px; height: 8px; border-radius: 50%; }
 
-/* the network: a canvas of every line, an svg on top for axes, highlights and hit areas */
-.ins-network { position: relative; width: 100%; touch-action: pan-y; }
-.ins-network canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ins-network svg { position: relative; }
+/* the flows (a Highcharts sankey): the two columns named above the chart */
+.ins-ends { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 2px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.ins-ends span:last-child { text-align: right; }
 .ins-detail { min-height: 64px; margin-top: 10px; padding: 12px 14px; border-radius: 8px; background: var(--plane); font-family: var(--sans); font-size: 14px; line-height: 1.45; color: var(--ink-2); }
 .ins-detail b { color: var(--ink); }
 .ins-detail ol { margin: 6px 0 0; padding-left: 1.4em; }
 .ins-detail li { margin: 1px 0; }
 .ins-detail .n { font-variant-numeric: tabular-nums; color: var(--ink); }
 
-/* the matrix */
-.ins-matrix-wrap { width: 100%; }
-.ins-matrix { width: 100%; table-layout: fixed; font-family: var(--sans); font-size: 13px; border-collapse: separate; border-spacing: 2px; }
-.ins-matrix th { font-weight: 600; color: var(--ink-2); font-size: 12px; line-height: 1.2; padding: 4px 3px; vertical-align: bottom; text-align: center; }
-.ins-matrix th.row { text-align: right; vertical-align: middle; padding-right: 8px; width: 7.6em; }
-.ins-matrix th.corner { text-align: right; color: var(--muted); font-weight: 500; }
-.ins-matrix td { height: 46px; text-align: center; vertical-align: middle; border-radius: 4px; font-variant-numeric: tabular-nums; font-size: 13.5px; font-weight: 600; cursor: default; transition: outline-color .1s; outline: 2px solid transparent; outline-offset: -2px; }
-.ins-matrix td:hover, .ins-matrix td:focus { outline-color: var(--ink); }
-.ins-matrix td.total { background: transparent !important; color: var(--muted); font-weight: 500; font-size: 12px; }
-.ins-matrix .group-sep { border-left: 8px solid transparent; }
-
-/* tooltip */
+/* tooltip (the page's own, for anything not drawn by Highcharts) */
 .ins-tip { position: fixed; z-index: 500; pointer-events: none; max-width: 280px; padding: 9px 11px; border-radius: 8px; background: rgba(255, 255, 255, .97);
   border: 1px solid var(--hair); box-shadow: 0 6px 24px rgba(0, 0, 0, .12); font-family: var(--sans); font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
 .ins-tip .tv { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -103,13 +92,15 @@
 .ins-tip .row i { display: inline-block; width: 12px; height: 2px; border-radius: 2px; flex: none; }
 .ins-tip .row b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
-/* axes */
-.ins .tick text { fill: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
-.ins .tick line { stroke: var(--grid); }
-.ins .domain { stroke: var(--axis); }
-.ins .axis-label { fill: var(--muted); font-size: 11.5px; }
-.ins .halo { paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; fill: var(--ink-2); }
-.ins .direct { fill: var(--ink-2); font-size: 12px; font-weight: 600; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
+/* the Highcharts tooltips' content (insights.js tipHTML): the value first, then what it is, rows keyed by a short line */
+.ins-tt { min-width: 9em; max-width: 260px; white-space: normal; font-family: var(--sans); font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.ins-tt .tv { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ins-tt .tt { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+.ins-tt .row { display: flex; align-items: center; gap: 7px; }
+.ins-tt .row i { display: inline-block; width: 12px; height: 2px; border-radius: 2px; flex: none; }
+.ins-tt .row span { flex: 1 1 auto; }
+.ins-tt .row b { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ins-tt .m { margin-top: 3px; color: var(--muted); font-size: 12px; }
 
 /* tables behind the charts */
 .ins-table { margin-top: 10px; font-family: var(--sans); font-size: 13px; }
@@ -128,11 +119,8 @@
   .ins-tile .l { margin-top: 0; }
   .ins-card { padding: 14px 12px 10px; border-radius: 10px; margin-left: -2px; margin-right: -2px; }
   .ins-filters { position: static; gap: 6px 12px; font-size: 13.5px; background: var(--surface); }
-  .ins-matrix { font-size: 12px; border-spacing: 1.5px; }
-  .ins-matrix th { font-size: 10.5px; padding: 3px 1px; }
-  .ins-matrix th.row { width: 5.4em; padding-right: 5px; }
-  .ins-matrix td { height: 40px; font-size: 12px; }
   .ins-section { margin-bottom: 40px; }
+  .ins-ends { font-size: 11.5px; }
 }
 @media (prefers-reduced-motion: reduce) { .ins * { transition: none !important; } }
 

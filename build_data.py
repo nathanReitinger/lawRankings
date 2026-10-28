@@ -47,14 +47,22 @@ SCHOOL_CSVS = os.path.join(SOURCE_DIR, 'faculty_runs', '*.csv_metric')      # He
 SCHOOL_CSV_DIR = os.path.join(SOURCE_DIR, 'faculty_runs', 'school_csv')       # ... and the current one
 MISSING_HOMEPAGES = os.path.join(SOURCE_DIR, 'faculty_runs', 'missing_homepages.csv')
 INFERRED_HOMEPAGES = os.path.join(SOURCE_DIR, 'faculty_runs', 'inferred_homepages.csv')   # found on the schools' own sites
+ISOLATED_YEARS = 30    # a credit this many years or more before the person's next credited paper is left out (build)
+ISOLATED_REVIEW = os.path.join(SOURCE_DIR, 'isolated_credits_review_{date}.csv')   # ... and listed here for the owner
 
 # Versions (2026-10-24, the owner's rule): MAJOR.minor.patch, shown as "Volume 2.1.0".
 #   major: set here by hand for a major update (minor and patch go back to 0)
 #   minor: goes up when the substantive data changes (papers, authors, credits, schools, journals: a hash of
-#          data.json and the titles); the "data updated" timestamp on the site is the time of that change
+#          DIGEST_KEYS); the "data updated" timestamp on the site is the time of that change
 #   patch: goes up when anything else the site serves changes (its pages, scripts, styles), data unchanged
 MAJOR = 2
 SITE_FILES = ['docs/*.html', 'docs/*.js', 'docs/*.css']
+# (2026-10-28, audit R97; the owner, 2026-10-24: "use a hash of the database info, the authors and substantive info")
+# the digest covers the substantive data only: papers, credits, people, schools, journals, their ranks and groups.
+# Fields derived for a view (field_of, school_faculty, journal_school) stay out, so a site feature that adds or changes
+# one is a patch, not a data update. Until 2026-10-28 every key of data counted (meta.json had no digest_keys then).
+DIGEST_KEYS = ['schools', 'rank_sources', 'journal_ranks', 'host_ranks', 'people', 'subjects', 'groups', 'journals',
+               'papers', 'credits']
 
 # Faculty corrections anyone can propose with a GitHub pull request (faculty/README.md says how); applied on top of
 # Hein's faculty lists in every build. The full list the build used is written to faculty/list-<letter>.csv.
@@ -325,9 +333,53 @@ def infer_year(volume):
     return js.infer_year(volume)
 
 
+def first_label_year(volume):
+    '''the earliest year in a volume label, read as journal_store.infer_year reads the latest: "78 (2025-2026)" -> 2025,
+    "29 (1999-00)" -> 1999'''
+    years = [int(y) for y in re.findall(r'(?<!\d)(1[6-9]\d\d|20\d\d)(?!\d)', str(volume))]
+    years = [y for y in years if y <= datetime.now().year + 1]
+    return min(years) if years else None
+
+
+def volume_years(vols):
+    '''(2026-10-28, audit R96: volumes whose label carries two years should take the earliest) a paper's year is the
+    latest year of its volume's label (journal_store.infer_year), so a journal that mixes range labels and single-year
+    labels gets two volumes in one year and none in the year before: Vanderbilt Law Review 78 "(2025-2026)" and 79
+    "(2026)" were both 2026, 2025 empty. Where two consecutive volumes share a year, the earlier one moves back a year
+    inside its own label (its first year, for a two-year label), and so does each volume before it that would now
+    share its year, until one lands in a free year: a year that follows the previous volume's (UCLA Law Review 67-69,
+    Cornell Law Review 109-110). Nothing moves when no free year is reached (the run starts the journal, a volume is
+    missing from the store, or a single-year label is in the way), so no new collision is made: an unfinished newest
+    volume ("60 #1 (2025)" after "59 (2024-2025)") would otherwise shift a journal's whole run of range labels.
+    vols: [(volume key, first year, last year)] for one journal -> {volume key: year} for the volumes re-dated'''
+    order = sorted(vols, key=lambda v: (js.volume_number(v[0]), v[2], v[0]))
+    num = [js.volume_number(v[0]) for v in order]
+    year = [v[2] for v in order]
+    for i in range(len(order) - 1):
+        if year[i] != year[i + 1] or num[i + 1] - num[i] != 1:
+            continue
+        new, k = year[:], i
+        while True:
+            new[k] = new[k + 1] - 1
+            if new[k] < order[k][1] or k == 0 or num[k] - num[k - 1] != 1 or new[k - 1] > new[k]:
+                break                     # outside its own label, or no previous volume to show the year is free
+            if new[k - 1] < new[k]:
+                year = new                # a free year
+                break
+            k -= 1                        # the previous volume holds that year: it moves back too
+    moved = {order[i][0]: year[i] for i in range(len(order)) if year[i] != order[i][2]}
+    # (checked on every journal, 2026-10-28) no year may end up with more volumes than before, unless it had none or
+    # one: a journal that would is left as labelled (build prints it)
+    before, after = Counter(v[2] for v in order), Counter(year)
+    if any(n > max(1, before[y]) for y, n in after.items()):
+        return None
+    return moved
+
+
 def load_papers():
     '''every journal in the data folder's journal_store/, plus when each was last checked'''
     rows, coverage = [], []
+    redated, refused = [], []     # (journal, volume label, year) re-dated by volume_years; journals it left alone
     for f in sorted(glob.glob(os.path.join(SOURCE_DIR, js.STORE_DIR, 'j___*.csv'))):
         journal = os.path.basename(f)[len('j___'):-len('.csv')]
         df, state = js.load_store(journal, repair=False)   # current copies; read-only (a run may be appending)
@@ -345,6 +397,17 @@ def load_papers():
         df = df[(df['title_key'] != '') & (df['author_key'] != '')]
         df['journal'] = journal
         df['year'] = df['volume'].map(infer_year)
+        # a volume whose rows carry one label year (all, today) can be re-dated inside its label (volume_years)
+        span = df[df['year'].notna()].assign(first=df['volume'].map(first_label_year)).groupby('volume_key').agg(
+            first=('first', 'min'), last=('year', 'max'), lo=('year', 'min'), label=('volume', 'first'))
+        span = span[(span['lo'] == span['last']) & span['first'].notna()]
+        moved = volume_years([(k, int(a), int(b)) for k, a, b in zip(span.index, span['first'], span['last'])])
+        if moved is None:
+            refused.append(journal)
+        elif moved:
+            hit = df['volume_key'].isin(moved)
+            df.loc[hit, 'year'] = df.loc[hit, 'volume_key'].map(moved)
+            redated += [(journal, js.clean_label(span.at[k, 'label']), y) for k, y in moved.items()]
         rows.append(df)
         vols = state.get('volumes', {})
         newest_volume = max((v.get(js.COLLECTED_AT) or '' for v in vols.values()), default='')
@@ -359,6 +422,13 @@ def load_papers():
             'verified': bool(state.get('verified_at')) or (bool(vols) and all(v.get('status') == 'verified' for v in vols.values())),
             'volumes_to_recheck': sum(1 for v in vols.values() if v.get('status') == 'suspect'),
         })
+    if redated:
+        recent = [r for r in redated if r[2] >= datetime.now().year - 2]
+        print(f'  year labels: {len(redated)} volumes in {len({r[0] for r in redated})} journals dated a year earlier inside '
+              f'their own label (two volumes in one year, the year before empty; {sum(1 for r in redated if r[2] >= 2016)} '
+              f'since 2016); the last two years:', '; '.join(f'{j} {lab} -> {y}' for j, lab, y in sorted(recent)) or 'none')
+    if refused:
+        print(f'  !! year labels: {len(refused)} journals left as labelled (re-dating would put more volumes in a year):', refused)
     papers = pd.concat(rows, ignore_index=True)
     papers = papers[papers['year'].notna()]
     papers['year'] = papers['year'].astype(int)
@@ -1554,6 +1624,26 @@ def write_profile_wants(papers, roster, us_schools, info):
               f'hein_profiles/affiliation_check.csv')
 
 
+def write_isolated_review(rows):
+    '''ISOLATED_REVIEW: the credits build() left out as 30+ years before the person's next credited paper, for the owner
+    to look over (a historical listing can go with a faculty/edits.csv "remove"). A new dated copy only when the list
+    changed; the file's path, or None if it could not be written.'''
+    cols = ['school', 'person', 'listed_as', 'year', 'next_credited_year', 'journal', 'volume', 'title', 'paper_author']
+    text = pd.DataFrame(rows, columns=cols).sort_values(['school', 'person', 'year', 'journal', 'title']).to_csv(index=False)
+    older = sorted(glob.glob(ISOLATED_REVIEW.format(date='*')))
+    if older and open(older[-1], encoding='utf-8').read() == text:
+        return older[-1]
+    path = ISOLATED_REVIEW.format(date=datetime.now().strftime('%Y-%m-%d'))
+    try:
+        with open(path + '.tmp', 'w', encoding='utf-8') as f:
+            f.write(text)
+        os.replace(path + '.tmp', path)
+    except Exception as e:     # a review list is not worth a failed build
+        print(f'  !! {path} could not be written ({e!r})')
+        return None
+    return path
+
+
 def write_missing_homepages(roster, info, home_of, school_csv, csv_schools, with_papers):
     """faculty_runs/missing_homepages.csv: everyone on the faculty lists with no homepage yet, for a later fallback
     (inferring the URL, or a search by hand). school_csv_read says whether the build has Hein's CSV for their school
@@ -1651,7 +1741,11 @@ def subject_tree():
     sp = os.path.join(TAXONOMY_RESEARCH, 'sources.csv')
     if os.path.exists(sp):
         for r in pd.read_csv(sp, dtype=str).fillna('').itertuples():
-            sources.append([clean(r.title), r.url, clean(r.what_it_supports), r.verified == 'yes'])
+            # (2026-10-28, audit R48) in the page's words: the research's approaches are the Interdisciplinary Methods
+            # group now, and "journal_map: X" (a research file's name) is the citation for X's placement
+            supports = re.sub(r'(^|; )Approaches > ', r'\1Interdisciplinary Methods > ', clean(r.what_it_supports))
+            supports = re.sub(r'(^|; )journal_map: ', r'\1Placement of ', supports)
+            sources.append([clean(r.title), r.url, supports, r.verified == 'yes'])
     return {'name': clean(t.get('name')), 'description': clean(t.get('description')), 'version': t.get('version'),
             'generated': t.get('generated'), 'counts': t.get('counts'),
             'areas': [node(a) for a in t.get('children', [])], 'approaches': [node(a) for a in t.get('approaches', [])],
@@ -1673,11 +1767,28 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
     bucket of authors, b: [faculty with an article in its journals, [[person id, articles], ... the 15 with most]], and
     the tree carries each journal's placement with its citation, placed: {journal id: [rule, deciding words, scope
     statement, its URL, where it was quoted from, W&L subjects]}, from TAXONOMY_FILE."""
-    research = subject_tree() or {'areas': [], 'approaches': [], 'sources': [], 'name': '', 'description': ''}
+    research = subject_tree()
+    if research is None:
+        # (2026-10-28, audit R48) the page would publish no sources and no outside schemes without a word
+        print(f'  !! the subject-area research ({TAXONOMY_RESEARCH}) is missing: the Subject areas page gets no sources '
+              f'and no outside schemes this build')
+        research = {'areas': [], 'approaches': [], 'sources': [], 'name': '', 'description': ''}
     about = {'General & Policy Journals': {'d': 'Journals whose own scope statement covers law, or law and public policy, generally, '
                                                  'with no subject focus. Their papers count in the rankings when this group is chosen; '
                                                  'they give no one an area.'},
              'No subject focus': {'d': 'Placed here because the journal describes its scope as law or policy generally.'}}
+    # (2026-10-28, audit R47: its card had no description and no outside schemes) the method journals' higher-level
+    # group, with the outside schemes the research's approaches match (each once); critical legal theory is the one
+    # approach with no journal in this group (its journals are placed by subject), so its schemes are not this group's
+    methods = []
+    for a in research['approaches']:
+        if not a['n'].startswith('Critical'):
+            methods += [s for s in a.get('s', []) if s not in methods]
+    about['Interdisciplinary Methods'] = {
+        'd': 'Journals defined by a method or another discipline rather than a legal subject (economics, psychology, '
+             'empirical and socio-legal research, history), as SSRN, the JEL codes and the Leiter citation lists also '
+             'give these their own place.',
+        's': methods}
     for top in research['areas'] + research['approaches']:
         about.setdefault(top['n'], top)
         for k in top.get('k', []):
@@ -1984,7 +2095,7 @@ def update_history(meta, data, prev):
         'version': meta['version'], 'kind': meta['kind'], 'date': meta['built'], 'data_updated': meta['data_updated'],
         'hash': meta.get('build_hash'), 'papers_collected': meta['papers_collected'], 'faculty_collected': meta['faculty_collected'],
         'rankings_edition': meta['rankings']['edition'], 'us_schools': meta.get('us_schools'),
-        'flagship_ranks': meta['flagship_ranks'], 'default_view': meta['default_view'],
+        'flagship_ranks': meta['flagship_ranks'], 'default_view': meta['default_view'], 'default_to': meta['default_to'],
         'counts': meta['counts'], 'top': default_ranking(data),
     }
     if history and history[-1].get('version') == meta['version']:
@@ -2001,10 +2112,13 @@ def update_history(meta, data, prev):
                 'faculty_with_papers': meta['counts']['faculty_with_papers'] - before['counts']['faculty_with_papers'],
                 'moved': [[s, old_rank.get(s), i] for i, (s, _, _) in enumerate(entry['top'], start=1) if old_rank.get(s) != i],
             }
-            if before.get('default_view') != entry['default_view']:
+            # (2026-10-28, audit R96) the default window ends at default_to, which the data moves (re-dated volumes)
+            before_to = before.get('default_to', prev.get('default_to'))
+            if before.get('default_view') != entry['default_view'] or (before_to and before_to != entry['default_to']):
                 # a different default view: its top 30 isn't comparable with the previous build's
                 entry['changes']['moved'] = []
-                entry['changes']['view_changed'] = entry['default_view']
+                entry['changes']['view_changed'] = entry['default_view'] + (
+                    f" ({entry['default_to'] - 9}-{entry['default_to']})" if before_to != entry['default_to'] else '')
         history.append(entry)
     meta['history_entry'] = entry
     return history
@@ -2078,6 +2192,10 @@ def build():
     if os.path.exists(SPECIALTY_HOSTS):
         for r in pd.read_csv(SPECIALTY_HOSTS, dtype=str).fillna('').itertuples():
             hosts[r.journal] = (r.host, r.publisher)
+    # (2026-10-28, audit R100) a specialty journal with no row has no host school, so no host rank for the host filter
+    no_host = sorted(set(spec['journal']) - set(hosts))
+    if no_host:
+        print(f'  !! {len(no_host)} specialty journals with no row in specialty_hosts.csv (no host school or rank):', no_host)
 
     journal_names = sorted(ranked['journal'].unique())
     journal_id = {j: i for i, j in enumerate(journal_names)}
@@ -2287,13 +2405,13 @@ def build():
 
     listed = roster.assign(_pk=match_info['pk']).groupby('school')['_pk'].nunique()   # people on each school's list
     credit_paper, credit_person = [], []
-    seen = set()
+    seen = {}          # (paper id, person id) -> the paper's author link it was credited through
     for r in credited[['paper_key', 'author']].itertuples(index=False):
         pid = paper_id[r.paper_key]
         for i in matched[r.author]:
             key = (pid, person_id[person_key(i)])
             if key not in seen:
-                seen.add(key)
+                seen[key] = r.author
                 credit_paper.append(key[0])
                 credit_person.append(key[1])
     # (2026-10-26, the audit of why the list differs from U.S. News) a student Note (HeinOnline ends its title with
@@ -2320,6 +2438,31 @@ def build():
     keep = [k or per_paper[pk] >= 2 or len(per_vol[paper_keys[pk].rsplit('|', 1)[0]]) >= 2 for k, pk in zip(keep, credit_paper)]
     if not all(keep):
         print(f'  {keep.count(False)} student notes not credited to faculty whose credited work began 5+ years earlier')
+        credit_paper = [x for x, k in zip(credit_paper, keep) if k]
+        credit_person = [x for x, k in zip(credit_person, keep) if k]
+    # (2026-10-28, audit R98; the owner: "really tight on authors and titles") a credit 30 or more years before the
+    # person's next credited paper is a namesake's or a historical figure's, not the faculty member's: Barry's Stephen
+    # J. Leacock was credited with a 1907 paper, a Georgetown professor with 1884-85 Penn papers. Everything before a
+    # person's last gap of ISOLATED_YEARS is left out (their latest run of work always stays) and listed for the owner
+    # in ISOLATED_REVIEW.
+    years_of = defaultdict(set)
+    for pk, person in zip(credit_paper, credit_person):
+        years_of[person].add(year_of[pk])
+    resumes = {}       # person -> the year their work resumes after their last 30-year gap
+    for person, ys in years_of.items():
+        ys = sorted(ys)
+        gaps = [b for a, b in zip(ys, ys[1:]) if b - a >= ISOLATED_YEARS]
+        if gaps:
+            resumes[person] = gaps[-1]
+    keep = [year_of[pk] >= resumes.get(person, 0) for pk, person in zip(credit_paper, credit_person)]
+    if not all(keep):
+        out = [(pk, person) for pk, person, k in zip(credit_paper, credit_person, keep) if not k]
+        review = write_isolated_review([
+            ['; '.join(schools[s] for s in people[person][1]), people[person][0], people[person][2], year_of[pk],
+             resumes[person], first_rows.at[paper_keys[pk], 'journal'], js.clean_label(first_rows.at[paper_keys[pk], 'volume']),
+             first_rows.at[paper_keys[pk], 'title'], hp.search_name(seen[(pk, person)]).strip()] for pk, person in out])
+        print(f'  {len(out)} credits left out: {ISOLATED_YEARS}+ years before the person\'s next credited paper (namesakes, '
+              f'historical figures; {len(resumes)} people)' + (f'; listed in {os.path.basename(review)}' if review else ''))
         credit_paper = [x for x, k in zip(credit_paper, keep) if k]
         credit_person = [x for x, k in zip(credit_person, keep) if k]
 
@@ -2467,11 +2610,8 @@ def build():
                      for r in used.sort_values('journal').to_dict(orient='records')],
     }
 
-    # versions (see MAJOR): a hash of the substantive data, and one of the site's own files
-    # (stress test, 2026-10-24) without each journal's "last checked" date: a run that finds nothing new is not a new
-    # data version (the owner: changes that are not substantive don't count)
-    substantive = dict(data, journals=[[j[0]] + j[2:] for j in data['journals']])
-    digest = hashlib.sha1(json.dumps(substantive, sort_keys=True).encode()).hexdigest()[:12]
+    # versions (see MAJOR): a hash of the substantive data (data_digest), and one of the site's own files
+    digest = data_digest(data, DIGEST_KEYS)
     site_digest = site_files_digest()
     prev = {}
     if os.path.exists(os.path.join(OUT_DIR, 'meta.json')):
@@ -2479,6 +2619,9 @@ def build():
             prev = json.load(open(os.path.join(OUT_DIR, 'meta.json'), encoding='utf-8'))
         except ValueError:     # a build killed while writing it (review): fall back to git's copy
             prev = git_json('docs/data/meta.json')
+    # the previous build's digest is compared with this build's data hashed over the previous build's keys (every key of
+    # data before digest_keys), so a change in which keys count (2026-10-28: DIGEST_KEYS) is not itself a data update
+    same_data = prev.get('digest') == data_digest(data, prev.get('digest_keys') or list(data))
     now = int(time.time())
     if not prev.get('semver'):                           # the first versioned build: the owner's "version 2.0"
         semver, kind, updated = [MAJOR, 0, 0], 'data', now
@@ -2486,7 +2629,7 @@ def build():
         semver, updated = list(prev['semver']), prev.get('data_updated') or now
         if MAJOR != semver[0]:
             semver, kind, updated = [MAJOR, 0, 0], 'major', now
-        elif prev.get('digest') != digest:
+        elif not same_data:
             semver, kind, updated = [semver[0], semver[1] + 1, 0], 'data', now
         elif prev.get('site_digest') != site_digest:
             semver, kind = [semver[0], semver[1], semver[2] + 1], 'site'
@@ -2497,6 +2640,7 @@ def build():
     meta['kind'] = kind
     meta['data_updated'] = updated                       # unix time of the last substantive data change
     meta['digest'] = digest
+    meta['digest_keys'] = DIGEST_KEYS
     meta['site_digest'] = site_digest
     meta['build_hash'] = build_hash(digest, site_digest)
     history = update_history(meta, data, prev)
@@ -2530,6 +2674,16 @@ def build():
           '| faculty with papers', meta['counts']['faculty_with_papers'],
           '| articles collected', meta['papers_collected']['from'], 'to', meta['papers_collected']['to'])
     return meta
+
+
+def data_digest(data, keys):
+    '''a hash of the substantive data: data's `keys` (DIGEST_KEYS), each journal without its "last checked" date
+    ((stress test, 2026-10-24) a run that finds nothing new is not a new data version; the owner: changes that are not
+    substantive don't count)'''
+    substantive = {k: data[k] for k in keys if k in data}
+    if 'journals' in substantive:
+        substantive['journals'] = [[j[0]] + j[2:] for j in data['journals']]
+    return hashlib.sha1(json.dumps(substantive, sort_keys=True).encode()).hexdigest()[:12]
 
 
 def site_files_digest():

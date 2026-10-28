@@ -68,7 +68,7 @@
     <figure class="ins-card" id="figJournal">
       <figcaption>
         <h3>Who publishes in a journal</h3>
-        <p>Pick a journal. Its institutions come first: every school whose faculty published there in the years chosen above, the bigger the dot and the thicker the line, the more articles. Click an institution to open its authors, and an author for their faculty page.</p>
+        <p>Pick a journal. Its institutions come first: every school whose faculty published there in the years chosen above, the bigger the dot and the thicker the line, the more articles. Click an institution to open its most frequent authors (the list has all of them), and an author for their faculty page.</p>
       </figcaption>
       <div class="ins-row">
         <label class="ins-pick">Journal <select id="jnJournal" class="ctl-select" aria-label="Journal"></select></label>
@@ -86,17 +86,15 @@
     <figure class="ins-card" id="figNetwork">
       <figcaption>
         <h3>Every law school, every flagship law review</h3>
-        <p>Each line joins a law school (left, by its rank) to a flagship law review (right, by its school's rank); the thicker the line, the more articles the school's faculty published there. Lines that run flat stay at their own level; lines that climb or fall cross the ranking. Pick a group or a school, or tap either axis.</p>
+        <p>Each flow runs from a group of law schools (left, by rank) to a group of flagship law reviews (right, by their school's rank); the wider the flow, the more articles that group's faculty published in those reviews. A flow that runs straight across stays at its own level; one that climbs or falls crosses the ranking. Pick a group, or a single school or law review to see its own flows.</p>
       </figcaption>
       <div class="ins-chips" id="netChips" role="radiogroup" aria-label="Highlight a group of schools"></div>
       <div class="ins-row">
         <label class="ins-pick">School <select id="netSchool" class="ctl-select" aria-label="Highlight one school"></select></label>
         <label class="ins-pick">Law review <select id="netJournal" class="ctl-select" aria-label="Highlight one law review"></select></label>
       </div>
-      <div class="ins-network" id="network">
-        <canvas id="netCanvas" aria-hidden="true"></canvas>
-        <svg id="netSvg" role="img" aria-labelledby="netDesc"><desc id="netDesc">Lines from law schools ranked by U.S. News to the flagship law reviews their faculty published in.</desc></svg>
-      </div>
+      <div class="ins-ends" id="netEnds" aria-hidden="true"></div>
+      <div class="ins-chart" id="network"></div>
       <div class="ins-detail" id="netDetail" aria-live="polite"></div>
     </figure>
 
@@ -109,13 +107,14 @@
         <button type="button" data-view="row" aria-pressed="true">Where each group publishes</button>
         <button type="button" data-view="col" aria-pressed="false">Who writes for each group of journals</button>
       </div>
-      <div class="ins-matrix-wrap"><table class="ins-matrix" id="matrix"></table></div>
+      <div class="ins-chart" id="matrix"></div>
+      <details class="ins-table"><summary>The numbers</summary><div id="matrixTable"></div></details>
     </figure>
 
     <figure class="ins-card" id="figScatter">
       <figcaption>
         <h3>A school's rank, and the rank of the reviews its faculty publish in</h3>
-        <p>One dot per law school (at least 10 flagship-review articles in these years): across, the school's rank; up, the median rank of the flagship reviews its faculty published in. On the diagonal a school publishes at its own level; above it, in higher-ranked reviews.</p>
+        <p>One dot per law school (at least 10 flagship-review articles in these years): across, the school's rank; up, the median rank of the flagship reviews its faculty published in. On the diagonal a school publishes at its own level; above it, in higher-ranked reviews. Tap or click a dot to follow that school here and in the flows above.</p>
       </figcaption>
       <div class="ins-chart" id="scatter"></div>
     </figure>
@@ -161,12 +160,14 @@
       <div class="ins-chart" id="teams"></div>
     </figure>
 
-    <figure class="ins-card" id="figViolin">
+    <figure class="ins-card" id="figSpread">
       <figcaption>
         <h3>The rise shows up across schools, not at a few</h3>
-        <p>For each period, the spread across U.S. law schools of the share of their faculty's articles that were co-authored (schools with at least 15 articles in the period). Wider means more schools at that level; the white dot is the middle school, the dark bar the middle half.</p>
+        <p>For each period, every U.S. law school with at least 15 articles by its current faculty is a dot, placed at the share of those articles that were co-authored (dots spread sideways where schools crowd together). The darker band holds the middle half of schools, the lighter band the 10th to 90th percentile, and the line follows the median school. Pick a school above, or tap a dot, to follow one school.</p>
       </figcaption>
-      <div class="ins-chart" id="violin"></div>
+      <div class="ins-legend" id="spreadLegend"></div>
+      <div class="ins-chart" id="spread"></div>
+      <details class="ins-table"><summary>The numbers, by period</summary><div id="spreadTable"></div></details>
       <p class="ins-foot">Current faculty only: articles are credited to where each author teaches now, so the early periods show the earlier work of today's faculty.</p>
     </figure>
   </section>
@@ -217,17 +218,23 @@
   <!-- ===================================================== 5. method -->
   <section class="ins-section prose ins-method" id="method" hidden>
     <h2>How these are computed</h2>
-    <p><b>Who publishes where</b> uses the rankings' own data. "Who publishes in a journal" shows every institution on the faculty lists (courts and non-US schools included); the rest of question 1 uses the articles of current faculty at U.S. law schools, credited to the school where each author teaches now. Article counts and the shares in the tiles and the row view count each article once (an article with authors from two groups of schools counts once in each group); the column view and the lines count it once for each school with an author on it. Flagship law reviews (each school's main law review) are placed by their school's rank, under the ranking chosen above (<i>U.S. News</i> overall, or its peer-reputation score via TaxProf Blog); schools tied at a rank sit together, and schools listed in a range ("175–194") at its top. "Online editions &amp; other general journals" are the general journals that are not a school's main review; specialty journals are the rest (including two general journals that W&amp;L also lists under a subject, the <i>Journal of Legal Analysis</i> and the <i>University of Chicago Legal Forum</i>, here and in question 2).</p>
+    <p><b>Who publishes where</b> uses the rankings' own data. "Who publishes in a journal" shows every institution on the faculty lists (courts and non-US schools included); the rest of question 1 uses the articles of current faculty at U.S. law schools, credited to the school where each author teaches now. Article counts and the shares in the tiles and the row view count each article once (an article with authors from two groups of schools counts once in each group); the column view and the flows count it once for each school with an author on it. Flagship law reviews (each school's main law review) are placed by their school's rank, under the ranking chosen above (<i>U.S. News</i> overall, or its peer-reputation score via TaxProf Blog); schools tied at a rank sit together, and schools listed in a range ("175–194") at its top. "Online editions &amp; other general journals" are the general journals that are not a school's main review; specialty journals are the rest (including two general journals that W&amp;L also lists under a subject, the <i>Journal of Legal Analysis</i> and the <i>University of Chicago Legal Forum</i>, here and in question 2).</p>
     <p><b>Co-authorship</b> counts every piece in every journal collected here (<span id="mPieces"></span> pieces), not only those by current faculty, so the trend is not an artifact of who teaches today. A piece's authors are the names HeinOnline lists for it. "Research articles only" leaves out short pieces (under 10 pages by HeinOnline's page numbers, or a memorial under 20; where the length is not known, the short-piece classifier described on the <a href="faq.html#short">About page</a> decides). "Same journals throughout" keeps only the <span id="mPanel"></span> journals with articles in every five years since 1980, so a rise is not just newer journals joining. The latest year is partial until its volumes are complete.</p>
     <p><b>Title length</b> counts the characters of research-article titles from 1980 on, subtitle included. HeinOnline glues a section heading onto many titles with no separator ("&hellip; Note", "&hellip; Symposium: Law and the Internet"), so a title is measured only when that heading can be taken off for certain: the labels HeinOnline uses for sections (Note, Comment, Essay, Article, Symposium, Foreword, Recent Developments and the like) are removed, and a title is left out rather than cut at a guess when its last words also end two or more other titles in the same volume, or when any five words in a row of it appear in two or more other titles of the volume (a symposium's, a survey's or a panel's heading, wherever it sits). <span id="tiLeftOut"></span> Short pieces and book reviews (the title is the book's) are left out too, and by the law review's rank, so are pieces HeinOnline labels as student work (Note, Comment, Casenote, Recent Case, Student Article and the like). By the law review's rank counts every such article in each school's main law review, whoever wrote it; by the author's school counts the articles of current faculty in every journal collected here, under the school where each author teaches now. Groups are by U.S. News overall rank; each point on the chart pools a year with the years either side, and the table gives single years.</p>
-    <p>The numbers behind every chart are in <code>data/data.json</code> and <code>data/insights.json</code> on <a href="https://github.com/nathanReitinger/lawRankings/tree/main/docs/data">GitHub</a>. The charts are drawn with Highcharts and d3.</p>
+    <p>The numbers behind every chart are in <code>data/data.json</code> and <code>data/insights.json</code> on <a href="https://github.com/nathanReitinger/lawRankings/tree/main/docs/data">GitHub</a>. The charts are drawn with Highcharts.</p>
   </section>
 
   <div class="ins-tip" id="tip" role="tooltip" hidden></div>
   <footer class="page-footer" id="footer"></footer>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<!-- (2026-10-26, the owner: "Use high charts for all figures") every figure is Highcharts: more for the bands and
+     arearanges, heatmap for the matrix, sankey (and the dependency wheel built on it) for the flows, treemap and
+     treegraph for the journal tree -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/highcharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/highcharts-more.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/heatmap.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/sankey.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/dependency-wheel.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/treemap.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/treegraph.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/accessibility.js"></script>

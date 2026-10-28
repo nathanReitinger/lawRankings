@@ -1,1 +1,22 @@
-/* Law School Rankings: the Insights page, section 4 "Connections in the data" (connections.js) */
+/* Law School Rankings: the Insights page, section 4 "Connections in the data" (connections.js). The cards, legends and
+   tables are the page's own (insights.css .ins-card, .ins-legend, .ins-table); this adds what the six figures need. */
+
+.cn-card { overflow: hidden; }
+.cn-chart { min-height: 120px; }
+.cn-chart .highcharts-container { margin: 0 auto; }
+.cn-chart svg { display: block; font-family: var(--sans); }
+.cn-legend:empty, .cn-foot:empty { display: none; }
+.cn-legend { margin-bottom: 2px; }
+/* legend swatches that mirror the marks: a dot for dots, a dashed rule for the reference line */
+.cn-legend i.dot { width: 9px; height: 9px; border-radius: 50%; }
+.cn-legend i.dash { height: 0; border-top: 1.5px dashed var(--axis); background: none !important; }
+.cn-foot { color: var(--ink-2); font-size: 14px; line-height: 1.45; max-width: 820px; }
+.cn-none { font-family: var(--sans); font-size: 13.5px; padding: 12px 0; margin: 0; }
+.cn-card .ins-table td { overflow-wrap: anywhere; }
+.cn-card .ins-table th { vertical-align: bottom; font-weight: 600; color: var(--ink-2); }
+
+@media (max-width: 767px) {
+  .cn-foot { font-size: 13.5px; }
+  .cn-card .ins-table table { font-size: 12px; }
+  .cn-card .ins-table th, .cn-card .ins-table td { padding: 3px 4px; }
+}
