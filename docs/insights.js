@@ -1451,6 +1451,9 @@
     return r.json();
   }))).then(([data, meta, ins]) => {
     DATA = LSR.unpack(data); META = meta; INS = ins;      // (2026-10-26) packed core; homepages come after
+    // the data for connections.js (section 4), which draws its own figures from it
+    window.LSR_INS = { DATA: DATA, META: META, INS: INS };
+    document.dispatchEvent(new CustomEvent('lsr-insights-data'));
     LSR.stampMasthead(meta);
     $('footer').innerHTML = LSR.siteFooter(meta);
     $('loading').remove();

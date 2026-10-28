@@ -40,7 +40,8 @@
       <a href="#where"><span>1</span>Who publishes where</a>
       <a href="#coauthor"><span>2</span>Co-authorship over time</a>
       <a href="#titles"><span>3</span>Title length</a>
-      <a href="#method"><span>4</span>How these are computed</a>
+      <a href="#connections"><span>4</span>Connections in the data</a>
+      <a href="#method"><span>5</span>How these are computed</a>
     </nav>
   </div>
 
@@ -200,7 +201,19 @@
     </figure>
   </section>
 
-  <!-- ===================================================== 4. method -->
+  <!-- ===================================================== 4. connections (2026-10-27, the owner: "Give me a bunch of charts that are
+       interesting. Look for connections and nuggets of interesting information. Then display that in a high charts figure");
+       drawn by connections.js from the same data, once this section comes into view -->
+  <section class="ins-section" id="connections" hidden>
+    <header class="ins-head">
+      <p class="ins-q">Question 4</p>
+      <h2>Connections in the data</h2>
+      <p class="ins-lede" id="cnLede"></p>
+    </header>
+    <div id="connectionsBody"></div>
+  </section>
+
+  <!-- ===================================================== 5. method -->
   <section class="ins-section prose ins-method" id="method" hidden>
     <h2>How these are computed</h2>
     <p><b>Who publishes where</b> uses the rankings' own data. "Who publishes in a journal" shows every institution on the faculty lists (courts and non-US schools included); the rest of question 1 uses the articles of current faculty at U.S. law schools, credited to the school where each author teaches now. Article counts and the shares in the tiles and the row view count each article once (an article with authors from two groups of schools counts once in each group); the column view and the lines count it once for each school with an author on it. Flagship law reviews (each school's main law review) are placed by their school's rank, under the ranking chosen above (<i>U.S. News</i> overall, or its peer-reputation score via TaxProf Blog); schools tied at a rank sit together, and schools listed in a range ("175–194") at its top. "Online editions &amp; other general journals" are the general journals that are not a school's main review; specialty journals are the rest (including two general journals that W&amp;L also lists under a subject, the <i>Journal of Legal Analysis</i> and the <i>University of Chicago Legal Forum</i>, here and in question 2).</p>
@@ -219,5 +232,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/modules/accessibility.js"></script>
 <script src="masthead.js"></script>
 <script src="insights.js"></script>
+<script src="connections.js"></script>
 </body>
 </html>
