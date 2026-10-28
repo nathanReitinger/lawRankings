@@ -13,7 +13,7 @@
     { id: '4', range: '51 and above', lo: 51, hi: Infinity },   // includes schools left unranked
     { id: '5', label: 'Online editions & other general journals', other: true },
   ];
-  const SOURCE_SHORT = { usnews: 'US News', peer: 'Peer rank' };
+  const SOURCE_SHORT = { usnews: 'U.S. News rank', peer: 'U.S. News peer rank' };   // (audit) every label names its rank
   const HOST_TIERS = ['any', '25', '50', '100'];
   const PER_PROF_MIN = 10;          // the per-professor option ranks schools with at least this many people listed
   const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
@@ -48,7 +48,7 @@
     : DATA.host_ranks ? rankOf(ji) : DATA.journals[ji][2]);
   // a specialty journal's host school's rank, for the host filter
   const hostRankOf = (ji) => (DATA.host_ranks ? (DATA.host_ranks[state.src] || DATA.host_ranks.usnews)[ji] : rankOf(ji));
-  const bandLabel = (b) => (b.other ? b.label : (SOURCE_SHORT[state.src] || 'US News') + ' ' + b.range);
+  const bandLabel = (b) => (b.other ? b.label : (SOURCE_SHORT[state.src] || 'U.S. News rank') + ' ' + b.range);
 
   ////////////////////////////////////////////// state: URL hash > localStorage > defaults
 
@@ -393,7 +393,7 @@
       const wl = j[3][0][2] != null ? (i + 1) + '. W&amp;L score ' + j[3][0][2] : 'W&amp;L not scored';
       const [school, , , publisher] = j[5] || ['', '', '', ''];
       const r = hostRankOf(ji);
-      const host = school ? esc(school) + ' <span class="text-muted">(' + (SOURCE_SHORT[state.src] || 'US News') + ' ' + (r > 0 ? '#' + r : 'unranked') + ')</span>'
+      const host = school ? esc(school) + ' <span class="text-muted">(' + (SOURCE_SHORT[state.src] || 'U.S. News rank') + ' ' + (r > 0 ? '#' + r : 'unranked') + ')</span>'
         : (publisher ? '<span class="text-muted">' + esc(publisher) + '</span>' : '<span class="text-muted">publisher not recorded yet</span>');
       return '<div class="jrnl' + (hostOk(ji) ? '' : ' not-counted') + '">' + wl + ' · ' + esc(j[0]) + ' — ' + host + '</div>';
     };
@@ -411,6 +411,7 @@
     $('cutoff').value = state.cutoff;
     $('rankSource').value = state.src;
     $('hostTier').value = state.host;
+    $('hostRankName').textContent = state.src === 'peer' ? 'U.S. News peer' : 'U.S. News';
     BANDS.forEach((b) => { const l = $('bandLabel' + b.id); if (l) l.textContent = bandLabel(b); });
     $('skipMinor').checked = state.minor;
     $('perProf').checked = state.perProf;
@@ -730,7 +731,10 @@
     journalCats = DATA.journals.map((j) => {
       // (audit) 0 = a school's main law review; -1 = online editions & other general journals (their own bar)
       const cats = j[2] === null || j[2] === undefined ? [] : j[2] === -1 ? [-1] : [0];
-      return cats.concat([...new Set(j[4].map(([g]) => g + 1))].sort((a, b) => a - b));
+      // (audit) a general journal W&L also lists under a subject (Journal of Legal Analysis, Chicago Legal Forum) has its
+      // own bar only, not a second one in a specialty group
+      if (cats.length) return cats;
+      return [...new Set(j[4].map(([g]) => g + 1))].sort((a, b) => a - b);
     });
     personPapers = new Map();
     DATA.credits.person.forEach((person, k) => {
