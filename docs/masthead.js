@@ -378,6 +378,9 @@
     if (!a || a.dataset.split) return;
     a.dataset.split = '1';
     a.setAttribute('aria-label', a.textContent.replace(/\s+/g, ' ').trim());
+    a.dataset.text = a.textContent.replace(/\s+/g, ' ').trim();          // for the variants that draw a copy of the words
+    // each letter's own place to fly in from (variant 15): scattered, but the same on every visit
+    const rnd = (k) => { const x = Math.sin(k * 12.9898) * 43758.5453; return x - Math.floor(x); };
     let i = 0;
     const walk = (node) => [...node.childNodes].forEach((c) => {
       if (c.nodeType === 3) {
@@ -386,7 +389,10 @@
           const sp = document.createElement('span');
           sp.className = 'ch';
           sp.setAttribute('aria-hidden', 'true');
-          sp.style.setProperty('--i', i++);
+          sp.style.setProperty('--i', i);
+          sp.style.setProperty('--rx', ((rnd(i + 1) - 0.5) * 2.6).toFixed(2) + 'em');
+          sp.style.setProperty('--ry', ((rnd(i + 101) - 0.5) * 1.6).toFixed(2) + 'em');
+          i++;
           sp.textContent = ch;
           frag.appendChild(sp);
         });
@@ -396,10 +402,12 @@
     walk(a);
   }
   // ---- 26. "pixel" (2026-10-28, the owner: "do one logo with a pixelated mover that changes motion based on mouse
-  // movement (small dots)"): the wordmark set in a pixel face and drawn as small dots on a canvas over the (invisible,
-  // still clickable and readable) link. The dots fly in and settle, shimmer a little, and the pointer's movement pushes
-  // the dots near it along its own direction and speed; they spring back and redden while out of place. No motion under
-  // prefers-reduced-motion; the loop sleeps when everything is still or the mark is off screen.
+  // movement (small dots)"; then: "the dots should be more like they are on https://www.paper2audio.com"): the wordmark
+  // set in a pixel face and drawn as small soft dots on a canvas over the (invisible, still clickable and readable) link,
+  // in the manner of paper2audio's hero: fine monochrome dots of varied weight, and a faint field of loose dots drifting
+  // around it. The letters' dots gather in on load, sway a little, and the pointer's movement carries the dots near it
+  // along its own direction and speed; they ease back. The loose dots drift on a slow current and part around the
+  // pointer. No motion under prefers-reduced-motion; the loop stops when the mark is off screen or the tab hidden.
   const PX_ON = (mark) => { const w = mark.closest('.lsr-mast-wrap'); return !!w && (w.classList.contains('mast-preview') ? w.getAttribute('data-mast') === '26' : document.documentElement.getAttribute('data-mast') === '26'); };
   const pxMarks = new Map();
   const still = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
@@ -410,112 +418,145 @@
     canvas.setAttribute('aria-hidden', 'true');
     mark.appendChild(canvas);
     const ctx = canvas.getContext('2d');
-    let dots = [], W = 0, H = 0, bleed = 0, step = 3, r = 1, ink = '#0b2545', hot = '#c8102e', raf = 0, visible = true, alive = true;
+    const rnd = (k) => { const x = Math.sin(k * 78.233) * 43758.5453; return x - Math.floor(x); };
+    let dots = [], loose = [], W = 0, H = 0, bleedX = 0, bleedY = 0, step = 3, r = 1, ink = '17,17,22', raf = 0, visible = true, alive = true;
     const ptr = { x: -1e4, y: -1e4, vx: 0, vy: 0, t: 0 };
-    let t0 = performance.now(), lastMove = 0;
+    const t0 = performance.now();
     function build() {
       const box = mark.getBoundingClientRect();
       if (!box.width) return;
       const cs = getComputedStyle(mark);
       const size = parseFloat(cs.fontSize);
-      bleed = Math.round(size * 0.7);
-      W = Math.ceil(box.width) + 2 * bleed; H = Math.ceil(box.height) + 2 * bleed;
+      bleedX = Math.round(size * 0.9); bleedY = Math.round(size * 0.8);
+      W = Math.ceil(box.width) + 2 * bleedX; H = Math.ceil(box.height) + 2 * bleedY;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = W * dpr; canvas.height = H * dpr;
       canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-      canvas.style.left = -bleed - (parseFloat(cs.borderLeftWidth) || 0) + 'px';
-      canvas.style.top = -bleed - (parseFloat(cs.borderTopWidth) || 0) + 'px';
+      canvas.style.left = -bleedX - (parseFloat(cs.borderLeftWidth) || 0) + 'px';
+      canvas.style.top = -bleedY - (parseFloat(cs.borderTopWidth) || 0) + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ink = cs.color || ink;
+      const m = /(\d+),\s*(\d+),\s*(\d+)/.exec(cs.color);
+      if (m) ink = m[1] + ',' + m[2] + ',' + m[3];
       // the letters where the link sets them, drawn off screen in the same face, then sampled on a grid of small dots
       const off = document.createElement('canvas');
       off.width = W; off.height = H;
       const o = off.getContext('2d');
-      const font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily;
-      o.font = font; o.fillStyle = '#000'; o.textBaseline = 'alphabetic';
+      o.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily;
+      o.fillStyle = '#000'; o.textBaseline = 'alphabetic';
       const asc = o.measureText('A').fontBoundingBoxAscent || size * 0.8;
       const chars = a.querySelectorAll('.ch');
-      const at = (el, ch) => { const q = el.getBoundingClientRect(); o.fillText(ch, q.left - box.left + bleed, q.top - box.top + bleed + asc); };
+      const at = (el, ch) => { const q = el.getBoundingClientRect(); o.fillText(ch, q.left - box.left + bleedX, q.top - box.top + bleedY + asc); };
       if (chars.length) chars.forEach((c) => { if (c.textContent.trim()) at(c, c.textContent); });
       else at(a, a.textContent);
-      step = Math.max(2.5, size / 15);
-      r = Math.max(0.9, step * 0.4);
+      step = Math.max(2.4, size / 15);
+      r = Math.max(0.75, step * 0.37);
       const img = o.getImageData(0, 0, W, H).data;
       const old = dots;
       dots = [];
       for (let y = step / 2; y < H; y += step) {
         for (let x = step / 2; x < W; x += step) {
           if (img[(Math.floor(y) * W + Math.floor(x)) * 4 + 3] > 110) {
-            const k = dots.length, from = old[k];
-            // first time: from a scatter around the mark; after a resize: from where the dot was
-            const sx = from ? from.x : x + (Math.random() - 0.5) * W * 0.6, sy = from ? from.y : y + (Math.random() - 0.5) * H * 1.4;
-            dots.push({ hx: x, hy: y, x: still() ? x : sx, y: still() ? y : sy, vx: 0, vy: 0, ph: (x * 0.11 + y * 0.07) });
+            const k = dots.length, from = old[k], q = rnd(k + 7);
+            // first time: from anywhere in the field; after a resize: from where the dot was
+            const sx = from ? from.x : rnd(k + 3) * W, sy = from ? from.y : rnd(k + 5) * H;
+            dots.push({ hx: x, hy: y, x: still() ? x : sx, y: still() ? y : sy, vx: 0, vy: 0, ph: x * 0.09 + y * 0.05,
+              a: 0.72 + 0.28 * q, s: 0.85 + 0.3 * rnd(k + 11) });
           }
         }
       }
+      // the loose dots: a faint field around the letters, more of them near the middle, as on paper2audio
+      const n = Math.round((W * H) / 520);
+      loose = [];
+      for (let k = 0; k < n; k++) {
+        const u = rnd(k + 1000), v = rnd(k + 2000);
+        loose.push({ x: u * W, y: (0.5 + (v - 0.5) * (0.6 + 0.4 * rnd(k + 3000))) * H, vx: 0, vy: 0,
+          a: 0.07 + 0.22 * rnd(k + 4000) * rnd(k + 5000), s: 0.55 + 0.6 * rnd(k + 6000), ph: rnd(k + 7000) * 6.28 });
+      }
       mark.classList.add('px-on');
-      draw(performance.now());
+      draw();
       wake();
     }
-    function draw(now) {
+    function draw() {
       ctx.clearRect(0, 0, W, H);
-      const calm = [], moved = [];
-      dots.forEach((d) => { (Math.abs(d.x - d.hx) + Math.abs(d.y - d.hy) > step * 0.9 ? moved : calm).push(d); });
-      [[calm, ink], [moved, hot]].forEach(([set, col]) => {
-        if (!set.length) return;
-        ctx.fillStyle = col;
+      // a few shades, each drawn in one path: loose dots, then the letters (a dot out of place is fainter)
+      const shades = new Map();
+      const put = (d, alpha, rad) => {
+        const key = Math.round(alpha * 12);
+        if (!shades.has(key)) shades.set(key, []);
+        shades.get(key).push(d.x, d.y, rad);
+      };
+      loose.forEach((d) => put(d, d.a, r * d.s));
+      dots.forEach((d) => {
+        const off = Math.abs(d.x - d.hx) + Math.abs(d.y - d.hy);
+        put(d, d.a * (off > step * 1.5 ? 0.55 : 1), r * d.s);
+      });
+      shades.forEach((pts, key) => {
+        ctx.fillStyle = 'rgba(' + ink + ',' + (key / 12).toFixed(3) + ')';
         ctx.beginPath();
-        set.forEach((d) => { ctx.moveTo(d.x + r, d.y); ctx.arc(d.x, d.y, r, 0, 6.2832); });
+        for (let i = 0; i < pts.length; i += 3) { ctx.moveTo(pts[i] + pts[i + 2], pts[i + 1]); ctx.arc(pts[i], pts[i + 1], pts[i + 2], 0, 6.2832); }
         ctx.fill();
       });
     }
     function tick(now) {
       raf = 0;
       if (!alive) return;
-      const t = (now - t0) / 1000, R = step * 14, R2 = R * R, sp = Math.hypot(ptr.vx, ptr.vy);
-      let energy = 0;
+      const t = (now - t0) / 1000, R = step * 13, R2 = R * R, sp = Math.hypot(ptr.vx, ptr.vy), moving = sp > 0.05;
       dots.forEach((d) => {
-        // a slow travelling shimmer: each dot's home sways a fraction of a dot
-        const sw = still() ? 0 : Math.sin(t * 1.6 + d.ph) * step * 0.14;
-        let ax = (d.hx - d.x) * 0.055, ay = (d.hy + sw - d.y) * 0.055;
-        const dx = d.x - ptr.x, dy = d.y - ptr.y, dd = dx * dx + dy * dy;
-        if (dd < R2 && sp > 0.05) {
-          const dist = Math.sqrt(dd) || 1, f = (1 - dist / R) * (1 - dist / R);
-          // carried along the pointer's own motion, and pushed aside in proportion to its speed
-          ax += ptr.vx * f * 0.16 + (dx / dist) * f * Math.min(sp, 40) * 0.09;
-          ay += ptr.vy * f * 0.16 + (dy / dist) * f * Math.min(sp, 40) * 0.09;
+        const sw = Math.sin(t * 1.3 + d.ph) * step * 0.12;          // a slow sway, a fraction of a dot
+        let ax = (d.hx - d.x) * 0.045, ay = (d.hy + sw - d.y) * 0.045;
+        if (moving) {
+          const dx = d.x - ptr.x, dy = d.y - ptr.y, dd = dx * dx + dy * dy;
+          if (dd < R2) {
+            const dist = Math.sqrt(dd) || 1, f = (1 - dist / R) * (1 - dist / R);
+            // carried along the pointer's own motion, and eased aside in proportion to its speed
+            ax += ptr.vx * f * 0.12 + (dx / dist) * f * Math.min(sp, 40) * 0.06;
+            ay += ptr.vy * f * 0.12 + (dy / dist) * f * Math.min(sp, 40) * 0.06;
+          }
         }
-        d.vx = (d.vx + ax) * 0.84; d.vy = (d.vy + ay) * 0.84;
+        d.vx = (d.vx + ax) * 0.86; d.vy = (d.vy + ay) * 0.86;
         d.x += d.vx; d.y += d.vy;
-        energy += Math.abs(d.vx) + Math.abs(d.vy) + Math.abs(d.x - d.hx) * 0.02;
+      });
+      loose.forEach((d) => {
+        // a slow current: each dot drifts on its own gentle curve, and wraps around the field
+        let ax = Math.cos(t * 0.35 + d.ph + d.y * 0.012) * 0.012, ay = Math.sin(t * 0.3 + d.ph + d.x * 0.01) * 0.008;
+        if (moving) {
+          const dx = d.x - ptr.x, dy = d.y - ptr.y, dd = dx * dx + dy * dy;
+          if (dd < R2 * 1.6) {
+            const dist = Math.sqrt(dd) || 1, f = 1 - dist / (R * 1.26);
+            ax += ptr.vx * f * 0.05 + (dx / dist) * f * 0.25;
+            ay += ptr.vy * f * 0.05 + (dy / dist) * f * 0.25;
+          }
+        }
+        d.vx = (d.vx + ax) * 0.95; d.vy = (d.vy + ay) * 0.95;
+        d.x += d.vx; d.y += d.vy;
+        if (d.x < -4) d.x += W + 8; else if (d.x > W + 4) d.x -= W + 8;
+        if (d.y < -4) d.y += H + 8; else if (d.y > H + 4) d.y -= H + 8;
       });
       ptr.vx *= 0.8; ptr.vy *= 0.8;
-      draw(now);
-      // sleep when settled and the pointer is still (the shimmer alone keeps it going only while on screen and recent)
-      const idle = now - lastMove > 6000 && energy / Math.max(1, dots.length) < 0.02;
-      if (visible && !document.hidden && !(still() && energy / Math.max(1, dots.length) < 0.01) && !idle) raf = requestAnimationFrame(tick);
+      draw();
+      if (visible && !document.hidden && !still()) raf = requestAnimationFrame(tick);
     }
-    function wake() { if (!raf && alive && visible && !document.hidden && dots.length) raf = requestAnimationFrame(tick); }
+    function wake() { if (!raf && alive && visible && !document.hidden && !still() && dots.length) raf = requestAnimationFrame(tick); }
     function onMove(e) {
       if (still() || !dots.length) return;
       const q = canvas.getBoundingClientRect();
       const x = e.clientX - q.left, y = e.clientY - q.top;
-      if (x < -60 || y < -60 || x > q.width + 60 || y > q.height + 60) { ptr.x = ptr.y = -1e4; return; }
+      if (x < -40 || y < -40 || x > q.width + 40 || y > q.height + 40) { ptr.x = ptr.y = -1e4; return; }
       const now = performance.now();
       if (ptr.x > -1e3 && now - ptr.t < 100) { ptr.vx = (x - ptr.x) * 0.6 + ptr.vx * 0.4; ptr.vy = (y - ptr.y) * 0.6 + ptr.vy * 0.4; }
-      ptr.x = x; ptr.y = y; ptr.t = now; lastMove = now;
+      ptr.x = x; ptr.y = y; ptr.t = now;
       wake();
     }
     window.addEventListener('pointermove', onMove, { passive: true });
     const ro = new ResizeObserver(() => { if (alive) build(); });
     ro.observe(mark);
-    const io = new IntersectionObserver((es) => { visible = es.some((x) => x.isIntersecting); if (visible) { lastMove = performance.now(); wake(); } });
+    const io = new IntersectionObserver((es) => { visible = es.some((x) => x.isIntersecting); if (visible) wake(); });
     io.observe(mark);
-    const onVis = () => { if (!document.hidden) { lastMove = performance.now(); wake(); } };
+    const onVis = () => { if (!document.hidden) wake(); };
     document.addEventListener('visibilitychange', onVis);
     const face = getComputedStyle(mark).fontFamily.split(',')[0].replace(/["']/g, '').trim();
     (document.fonts && document.fonts.load ? document.fonts.load('700 32px "' + face + '"').catch(() => null) : Promise.resolve())
-      .then(() => { lastMove = performance.now(); if (alive) build(); });
+      .then(() => { if (alive) build(); });
     return {
       destroy() {
         alive = false;
