@@ -240,7 +240,7 @@
   // previews one on the page, "Vote for this one" keeps it for this visitor (localStorage lsr.mastPin, which the
   // <head> script reads before anything is drawn), and "Surprise me" goes back to a new one each visit. The votes stay
   // in each visitor's browser: a static site has nowhere to count them.
-  const FAMILY = (n) => (n <= 10 ? 'Classic' : n <= 15 ? 'Minimal' : n <= 20 ? 'Glass' : 'Color');
+  const FAMILY = (n) => (n <= 10 ? 'Classic' : n <= 15 ? 'Minimal' : n <= 20 ? 'Glass' : n <= 25 ? 'Color' : 'Interactive');
   const PIN = 'lsr.mastPin';
   const pinned = () => { try { return +(localStorage.getItem(PIN) || 0); } catch (e) { return 0; } };
   let gallery = null, fontsAll = false, opener = null;
@@ -254,6 +254,7 @@
       l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + f + '&display=swap';
       document.head.appendChild(l);
     }
+    pixelSync();
   }
 
   function loadAllFonts() {
@@ -290,6 +291,8 @@
         const c = head.cloneNode(true);
         c.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
         c.querySelectorAll('.lsr-foot, .mast-pick').forEach((x) => x.remove());
+        c.querySelectorAll('.px-canvas').forEach((x) => x.remove());          // a copy of the page's dots, not the card's own
+        c.querySelectorAll('.px-on').forEach((x) => x.classList.remove('px-on'));
         c.querySelectorAll('a').forEach((x) => { x.removeAttribute('href'); x.setAttribute('tabindex', '-1'); });
         wrap.appendChild(c);
       }
@@ -340,6 +343,7 @@
     markCards();
     gallery.classList.add('on');
     document.documentElement.classList.add('mast-open');
+    pixelSync();
     const cur = gallery.querySelector('.mast-card.is-now');
     (gallery.querySelector('.mast-x')).focus();
     if (cur) cur.scrollIntoView({ block: 'nearest' });
@@ -347,6 +351,7 @@
   function closeGallery() {
     gallery.classList.remove('on');
     document.documentElement.classList.remove('mast-open');
+    pixelSync();
     if (opener) opener.focus();
   }
 
@@ -390,7 +395,146 @@
     });
     walk(a);
   }
-  const ready = () => { splitLetters(); addPicker(); };
+  // ---- 26. "pixel" (2026-10-28, the owner: "do one logo with a pixelated mover that changes motion based on mouse
+  // movement (small dots)"): the wordmark set in a pixel face and drawn as small dots on a canvas over the (invisible,
+  // still clickable and readable) link. The dots fly in and settle, shimmer a little, and the pointer's movement pushes
+  // the dots near it along its own direction and speed; they spring back and redden while out of place. No motion under
+  // prefers-reduced-motion; the loop sleeps when everything is still or the mark is off screen.
+  const PX_ON = (mark) => { const w = mark.closest('.lsr-mast-wrap'); return !!w && (w.classList.contains('mast-preview') ? w.getAttribute('data-mast') === '26' : document.documentElement.getAttribute('data-mast') === '26'); };
+  const pxMarks = new Map();
+  const still = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  function pixelMark(mark) {
+    const a = mark.querySelector('a');
+    const canvas = document.createElement('canvas');
+    canvas.className = 'px-canvas';
+    canvas.setAttribute('aria-hidden', 'true');
+    mark.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    let dots = [], W = 0, H = 0, bleed = 0, step = 3, r = 1, ink = '#0b2545', hot = '#c8102e', raf = 0, visible = true, alive = true;
+    const ptr = { x: -1e4, y: -1e4, vx: 0, vy: 0, t: 0 };
+    let t0 = performance.now(), lastMove = 0;
+    function build() {
+      const box = mark.getBoundingClientRect();
+      if (!box.width) return;
+      const cs = getComputedStyle(mark);
+      const size = parseFloat(cs.fontSize);
+      bleed = Math.round(size * 0.7);
+      W = Math.ceil(box.width) + 2 * bleed; H = Math.ceil(box.height) + 2 * bleed;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+      canvas.style.left = -bleed - (parseFloat(cs.borderLeftWidth) || 0) + 'px';
+      canvas.style.top = -bleed - (parseFloat(cs.borderTopWidth) || 0) + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ink = cs.color || ink;
+      // the letters where the link sets them, drawn off screen in the same face, then sampled on a grid of small dots
+      const off = document.createElement('canvas');
+      off.width = W; off.height = H;
+      const o = off.getContext('2d');
+      const font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily;
+      o.font = font; o.fillStyle = '#000'; o.textBaseline = 'alphabetic';
+      const asc = o.measureText('A').fontBoundingBoxAscent || size * 0.8;
+      const chars = a.querySelectorAll('.ch');
+      const at = (el, ch) => { const q = el.getBoundingClientRect(); o.fillText(ch, q.left - box.left + bleed, q.top - box.top + bleed + asc); };
+      if (chars.length) chars.forEach((c) => { if (c.textContent.trim()) at(c, c.textContent); });
+      else at(a, a.textContent);
+      step = Math.max(2.5, size / 15);
+      r = Math.max(0.9, step * 0.4);
+      const img = o.getImageData(0, 0, W, H).data;
+      const old = dots;
+      dots = [];
+      for (let y = step / 2; y < H; y += step) {
+        for (let x = step / 2; x < W; x += step) {
+          if (img[(Math.floor(y) * W + Math.floor(x)) * 4 + 3] > 110) {
+            const k = dots.length, from = old[k];
+            // first time: from a scatter around the mark; after a resize: from where the dot was
+            const sx = from ? from.x : x + (Math.random() - 0.5) * W * 0.6, sy = from ? from.y : y + (Math.random() - 0.5) * H * 1.4;
+            dots.push({ hx: x, hy: y, x: still() ? x : sx, y: still() ? y : sy, vx: 0, vy: 0, ph: (x * 0.11 + y * 0.07) });
+          }
+        }
+      }
+      mark.classList.add('px-on');
+      draw(performance.now());
+      wake();
+    }
+    function draw(now) {
+      ctx.clearRect(0, 0, W, H);
+      const calm = [], moved = [];
+      dots.forEach((d) => { (Math.abs(d.x - d.hx) + Math.abs(d.y - d.hy) > step * 0.9 ? moved : calm).push(d); });
+      [[calm, ink], [moved, hot]].forEach(([set, col]) => {
+        if (!set.length) return;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        set.forEach((d) => { ctx.moveTo(d.x + r, d.y); ctx.arc(d.x, d.y, r, 0, 6.2832); });
+        ctx.fill();
+      });
+    }
+    function tick(now) {
+      raf = 0;
+      if (!alive) return;
+      const t = (now - t0) / 1000, R = step * 14, R2 = R * R, sp = Math.hypot(ptr.vx, ptr.vy);
+      let energy = 0;
+      dots.forEach((d) => {
+        // a slow travelling shimmer: each dot's home sways a fraction of a dot
+        const sw = still() ? 0 : Math.sin(t * 1.6 + d.ph) * step * 0.14;
+        let ax = (d.hx - d.x) * 0.055, ay = (d.hy + sw - d.y) * 0.055;
+        const dx = d.x - ptr.x, dy = d.y - ptr.y, dd = dx * dx + dy * dy;
+        if (dd < R2 && sp > 0.05) {
+          const dist = Math.sqrt(dd) || 1, f = (1 - dist / R) * (1 - dist / R);
+          // carried along the pointer's own motion, and pushed aside in proportion to its speed
+          ax += ptr.vx * f * 0.16 + (dx / dist) * f * Math.min(sp, 40) * 0.09;
+          ay += ptr.vy * f * 0.16 + (dy / dist) * f * Math.min(sp, 40) * 0.09;
+        }
+        d.vx = (d.vx + ax) * 0.84; d.vy = (d.vy + ay) * 0.84;
+        d.x += d.vx; d.y += d.vy;
+        energy += Math.abs(d.vx) + Math.abs(d.vy) + Math.abs(d.x - d.hx) * 0.02;
+      });
+      ptr.vx *= 0.8; ptr.vy *= 0.8;
+      draw(now);
+      // sleep when settled and the pointer is still (the shimmer alone keeps it going only while on screen and recent)
+      const idle = now - lastMove > 6000 && energy / Math.max(1, dots.length) < 0.02;
+      if (visible && !document.hidden && !(still() && energy / Math.max(1, dots.length) < 0.01) && !idle) raf = requestAnimationFrame(tick);
+    }
+    function wake() { if (!raf && alive && visible && !document.hidden && dots.length) raf = requestAnimationFrame(tick); }
+    function onMove(e) {
+      if (still() || !dots.length) return;
+      const q = canvas.getBoundingClientRect();
+      const x = e.clientX - q.left, y = e.clientY - q.top;
+      if (x < -60 || y < -60 || x > q.width + 60 || y > q.height + 60) { ptr.x = ptr.y = -1e4; return; }
+      const now = performance.now();
+      if (ptr.x > -1e3 && now - ptr.t < 100) { ptr.vx = (x - ptr.x) * 0.6 + ptr.vx * 0.4; ptr.vy = (y - ptr.y) * 0.6 + ptr.vy * 0.4; }
+      ptr.x = x; ptr.y = y; ptr.t = now; lastMove = now;
+      wake();
+    }
+    window.addEventListener('pointermove', onMove, { passive: true });
+    const ro = new ResizeObserver(() => { if (alive) build(); });
+    ro.observe(mark);
+    const io = new IntersectionObserver((es) => { visible = es.some((x) => x.isIntersecting); if (visible) { lastMove = performance.now(); wake(); } });
+    io.observe(mark);
+    const onVis = () => { if (!document.hidden) { lastMove = performance.now(); wake(); } };
+    document.addEventListener('visibilitychange', onVis);
+    const face = getComputedStyle(mark).fontFamily.split(',')[0].replace(/["']/g, '').trim();
+    (document.fonts && document.fonts.load ? document.fonts.load('700 32px "' + face + '"').catch(() => null) : Promise.resolve())
+      .then(() => { lastMove = performance.now(); if (alive) build(); });
+    return {
+      destroy() {
+        alive = false;
+        if (raf) cancelAnimationFrame(raf);
+        window.removeEventListener('pointermove', onMove);
+        document.removeEventListener('visibilitychange', onVis);
+        ro.disconnect(); io.disconnect();
+        canvas.remove(); mark.classList.remove('px-on');
+      },
+    };
+  }
+  // start or stop the dots wherever variant 26 is showing: the page's masthead and, while the gallery is open, its card
+  function pixelSync() {
+    const marks = [...document.querySelectorAll('.lsr-mast-wrap .lsr-mark')].filter((m) => PX_ON(m) && (!m.closest('.mast-gallery') || m.closest('.mast-gallery.on')));
+    pxMarks.forEach((inst, m) => { if (!marks.includes(m)) { inst.destroy(); pxMarks.delete(m); } });
+    marks.forEach((m) => { if (!pxMarks.has(m)) pxMarks.set(m, pixelMark(m)); });
+  }
+
+  const ready = () => { splitLetters(); addPicker(); pixelSync(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
 
   window.LSR = { stampMasthead: stampMasthead, siteFooter: siteFooter, email: MAINTAINER_EMAIL, repo: REPO, crunch: crunch,

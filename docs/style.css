@@ -441,3 +441,12 @@ th.spark-col { font-weight: 400; }
   .spark-col { display: none; }
   .school-tags { display: none; }
 }
+
+/* 26. interactive: "Law School Rankings" in a pixel face, drawn as small dots that the pointer's movement scatters and
+   that settle back (2026-10-28, the owner: "do one logo with a pixelated mover that changes motion based on mouse
+   movement (small dots)"; masthead.js: pixelMark). The link keeps its place and its name; the dots replace its ink once
+   they are ready, and the text shows in the pixel face if they never are. */
+:is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mast { --ink: #0b2545; --face: 'Silkscreen', 'Courier New', monospace; --weight: 700; --ls: 0.04em; --k: 0.95; }
+:is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mark { position: relative; border: 0; padding: 0.2em 0.25em 0.26em; text-transform: none; }
+:is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mark.px-on > a { color: transparent; }
+.px-canvas { position: absolute; pointer-events: none; }
