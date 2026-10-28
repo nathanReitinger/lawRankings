@@ -422,3 +422,21 @@ html.mast-open { overflow: hidden; }
 .works-beta { margin: 4px 0; color: #4b3d7a; font-size: 13px; }
 .beta-badge { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 999px; background: #ece7f8; color: #4b3d7a;
   font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* recent trends (2026-10-28, the owner: "a time chart broken down by selected filters and when publication counts
+   occurred. I want to spot recent trends"): a strip of small bars per row (counted articles per selected year, oldest
+   on the left), a school's subject-area tags, and a Highcharts chart under an opened school or person */
+.spark-col { width: 1%; white-space: nowrap; text-align: left; }
+th.spark-col { font-weight: 400; }
+.spark { display: inline-flex; align-items: flex-end; gap: 1px; height: 16px; vertical-align: middle; cursor: help; }
+.spark i { display: block; width: 4px; min-height: 1px; background: #377eb8; opacity: 0.85; }
+.spark i[style="height:0%"] { background: #ddd; height: 1px !important; opacity: 1; }
+.faculty-table .spark i { width: 3px; }
+.school-tags { margin-left: 6px; font-size: 12px; }
+.school-summary { margin: 4px 0 8px; }
+.school-summary .works-tag { margin: 2px 0 6px; font-size: 13px; }
+.trend-chart { min-height: 40px; max-width: 720px; margin: 2px 0 6px; }
+@media (max-width: 700px) {
+  .spark-col { display: none; }
+  .school-tags { display: none; }
+}

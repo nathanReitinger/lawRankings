@@ -215,6 +215,7 @@
     const jAreas = DATA.journals.map((j, ji) => areas.reduce((acc, ar, i) => (ar.journals.has(ji) ? acc.concat(i) : acc), []));
     const P = DATA.papers, C = DATA.credits;
     const own = state.noHome ? DATA.journal_school : null;   // per journal, the schools that publish it
+    const nYears = state.to - state.from + 1;               // (2026-10-28) per-year counts, for the "By year" strips
     const bySchool = new Map();
     for (let k = 0; k < C.paper.length; k++) {
       const p = C.paper[k];
@@ -229,11 +230,13 @@
         if (state.region === 'us' && !DATA.schools[s][1]) continue;
         if (own && own[P.journal[p]].includes(s)) continue;   // the option: not in the school's own journals
         let e = bySchool.get(s);
-        if (!e) { e = { areas: new Float64Array(A), faculty: new Map() }; bySchool.set(s, e); }
+        if (!e) { e = { areas: new Float64Array(A), faculty: new Map(), years: new Float64Array(nYears) }; bySchool.set(s, e); }
         let f = e.faculty.get(person);
-        if (!f) { f = { adj: 0, papers: [], byArea: new Float64Array(A) }; e.faculty.set(person, f); }
+        if (!f) { f = { adj: 0, papers: [], byArea: new Float64Array(A), years: new Float64Array(nYears) }; e.faculty.set(person, f); }
         f.adj += w;
         f.papers.push(p);
+        e.years[y - state.from] += w;
+        f.years[y - state.from] += w;
         for (const a of as) { e.areas[a] += w; f.byArea[a] += w; }
       }
     }
@@ -242,14 +245,14 @@
       let prod = 1;
       e.areas.forEach((c) => { prod *= c + 1; });
       const score = snap(Math.pow(prod, 1 / A));
-      if (!state.perProf) { rows.push({ school: s, score: score, faculty: e.faculty }); return; }
+      if (!state.perProf) { rows.push({ school: s, score: score, faculty: e.faculty, years: e.years }); return; }
       // (2026-10-27) per professor: the count (the geometric mean less the one added to each area) over the people on
       // the school's faculty list; a list shorter than PER_PROF_MIN is too small to divide by
       const listed = DATA.school_faculty[s] || 0;
-      if (listed >= PER_PROF_MIN) rows.push({ school: s, score: snap((score - 1) / listed), faculty: e.faculty, listed: listed });
+      if (listed >= PER_PROF_MIN) rows.push({ school: s, score: snap((score - 1) / listed), faculty: e.faculty, listed: listed, years: e.years });
     });
     rows.sort((a, b) => b.score - a.score || DATA.schools[a.school][0].localeCompare(DATA.schools[b.school][0]));
-    return { areas, rows };
+    return { areas, rows, jAreas };
   }
 
   ////////////////////////////////////////////// filter panel
@@ -481,27 +484,177 @@
         ? '<th class="num"><abbr title="The count (geometric mean, across the selected areas, of the adjusted article counts plus one, less one) divided by the number of people on the school\'s faculty list">Per prof.</abbr></th>' +
           '<th class="num"><abbr title="Faculty with at least one counted article, of the people on the school\'s faculty list">Faculty</abbr></th>'
         : '<th class="num"><abbr title="Geometric mean, across the selected areas, of the adjusted article counts plus one">Count</abbr></th>' +
-          '<th class="num"><abbr title="Faculty with at least one counted article">Faculty</abbr></th>') + '</tr></thead><tbody>';
+          '<th class="num"><abbr title="Faculty with at least one counted article">Faculty</abbr></th>') +
+      '<th class="spark-col"><abbr title="Counted articles (adjusted for co-authors) in each of the selected years, oldest on the left: a school that has only lately begun to publish in these journals rises to the right">By year</abbr></th></tr></thead><tbody>';
+    destroyTrends();
     let rank = 0;
     rows.forEach((r, i) => {
       const open = openSchools.has(r.school);
       if (i === 0 || r.score !== rows[i - 1].score) rank = i + 1;   // tied schools share a rank, as on CSrankings
       html += '<tr class="school' + (i % 2 ? '' : ' alt') + '" data-school="' + r.school + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="num rank-cell">' + rank + '</td>' +
-        '<td><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span>&nbsp;' + esc(DATA.schools[r.school][0]) + '</td>' +
-        '<td class="num">' + (state.perProf ? r.score.toFixed(2) : one(r.score)) + '</td><td class="num">' + r.faculty.size + (state.perProf ? ' / ' + r.listed : '') + '</td></tr>';
+        '<td><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span>&nbsp;' + esc(DATA.schools[r.school][0]) + schoolTagsHtml(r.school, 3) + '</td>' +
+        '<td class="num">' + (state.perProf ? r.score.toFixed(2) : one(r.score)) + '</td><td class="num">' + r.faculty.size + (state.perProf ? ' / ' + r.listed : '') + '</td>' +
+        '<td class="spark-col">' + sparkHtml(r.years, DATA.schools[r.school][0]) + '</td></tr>';
       if (open) html += facultyRows(r);
     });
     win.innerHTML = html + '</tbody></table>';
     win.querySelectorAll('tr.person-detail').forEach(fillDetail);
+    drawPending(win);
+  }
+
+  ////////////////////////////////////////////// recent trends (2026-10-28, the owner: "Have general school publication tag
+  // areas too (based on specialty) and also have a time chart broken down by selected filters and when publication
+  // counts occurred. I want to spot recent trends like a school or person that published in top reviews recently but
+  // didn't used to")
+
+  // a row's counted articles per selected year as a strip of small bars, oldest on the left, scaled to the row's own
+  // busiest year (the exact numbers in its tooltip)
+  function sparkHtml(years, who) {
+    if (!years || !years.length) return '';
+    const max = Math.max(...years);
+    if (!(max > 0)) return '';
+    const tip = who + ', counted articles per year (adjusted for co-authors): ' +
+      [...years].map((v, i) => (state.from + i) + ' ' + one(v)).join(', ');
+    return '<span class="spark" title="' + esc(tip) + '" role="img" aria-label="' + esc(tip) + '">' +
+      [...years].map((v) => '<i style="height:' + (v > 0 ? Math.max(8, Math.round(100 * v / max)) : 0) + '%"></i>').join('') + '</span>';
+  }
+
+  // a school's subject areas: the higher-level groups of the specialty journals its current faculty published in, in the
+  // selected years, each with its number of articles (a co-authored article once); computed for every school in one
+  // pass and kept until the years or the short-piece switch change. As for a person, only specialty journals speak to
+  // a subject, and journals whose scope is law or policy generally count toward none.
+  let schoolAreaCache = { key: '', map: null };
+  function schoolAreas(s) {
+    const key = state.from + '-' + state.to + '-' + (state.minor ? 1 : 0);
+    if (schoolAreaCache.key !== key) {
+      const P = DATA.papers, C = DATA.credits, map = new Map();
+      for (let k = 0; k < C.paper.length; k++) {
+        const p = C.paper[k], y = P.year[p];
+        if (y < state.from || y > state.to || (state.minor && P.minor[p])) continue;
+        const f = fieldOfJournal(P.journal[p]);
+        if (f < 0) continue;
+        const g = areaOfField(f);
+        if (g < 0) continue;
+        for (const sc of DATA.people[C.person[k]][1]) {
+          if (!map.has(sc)) map.set(sc, new Map());
+          const m = map.get(sc);
+          if (!m.has(g)) m.set(g, new Set());
+          m.get(g).add(p);
+        }
+      }
+      schoolAreaCache = { key: key, map: map };
+    }
+    const m = schoolAreaCache.map.get(s);
+    if (!m) return [];
+    return [...m.entries()].map(([g, set]) => [g, set.size]).sort((a, b) => b[1] - a[1] || DATA.groups[a[0]].localeCompare(DATA.groups[b[0]]));
+  }
+  function schoolTagsHtml(s, top) {
+    const all = schoolAreas(s);
+    if (!all.length) return '';
+    const name = DATA.schools[s][0];
+    return ' <span class="areaname school-tags">' + all.slice(0, top).map(([g, n]) => '<span class="c-specialty" title="' +
+      esc(name + ': ' + n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' by its current faculty in ' + DATA.groups[g] + ', ' + state.from + '–' + state.to) + '">' +
+      esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('') + '</span>';
+  }
+  function schoolSummaryHtml(s) {
+    const all = schoolAreas(s);
+    const tags = all.length
+      ? '<p class="works-tag">Subject areas of its faculty\'s specialty-journal articles, ' + state.from + '–' + state.to + ': ' +
+        all.map(([g, n]) => '<b>' + esc(DATA.groups[g]) + '</b> ' + n).join(' · ') + '</p>'
+      : '<p class="detail-note">Its faculty have no specialty-journal articles in ' + state.from + '–' + state.to + '.</p>';
+    return '<div class="school-summary">' + trendBox({ school: s }) + tags + '</div>';
+  }
+
+  // the chart under an opened school or person: their counted articles per year in the selected journals, one stacked
+  // colour per selected area, over the twenty years up to the window's end (the selected years shaded), so a recent rise
+  // shows against what came before. Highcharts is loaded the first time one is opened, not with the page.
+  const TREND_COLORS = ['#377eb8', '#ff7f00', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+  const trendCharts = new Set();
+  let trendSeq = 0, hcLoad = null;
+  function trendBox(who) {
+    const id = 'trend' + (++trendSeq);
+    return '<div class="trend-chart" id="' + id + '" data-trend="' + esc(JSON.stringify(who)) + '"><p class="detail-note">Loading the chart…</p></div>';
+  }
+  function loadScript(src) {
+    return new Promise((ok, fail) => { const t = document.createElement('script'); t.src = src; t.onload = ok; t.onerror = fail; document.head.appendChild(t); });
+  }
+  function highcharts() {
+    if (!hcLoad) {
+      const base = 'https://cdnjs.cloudflare.com/ajax/libs/highcharts/12.1.2/';
+      hcLoad = (window.Highcharts ? Promise.resolve() : loadScript(base + 'highcharts.js').then(() => loadScript(base + 'modules/accessibility.js')))
+        .then(() => {
+          window.Highcharts.setOptions({ credits: { enabled: false }, tooltip: { followTouchMove: false },
+            chart: { style: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' } } });
+          return window.Highcharts;
+        });
+    }
+    return hcLoad;
+  }
+  let schoolPeople = null;
+  function peopleAt(s) {
+    if (!schoolPeople) {
+      schoolPeople = new Map();
+      DATA.people.forEach((p, i) => p[1].forEach((sc) => { if (!schoolPeople.has(sc)) schoolPeople.set(sc, []); schoolPeople.get(sc).push(i); }));
+    }
+    return schoolPeople.get(s) || [];
+  }
+  // adjusted counts per year and selected area, by the ranking's own rules (selected journals, short pieces, own journals)
+  function yearlyCounts(people, school, y0, y1) {
+    const P = DATA.papers, jAreas = current.jAreas, own = state.noHome ? DATA.journal_school : null;
+    const out = current.areas.map(() => new Float64Array(y1 - y0 + 1));
+    people.forEach((person) => (personPapers.get(person) || []).forEach((p) => {
+      const y = P.year[p];
+      if (y < y0 || y > y1 || (state.minor && P.minor[p])) return;
+      const ji = P.journal[p], as = jAreas[ji];
+      if (!as.length || (own && own[ji].includes(school))) return;
+      const w = 1 / P.authors[p];
+      as.forEach((a) => { out[a][y - y0] += w; });
+    }));
+    return out;
+  }
+  function destroyTrends(root) {
+    trendCharts.forEach((c) => { if (!root || root.contains(c.renderTo)) { c.destroy(); trendCharts.delete(c); } });
+  }
+  function drawPending(root) {
+    const boxes = [...root.querySelectorAll('.trend-chart:not([data-drawn])')];
+    if (!boxes.length || !current.jAreas) return;
+    highcharts().then((H) => boxes.forEach((box) => {
+      if (!box.isConnected || box.dataset.drawn) return;
+      box.dataset.drawn = '1';
+      const who = JSON.parse(box.dataset.trend);
+      const y1 = state.to, y0 = Math.max(META.years.min, Math.min(state.from, y1 - 19));
+      const counts = yearlyCounts(who.person != null ? [who.person] : peopleAt(who.school), who.school, y0, y1);
+      const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i);
+      const name = who.person != null ? DATA.people[who.person][0] : DATA.schools[who.school][0];
+      const series = current.areas.map((a, i) => ({ name: a.label, color: TREND_COLORS[i % TREND_COLORS.length],
+        data: [...counts[i]].map((v) => Math.round(v * 100) / 100) })).filter((x) => x.data.some((v) => v > 0));
+      box.innerHTML = '';
+      if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + y0 + '–' + y1 + '.</p>'; return; }
+      trendCharts.add(H.chart(box, {
+        chart: { type: 'column', height: 190, spacing: [6, 4, 4, 0], backgroundColor: 'transparent' },
+        title: { text: 'Counted articles per year, ' + y0 + '–' + y1, align: 'left', style: { fontSize: '12px', fontWeight: '600', color: '#333' } },
+        accessibility: { description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + y0 + '–' + y1 + '.' },
+        xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: '#666' } },
+          plotBands: state.from > y0 ? [{ from: state.from - y0 - 0.5, to: y1 - y0 + 0.5, color: 'rgba(55,126,184,0.07)',
+            label: { text: 'selected years', style: { fontSize: '10px', color: '#777' }, y: 12 } }] : [] },
+        yAxis: { title: { text: null }, allowDecimals: true, gridLineColor: '#eee', labels: { style: { fontSize: '10px', color: '#666' } } },
+        legend: { enabled: series.length > 1, itemStyle: { fontSize: '11px', fontWeight: '400', color: '#333' }, margin: 4, padding: 2 },
+        tooltip: { shared: true, valueDecimals: 1, headerFormat: '<b>{point.key}</b><br>' },
+        plotOptions: { column: { stacking: 'normal', borderWidth: 0, groupPadding: 0.06, pointPadding: 0.04 } },
+        series: series,
+      }));
+    })).catch(() => boxes.forEach((box) => { box.innerHTML = '<p class="detail-note">The chart could not be loaded.</p>'; }));
   }
 
   function facultyRows(r) {
     const people = [...r.faculty].sort((a, b) => b[1].adj - a[1].adj || DATA.people[a[0]][0].localeCompare(DATA.people[b[0]][0]));
-    let html = '<tr class="faculty"><td></td><td colspan="3"><table class="faculty-table"><thead><tr><th class="indent"></th>' +
+    let html = '<tr class="faculty"><td></td><td colspan="4">' + schoolSummaryHtml(r.school) +
+      '<table class="faculty-table"><thead><tr><th class="indent"></th>' +
       '<th><abbr title="Click a name to see where they publish">Faculty</abbr></th>' +
       '<th class="num"><abbr title="Articles counted in this ranking"># Pubs</abbr></th>' +
-      '<th class="num"><abbr title="Each article counts 1, split between its co-authors">Adj. #</abbr></th></tr></thead><tbody>';
+      '<th class="num"><abbr title="Each article counts 1, split between its co-authors">Adj. #</abbr></th>' +
+      '<th class="spark-col"><abbr title="Their counted articles (adjusted for co-authors) in each of the selected years, oldest on the left">By year</abbr></th></tr></thead><tbody>';
     people.forEach(([person, f], i) => {
       const key = r.school + ':' + person;
       const open = openPeople.has(key);
@@ -517,8 +670,9 @@
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
         (DATA.people[person][3] ? ' <a class="bio-link" href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener" title="Faculty page">bio</a>' : '') + '</td>' +
         '<td class="num">' + f.papers.length + '</td>' +
-        '<td class="num">' + one(f.adj) + '</td></tr>';
-      if (open) html += '<tr class="person-detail" data-key="' + key + '"><td colspan="4"></td></tr>';
+        '<td class="num">' + one(f.adj) + '</td>' +
+        '<td class="spark-col">' + sparkHtml(f.years, DATA.people[person][0]) + '</td></tr>';
+      if (open) html += '<tr class="person-detail" data-key="' + key + '"><td colspan="5"></td></tr>';
     });
     return html + '</tbody></table></td></tr>';
   }
@@ -528,10 +682,11 @@
     if (openSchools.has(s)) openSchools.delete(s); else openSchools.add(s);
     const r = current.rows.find((x) => x.school === s);
     const next = tr.nextElementSibling;
-    if (next && next.classList.contains('faculty')) next.remove();
+    if (next && next.classList.contains('faculty')) { destroyTrends(next); next.remove(); }
     if (openSchools.has(s)) {
       tr.insertAdjacentHTML('afterend', facultyRows(r));
       tr.nextElementSibling.querySelectorAll('tr.person-detail').forEach(fillDetail);
+      drawPending(tr.nextElementSibling);
     }
     tr.querySelector('.hovertip').innerHTML = openSchools.has(s) ? '&#9660;' : '&#9658;';
     tr.setAttribute('aria-expanded', openSchools.has(s));
@@ -542,10 +697,10 @@
     const next = tr.nextElementSibling;
     if (openPeople.has(key)) {
       openPeople.delete(key);
-      if (next && next.classList.contains('person-detail')) next.remove();
+      if (next && next.classList.contains('person-detail')) { destroyTrends(next); next.remove(); }
     } else {
       openPeople.add(key);
-      tr.insertAdjacentHTML('afterend', '<tr class="person-detail" data-key="' + key + '"><td colspan="4"></td></tr>');
+      tr.insertAdjacentHTML('afterend', '<tr class="person-detail" data-key="' + key + '"><td colspan="5"></td></tr>');
       fillDetail(tr.nextElementSibling);
     }
     tr.querySelector('.hovertip').innerHTML = openPeople.has(key) ? '&#9660;' : '&#9658;';
@@ -568,7 +723,8 @@
       ' (' + state.from + '–' + state.to + ') count in this ranking' +
       (papers.length > f.papers.length ? '; the others are outside the selected journals' + (skipped ? ' or skipped as short pieces (' + skipped + ')' : '') : '') +
       '.' + (DATA.people[person][3] ? ' <a href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener">Faculty page</a>' : '') + '</p>';
-    detailRow.firstElementChild.innerHTML = worksOn(person, forBars) + authorBars(forBars) + note;
+    detailRow.firstElementChild.innerHTML = trendBox({ person: person, school: s }) + worksOn(person, forBars) + authorBars(forBars) + note;
+    drawPending(detailRow);
   }
 
   // the field a specialty journal sits in -> that field's area (each journal has one field, each field one area); built
