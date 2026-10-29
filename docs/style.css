@@ -80,108 +80,86 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 
 .lsr-mark > a > span { display: inline; }
 
-/* ---------- 11-25 rebuilt (2026-10-28, the owner: "make sure you do the logos with the animations i've shared earlier. i
-   want cool title designs based on the css work i've given you before. just copy those methods"; earlier: "use this for
-   fonts. do not use 3D spin https://prismic.io/blog/css-text-animations https://freefrontend.com/css-text-animations/").
-   One method from those collections per variant, kept professional (nothing in 3D, nothing blurred, no glitch or neon):
-   11 typewriter with a caret (prismic 21-23) · 12 split text that joins (prismic 10) · 13 staggered bars reveal
-   (freefrontend "Staggered Bars Reveal") · 14 wavy letters (prismic 9), again on hover · 15 scrambled letters that
-   assemble (freefrontend "Text Unscramble") · 16 shimmer lines (freefrontend "Text Shimmer Lines") · 17 spotlight
-   reveal (prismic 35, freefrontend "Flashlight Reveal") · 18 weight that breathes in (prismic 36-37, drawn with
-   text-stroke so nothing reflows) · 19 letters rise, lift on hover (freefrontend "Sparkle Header" stagger) · 20
-   dancing shadow (prismic 2) · 21 two-colour paint reveal (prismic 33) · 22 outline that fills (freefrontend
-   "text-stroke", "Liquid Type") · 23 colours that shift inside the letters (freefrontend "Houdini Gradient Text") ·
-   24 a moving foil texture (prismic 5, freefrontend "Synthetic Text") · 25 highlighter, flooded on hover (freefrontend
-   "Multi-line Highlights"). masthead.js gives each letter <span class="ch" style="--i:n; --rx; --ry"> and the link a
-   data-text copy of its words. prefers-reduced-motion turns every one off and leaves each in its finished state. */
-@keyframes m-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+/* ---------- 11-25 answer the pointer (2026-10-29, the owner: "improve the titles again. use a bunch of reactive titles
+   from the two css links i shared. i want the title to feel professional but futuristic"; before: "do not use 3D spin",
+   no Gaussian blur, "very very professional"). Each takes one method from prismic.io/blog/css-text-animations or
+   freefrontend.com/css-text-animations and lets the pointer drive it, in a sober face with a modern cut (no neon, no
+   glitch): 11 weight follows the pointer (prismic 30, 36-37 variable weight; Recursive on its monospaced axis, so a
+   heavier letter takes no more room) · 12 letters decode where the pointer passes (freefrontend "Text Unscramble";
+   JetBrains Mono, so a passing character takes the same room) · 13 letters lift by their distance (prismic 9 wavy
+   text; Space Grotesk) · 14 an underline that follows the pointer (prismic 26, freefrontend "Multi-line Spanning
+   Animated Underline"; Inter Tight) · 15 letters roll over as the pointer crosses them (freefrontend "Hello World! CSS
+   Text Roller"; Unbounded) · 16 shimmer lines that track the pointer (freefrontend "Text Shimmer Lines"; Manrope) ·
+   17 a spotlight that follows the pointer (prismic 35, freefrontend "Flashlight Reveal"; Sora on a dark pane) · 18
+   the pointer as a light, each letter's shadow falling away from it (prismic 2 dancing shadow; Outfit) · 19 magnetic
+   letters that lean toward the pointer, in the plane (freefrontend "Sparkle Header" lift and tilt; Syne) · 20 split
+   text, the letters parting where the pointer is (prismic 10; Lexend) · 21 a paint band that runs to the pointer
+   and reverses the letters (prismic 28 and 33; Geist) · 22 outline letters that fill near the pointer (freefrontend
+   text-stroke, "Liquid Type"; Archivo Expanded) · 23 a gradient centred on the pointer (prismic 5 text masking,
+   freefrontend Houdini "Animated CSS Gradient Text"; Red Hat Display) · 24 a foil sheen that tracks the pointer
+   (freefrontend "Synthetic Text"; Michroma) · 25 a highlighter that floods the letters near the pointer (freefrontend
+   "Multi-line Highlights"; Titillium Web).
+   The pointer layer in masthead.js writes, on the mark, --pa (how present the pointer is, 0-1, eased in and out),
+   --mx/--my (the pointer from the link's top left) and --ux/--uy (from the mark's); on each letter (<span class="ch"
+   style="--i:n">), --d (its closeness to the pointer, 0-1) and --dx/--dy (where it sits from the pointer, -1 to 1).
+   The defaults below are the resting state: what a touch screen shows until a finger crosses the mark, and all that
+   prefers-reduced-motion shows. Nothing changes the size of a box: letters move by relative offsets or transforms,
+   weight changes only in a monospaced face, and light and colour only paint. */
+:is(html:is([data-mast="11"], [data-mast="12"], [data-mast="13"], [data-mast="14"], [data-mast="15"], [data-mast="16"], [data-mast="17"], [data-mast="18"], [data-mast="19"], [data-mast="20"], [data-mast="21"], [data-mast="22"], [data-mast="23"], [data-mast="24"], [data-mast="25"]) .lsr-mast-wrap:not(.mast-preview), .mast-preview:is([data-mast="11"], [data-mast="12"], [data-mast="13"], [data-mast="14"], [data-mast="15"], [data-mast="16"], [data-mast="17"], [data-mast="18"], [data-mast="19"], [data-mast="20"], [data-mast="21"], [data-mast="22"], [data-mast="23"], [data-mast="24"], [data-mast="25"])) .lsr-mark { --pa: 0; --mx: 50%; --my: 50%; --ux: 50%; --uy: 50%; --d: 0; --dx: 0; --dy: 0; }
+/* (masthead.js) every letter at home for one measurement, never painted */
+.lsr-mark.mx-measure .ch, .lsr-mark.mx-measure .w1, .lsr-mark.mx-measure .w2, .lsr-mark.mx-measure .w3 { position: static !important; transform: none !important; }
 @keyframes m-draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes m-rise { from { opacity: 0; top: 0.45em; } to { opacity: 1; top: 0; } }   /* letters stay inline (kerning kept), moved by top */
-@keyframes m-mark { from { background-size: 0% 0.42em; } to { background-size: 100% 0.42em; } }
-@keyframes t-type { from { clip-path: inset(-0.3em calc(100% - 0.12em) -0.3em -0.3em); } to { clip-path: inset(-0.3em -0.3em -0.3em -0.3em); } }
-@keyframes t-caret { from { left: 0; opacity: 1; } to { left: 100%; opacity: 1; } }
-@keyframes t-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
-@keyframes t-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes t-mark { from { background-size: 100% 100%, 0% 0.4em; } to { background-size: 100% 100%, 100% 0.4em; } }
+@keyframes t-wght { 0%, 100% { font-weight: 380; } 40% { font-weight: 860; } }
+@keyframes t-roll-in { from { top: 1.3em; } to { top: 0; } }
+@keyframes t-roll-a { from { top: 0; } to { top: -1.3em; } }
+@keyframes t-roll-b { from { top: 0; } to { top: -1.3em; } }
+@keyframes t-sheen { from { background-position: -4em 0, 0 0; } to { background-position: calc(100% + 4em) 0, 0 0; } }
+@property --spx { syntax: '<length-percentage>'; inherits: false; initial-value: 50%; }
+@property --spy { syntax: '<length-percentage>'; inherits: false; initial-value: 50%; }
+@property --spr { syntax: '<length>'; inherits: false; initial-value: 1000px; }
+@keyframes t-spot { 0% { --spx: -12%; --spr: 1.8em; } 72% { --spx: 108%; --spr: 1.8em; } 100% { --spx: 50%; --spr: 23.8em; } }
+@keyframes t-cast { from { text-shadow: -0.15em 0.02em 0 rgb(15 110 122 / 0.34); } }
 @keyframes t-from-left { from { opacity: 0; transform: translateX(-1.1em); } to { opacity: 1; transform: none; } }
 @keyframes t-from-right { from { opacity: 0; transform: translateX(1.1em); } to { opacity: 1; transform: none; } }
-@keyframes t-bars {
-  0% { background-size: 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  4% { background-size: 14.29% 90.9%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  8% { background-size: 14.29% 81.8%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  12% { background-size: 14.29% 72.7%, 14.29% 90.9%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  16% { background-size: 14.29% 63.6%, 14.29% 81.8%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  20% { background-size: 14.29% 54.5%, 14.29% 72.7%, 14.29% 90.9%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  24% { background-size: 14.29% 45.5%, 14.29% 63.6%, 14.29% 81.8%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  28% { background-size: 14.29% 36.4%, 14.29% 54.5%, 14.29% 72.7%, 14.29% 90.9%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  32% { background-size: 14.29% 27.3%, 14.29% 45.5%, 14.29% 63.6%, 14.29% 81.8%, 14.29% 100.0%, 14.29% 100.0%, 14.29% 100.0%; }
-  36% { background-size: 14.29% 18.2%, 14.29% 36.4%, 14.29% 54.5%, 14.29% 72.7%, 14.29% 90.9%, 14.29% 100.0%, 14.29% 100.0%; }
-  40% { background-size: 14.29% 9.1%, 14.29% 27.3%, 14.29% 45.5%, 14.29% 63.6%, 14.29% 81.8%, 14.29% 100.0%, 14.29% 100.0%; }
-  44% { background-size: 14.29% 0.0%, 14.29% 18.2%, 14.29% 36.4%, 14.29% 54.5%, 14.29% 72.7%, 14.29% 90.9%, 14.29% 100.0%; }
-  48% { background-size: 14.29% 0.0%, 14.29% 9.1%, 14.29% 27.3%, 14.29% 45.5%, 14.29% 63.6%, 14.29% 81.8%, 14.29% 100.0%; }
-  52% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 18.2%, 14.29% 36.4%, 14.29% 54.5%, 14.29% 72.7%, 14.29% 90.9%; }
-  56% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 9.1%, 14.29% 27.3%, 14.29% 45.5%, 14.29% 63.6%, 14.29% 81.8%; }
-  60% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 18.2%, 14.29% 36.4%, 14.29% 54.5%, 14.29% 72.7%; }
-  64% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 9.1%, 14.29% 27.3%, 14.29% 45.5%, 14.29% 63.6%; }
-  68% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 18.2%, 14.29% 36.4%, 14.29% 54.5%; }
-  72% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 9.1%, 14.29% 27.3%, 14.29% 45.5%; }
-  76% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 18.2%, 14.29% 36.4%; }
-  80% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 9.1%, 14.29% 27.3%; }
-  84% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 18.2%; }
-  88% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 9.1%; }
-  92% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%; }
-  96% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%; }
-  100% { background-size: 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%, 14.29% 0.0%; }
-}
-@keyframes t-wave { 0%, 100% { top: 0; } 30% { top: -0.16em; } 60% { top: 0.04em; } }
-@keyframes t-wave-b { 0%, 100% { top: 0; } 30% { top: -0.16em; } 60% { top: 0.04em; } }
-@keyframes t-assemble { from { opacity: 0; left: var(--rx, 0); top: var(--ry, 0); } 60% { opacity: 1; } to { opacity: 1; left: 0; top: 0; } }
-@keyframes t-lines { from { background-position: 0 0; } to { background-position: 4.05em 0; } }
-@keyframes t-spot { 0% { clip-path: ellipse(1.15em 0.95em at -8% 55%); } 72% { clip-path: ellipse(1.15em 0.95em at 106% 55%); } 100% { clip-path: ellipse(170% 170% at 50% 50%); } }
-@keyframes t-weight { from { -webkit-text-stroke-width: 0; } to { -webkit-text-stroke-width: 0.07em; } }
-@keyframes t-breathe { 0%, 100% { -webkit-text-stroke-width: 0.07em; } 50% { -webkit-text-stroke-width: 0; } }
-@keyframes t-lift { 0%, 100% { top: 0; } 40% { top: -0.17em; } }
-@keyframes t-dance { 0% { text-shadow: -0.09em -0.07em 0 rgba(15, 110, 122, 0.45), 0.09em 0.07em 0 rgba(200, 16, 46, 0.3); }
-  50% { text-shadow: 0.06em 0.05em 0 rgba(15, 110, 122, 0.4), -0.06em -0.05em 0 rgba(200, 16, 46, 0.25); }
-  100% { text-shadow: 0.03em 0.03em 0 rgba(15, 110, 122, 0.3), 0 0 0 rgba(200, 16, 46, 0); } }
 @keyframes t-paint { 0% { clip-path: inset(0 100% 0 0); } 38% { clip-path: inset(0 0 0 0); } 76%, 100% { clip-path: inset(0 0 0 100%); } }
 @keyframes t-show { 0%, 37% { opacity: 0; } 38%, 100% { opacity: 1; } }
-@keyframes t-fill { from { background-size: 100% 0%; } to { background-size: 100% 100%; } }
-@property --g1 { syntax: '<color>'; inherits: false; initial-value: #0b2545; }
-@property --g2 { syntax: '<color>'; inherits: false; initial-value: #0b2545; }
-@keyframes t-hue { 0%, 100% { --g1: #0b2545; --g2: #1d4e5f; } 33% { --g1: #1d4e5f; --g2: #4a1f3d; } 66% { --g1: #4a1f3d; --g2: #0b2545; } }
-@keyframes t-foil { from { background-position: 0 0; } to { background-position: 6.22em 0; } }
+@keyframes t-fill-in { from { -webkit-text-fill-color: rgb(255 255 255 / 0); } }
+@keyframes t-foil-in { from { background-position: -4.4em 0, 0 0, 0 0; } to { background-position: 28% 0, 0 0, 0 0; } }
 .lsr-mark .ch { display: inline; white-space: pre; }
 
-/* 11. minimal: a typewriter (IBM Plex Mono): the name types itself out, a crimson caret blinks, then goes */
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mast { --ink: #111; --face: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace; --weight: 700; --ls: 0.02em; --k: 1.34; }
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark { border: 0; border-bottom: 2px solid var(--ink); padding: 0.1em 0.06em 0.14em; }
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark > a { position: relative; animation: t-type 1.9s steps(19, end) 0.2s both; }
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark > a::after { content: ""; position: absolute; top: 0.08em; bottom: 0.04em; left: 100%; width: 0.07em; background: #c8102e; opacity: 0;
-  animation: t-caret 1.9s steps(19, end) 0.2s both, t-blink 0.9s step-end 2.1s 3, t-out 0.4s 4.8s forwards; }
-/* 12. minimal: split text: a black italic Didone, "Law School" from the left and "Rankings" from the right, meeting */
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mast { --ink: #121212; --face: 'Playfair Display', Didot, Georgia, serif; --weight: 900; --ls: -0.005em; --k: 1.46; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark { border: 0; padding: 0.02em 0.06em 0.1em; text-transform: none; font-style: italic; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark .w1, :is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark .w2 { display: inline-block; animation: t-from-left 0.95s cubic-bezier(.2,.8,.2,1) both; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark .w2 { animation-delay: 0.08s; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark .w3 { display: inline-block; animation: t-from-right 0.95s cubic-bezier(.2,.8,.2,1) 0.16s both; }
-/* 13. minimal: staggered bars: seven bars of ink lift away one after another to show Space Grotesk between hairlines */
+/* 11. minimal: weight follows the pointer: light Recursive Mono letters grow heavy near it, with no change of width; a
+   wave of weight runs through once on load */
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mast { --ink: #101114; --face: 'Recursive', 'SFMono-Regular', Menlo, Consolas, monospace; --weight: 380; --ls: 0.03em; --k: 1.32; }
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark { border: 0; border-bottom: 2px solid var(--ink); padding: 0.12em 0.06em 0.16em; font-variation-settings: 'MONO' 1, 'CASL' 0; }
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark .ch { font-weight: calc(380 + 520 * var(--d)); animation: t-wght 1s cubic-bezier(.4,0,.3,1) backwards; animation-delay: calc(0.15s + var(--i) * 42ms); }
+/* 12. minimal: letters decode where the pointer passes: JetBrains Mono between hairlines; a letter runs through a few
+   characters (in slate) and resolves (in ink); the whole name decodes left to right on load (masthead.js) */
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mast { --ink: #0f1720; --face: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace; --weight: 700; --ls: 0.02em; --k: 1.34; }
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark { border: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 0.16em 0.08em 0.2em; }
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark .ch[data-s] { color: #6b7a90; }
+/* 13. minimal: letters lift by their distance from the pointer: Space Grotesk between hairlines; the nearest rise the
+   most and take a deep blue; they rise in one by one on load */
 :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mast { --ink: #12202f; --face: 'Space Grotesk', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.12em; --k: 1.18; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { position: relative; border: 0; border-top: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); padding: 0.24em 0.1em 0.28em; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark > a { position: relative; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark > a::after { content: ""; position: absolute; inset: -0.06em calc(-1 * var(--ls)) -0.06em -0.02em; pointer-events: none;
-  background-image: linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink));
-  background-repeat: no-repeat; background-position: 0 0, 16.667% 0, 33.333% 0, 50% 0, 66.667% 0, 83.333% 0, 100% 0;
-  background-size: 14.29% 0%, 14.29% 0%, 14.29% 0%, 14.29% 0%, 14.29% 0%, 14.29% 0%, 14.29% 0%; animation: t-bars 1.4s cubic-bezier(.6,0,.3,1) 0.15s both; }
-/* 14. minimal: wavy letters: Archivo Black ripples once beside its crimson bar, and again when the pointer is over it */
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mast { --ink: #0d0d0d; --face: 'Archivo Black', 'Helvetica Neue', Arial, sans-serif; --weight: 400; --ls: -0.01em; --k: 1.21; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark { position: relative; border: 0; padding: 0.06em 0 0.08em 0.5em; text-transform: none; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark::before { content: ""; position: absolute; left: 0; top: 0.12em; bottom: 0.14em; width: 0.14em; background: #c8102e; transform-origin: bottom; animation: m-grow .6s cubic-bezier(.6,0,.2,1) both; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark .ch { position: relative; animation: t-wave 1.1s ease-in-out both; animation-delay: calc(0.3s + var(--i) * 38ms); }
-@media (hover: hover) { :is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark:hover .ch { animation-name: t-wave-b; animation-delay: calc(var(--i) * 30ms); } }
-/* 15. minimal: scrambled letters assemble: Gloock's letters fly in from scattered places and settle between rules */
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mast { --ink: #1c1c1c; --face: 'Gloock', 'DM Serif Display', Georgia, serif; --weight: 400; --ls: 0.04em; --k: 1.36; }
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark { border: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 0.14em 0.2em 0.18em; text-transform: none; }
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch { position: relative; animation: t-assemble 1.1s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i) * 22ms); }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { border: 0; border-top: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); padding: 0.24em 0.1em 0.28em; }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch { position: relative; top: calc(var(--d) * -0.2em); color: color-mix(in oklab, #1c5cab calc(var(--d) * 100%), var(--ink));
+  animation: m-rise .55s cubic-bezier(.2,.7,.2,1) backwards; animation-delay: calc(var(--i) * 30ms); }
+/* 14. minimal: an underline that follows the pointer: Inter Tight in navy over a hairline; the crimson rule under the
+   whole name gathers into a short bar under the pointer, and spreads out again when it leaves; it draws on load */
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mast { --ink: #0b2545; --face: 'Inter Tight', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.05em; --k: 1.24; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark { position: relative; border: 0; border-bottom: 1px solid rgb(11 37 69 / 0.25); padding: 0.08em 0.04em 0.2em; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark::after { content: ""; position: absolute; bottom: -1px; height: max(3px, 0.075em); background: #c8102e; pointer-events: none; transform-origin: left;
+  left: calc(var(--pa) * clamp(0px, var(--ux) - 1.4em, 100% - 2.8em)); width: calc(100% - var(--pa) * (100% - 2.8em));
+  animation: m-draw .9s cubic-bezier(.6,0,.2,1) .1s both; }
+/* 15. minimal: letters roll over as the pointer crosses them, like a counter: Unbounded between hairlines; each letter's
+   copy waits below it, out of sight, and rolls up into its place; the letters roll in one by one on load */
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mast { --ink: #111318; --face: 'Unbounded', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0.05em; --k: 0.96; }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark { border: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); padding: 0.2em 0.12em 0.24em; }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark > a { clip-path: inset(-0.08em -0.5em -0.1em -0.5em); }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch { position: relative; text-shadow: 0 1.3em 0 currentColor; animation: t-roll-in .75s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: calc(var(--i) * 30ms); }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch[data-r="a"] { animation: t-roll-a .5s cubic-bezier(.6,0,.25,1); }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch[data-r="b"] { animation: t-roll-b .5s cubic-bezier(.6,0,.25,1); }
 
 /* glass: a crisp frosted pane (a faint tint, a hairline edge, a light top highlight, a short soft shadow); never blurred */
 :is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark, :is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark, :is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark, :is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark, :is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark {
@@ -189,65 +167,97 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
   background: linear-gradient(180deg, #ffffff 0%, #f1f4f8 100%);
   box-shadow: inset 0 1px 0 #ffffff, 0 1px 2px rgba(16, 24, 40, 0.06), 0 0.18em 0.5em rgba(16, 24, 40, 0.07);
 }
-/* 16. glass: shimmer lines: thin bands of light travel slowly through Plus Jakarta Sans */
-:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mast { --ink: #141a33; --face: 'Plus Jakarta Sans', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.1em; --k: 1.0; }
-:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark > a { color: var(--ink); background: repeating-linear-gradient(110deg, var(--ink) 0 1.6em, #8c9cc0 1.74em, var(--ink) 1.9em);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: t-lines 10s linear infinite; }
-/* 17. glass: a spotlight crosses a dark navy pane and lights DM Serif Display in gold */
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mast { --ink: #16203a; --face: 'DM Serif Display', Georgia, serif; --weight: 400; --ls: 0.03em; --k: 1.29; }
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark { text-transform: none; border-color: #0f1828; background: linear-gradient(180deg, #24324d 0%, #152036 100%);
+/* 16. glass: shimmer lines that track the pointer: four fine lines of light cross Manrope where the pointer is; they
+   sweep through once on load */
+:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mast { --ink: #141a33; --face: 'Manrope', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.1em; --k: 1.03; }
+:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark > a { color: var(--ink);
+  background: linear-gradient(105deg, rgb(185 199 230 / 0) 24%, #b9c7e6 25.5%, rgb(185 199 230 / 0) 27% 41%, #e8eef9 43%, rgb(185 199 230 / 0) 45% 58%, #b9c7e6 59.5%, rgb(185 199 230 / 0) 61% 73%, #9fb0d6 74%, rgb(185 199 230 / 0) 75%) no-repeat,
+    linear-gradient(var(--ink), var(--ink));
+  background-size: 3.4em 100%, 100% 100%; background-position: calc((1 - var(--pa)) * -4em + var(--pa) * (var(--mx) - 1.7em)) 0, 0 0;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: t-sheen 1.7s cubic-bezier(.45,0,.3,1) .35s backwards; }
+/* 17. glass: a spotlight that follows the pointer: Sora in pale gold on a dark navy pane; the light narrows to the
+   pointer and lights the pane a little where it falls, and opens to the whole name again when it leaves; it crosses
+   once on load */
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mast { --ink: #16203a; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0.05em; --k: 1.18; }
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark { text-transform: none; border-color: #0f1828;
+  background: radial-gradient(circle 3.4em at var(--ux) var(--uy), rgb(255 255 255 / calc(var(--pa) * 0.08)), rgb(255 255 255 / 0)), linear-gradient(180deg, #24324d 0%, #152036 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 1px 2px rgba(16, 24, 40, 0.12), 0 0.18em 0.5em rgba(16, 24, 40, 0.14); }
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a { position: relative; color: rgba(243, 227, 189, 0.2); }
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a::before { content: attr(data-text); position: absolute; left: 0; top: 0; white-space: pre; color: #f6e7c1; pointer-events: none;
-  animation: t-spot 2.2s cubic-bezier(.45,0,.3,1) 0.3s both; }
-/* 18. glass: Sora breathes in: light letters gain weight (drawn with a stroke, so nothing moves), and breathe on hover */
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mast { --ink: #0b2a3a; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 300; --ls: 0.08em; --k: 0.98; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark { background: linear-gradient(180deg, #f8fbfc 0%, #e8f0f2 100%); padding-left: 1em; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 0.16em; background: #0f6e7a; transform-origin: top; animation: m-grow .7s cubic-bezier(.6,0,.2,1) both; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark > a { -webkit-text-stroke: 0.07em currentColor; paint-order: stroke fill; animation: t-weight 1.4s cubic-bezier(.3,0,.2,1) 0.2s both; }
-@media (hover: hover) { :is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark:hover > a { animation: t-breathe 1.6s ease-in-out; } }
-/* 19. glass: Fraunces Black Italic in an ivory pill: letters rise one by one, and lift in a wave under the pointer */
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mast { --ink: #34193a; --face: 'Fraunces', Georgia, serif; --weight: 900; --ls: 0.01em; --k: 1.15; }
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark { border-radius: 999px; padding-left: 1em; padding-right: 1em; text-transform: none; font-style: italic;
-  border-color: rgba(61, 34, 65, 0.16); background: linear-gradient(180deg, #fffdf9 0%, #f4eee6 100%); }
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark .ch { position: relative; animation: m-rise .5s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 32ms); }
-@media (hover: hover) { :is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark:hover .ch { animation: t-lift 0.6s cubic-bezier(.3,0,.2,1) both; animation-delay: calc(var(--i) * 22ms); } }
-/* 20. glass: a dancing shadow: teal and crimson shadows cross behind Outfit and settle into a crisp offset */
-:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mast { --ink: #10303a; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.14em; --k: 0.99; }
-:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark > a { text-shadow: 0.03em 0.03em 0 rgba(15, 110, 122, 0.3); animation: t-dance 1.8s cubic-bezier(.4,0,.2,1) 0.2s both; }
-@media (hover: hover) { :is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark:hover > a { animation: t-dance 1.4s ease-in-out both; } }
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a { --spx: calc(50% + var(--pa) * (var(--mx) - 50%)); --spy: calc(50% + var(--pa) * (var(--my) - 50%)); --spr: calc(1.8em + (1 - var(--pa)) * 22em);
+  color: #f6e7c1; background: radial-gradient(circle var(--spr) at var(--spx) var(--spy), #fff6dd 0%, #f6e7c1 42%, rgb(246 231 193 / 0.46) 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: t-spot 2.1s cubic-bezier(.45,0,.3,1) .3s backwards; }
+/* 18. glass: the pointer as a light: Outfit, each letter with a crisp teal shadow that falls away from the pointer (the
+   farther the letter, the longer), settling back to a short shadow when it leaves; the light swings in on load */
+:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mast { --ink: #10303a; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.13em; --k: 1.0; }
+:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark .ch { text-shadow: calc(0.045em + var(--pa) * (var(--dx) * 0.12em - 0.045em)) calc(0.055em + var(--pa) * (var(--dy) * 0.12em - 0.055em)) 0 rgb(15 110 122 / 0.34);
+  animation: t-cast 1.6s cubic-bezier(.3,0,.2,1) .2s backwards; }
+/* 19. glass: magnetic letters: Syne in an ivory pill; the letters near the pointer draw toward it and lean its way (a
+   small shift and tilt in the plane), and spring back when it leaves; they rise in one by one on load */
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mast { --ink: #34193a; --face: 'Syne', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.06em; --k: 0.91; }
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark { border-radius: 999px; padding-left: 1em; padding-right: 1em; border-color: rgba(61, 34, 65, 0.16); background: linear-gradient(180deg, #fffdf9 0%, #f4eee6 100%); }
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark .ch { display: inline-block; position: relative;
+  transform: translate(calc(var(--dx) * var(--d) * -0.4em), calc(var(--dy) * var(--d) * -0.5em - var(--d) * 0.06em)) rotate(calc(var(--dx) * var(--d) * -16deg));
+  animation: m-rise .55s cubic-bezier(.2,.7,.2,1) backwards; animation-delay: calc(var(--i) * 30ms); }
+/* 20. glass: split text: Lexend, widely spaced; the letters part a little on either side of the pointer and a fine teal
+   rule stands in the gap; on load "Law School" comes in from the left and "Rankings" from the right */
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mast { --ink: #0f2f3a; --face: 'Lexend', Helvetica, Arial, sans-serif; --weight: 500; --ls: 0.16em; --k: 0.92; }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark > a { position: relative; }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark > a::after { content: ""; position: absolute; top: 0.06em; bottom: 0.02em; left: clamp(0px, var(--mx), 100%); width: max(1.5px, 0.035em);
+  background: #0f6e7a; opacity: var(--pa); transform: translateX(-50%) scaleY(var(--pa)); pointer-events: none; }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark .ch { position: relative; left: calc(var(--dx) * var(--d) * 0.9em); }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark .w1, :is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark .w2 { display: inline-block; animation: t-from-left .95s cubic-bezier(.2,.8,.2,1) both; }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark .w2 { animation-delay: .08s; }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark .w3 { display: inline-block; animation: t-from-right .95s cubic-bezier(.2,.8,.2,1) .16s both; }
 
-/* 21. color: a two-colour paint reveal: crimson then navy bands sweep across and leave Inter Tight, navy and crimson */
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mast { --ink: #0b2545; --face: 'Inter Tight', Helvetica, Arial, sans-serif; --weight: 900; --ls: 0.04em; --k: 1.24; }
+/* 21. color: a paint band that runs to the pointer: Geist in navy over a crimson rule; a navy band reaches from the left
+   edge to the pointer and the letters on it turn white; on load crimson then navy bands sweep across */
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mast { --ink: #0b2545; --face: 'Geist', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.05em; --k: 1.2; }
 :is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark { position: relative; border: 0; border-bottom: max(3px, 0.08em) solid #c8102e; padding: 0.08em 0.04em 0.14em; }
 :is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark::before, :is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark::after { content: ""; position: absolute; inset: 0.06em 0 0.12em; pointer-events: none; clip-path: inset(0 0 0 100%); }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark::before { background: #c8102e; animation: t-paint 1.3s cubic-bezier(.7,0,.3,1) 0.1s both; }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark::after { background: #0b2545; animation: t-paint 1.3s cubic-bezier(.7,0,.3,1) 0.28s both; }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark > a { animation: t-show 1.3s linear 0.28s both; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark::before { background: #c8102e; animation: t-paint 1.3s cubic-bezier(.7,0,.3,1) .1s both; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark::after { background: #0b2545; animation: t-paint 1.3s cubic-bezier(.7,0,.3,1) .28s both; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark > a { position: relative; z-index: 0; animation: t-show 1.3s linear .28s both; }
 :is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark .w3 { color: #c8102e; }
-/* 22. color: outline letters fill from the bottom: Big Shoulders Display on a forest-green band */
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mast { --ink: #1e4d3b; --face: 'Big Shoulders Display', 'Oswald', Impact, sans-serif; --weight: 800; --ls: 0.1em; --k: 1.36; }
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark { padding-top: 0.16em; padding-bottom: 0.17em; border-color: #1e4d3b; background: #1e4d3b; color: #fff; outline: 1px solid rgba(255, 255, 255, 0.4); outline-offset: calc(-1 * max(4px, 0.16em)); }
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark > a { -webkit-text-stroke: 1px #fff; background: linear-gradient(#fff, #fff) 0 100% / 100% 100% no-repeat;
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: t-fill 1.5s cubic-bezier(.5,0,.2,1) 0.5s both; }
-/* 23. color: Abril Fatface between gold rules that draw from the middle; deep navy, teal and plum shift slowly inside it */
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mast { --ink: #0b2545; --face: 'Abril Fatface', 'Playfair Display', Georgia, serif; --weight: 400; --ls: 0.02em; --k: 1.42; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark { position: relative; border: 0; padding: 0.2em 0.2em 0.24em; text-transform: none; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark > a::before { content: ""; position: absolute; z-index: -1; top: -0.08em; bottom: -0.1em; left: -0.04em; width: calc(var(--pa) * (clamp(0px, var(--mx), 100%) + 0.04em));
+  background: var(--ink); pointer-events: none; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark > a::after { content: attr(data-text); position: absolute; left: 0; top: 0; white-space: pre; color: #fff; pointer-events: none;
+  clip-path: inset(-0.2em calc(100% - var(--pa) * clamp(0px, var(--mx), 100%)) -0.2em -0.2em); }
+/* 22. color: outline letters that fill near the pointer: Archivo Expanded in white on a forest-green band; while the
+   pointer is on it the far letters empty to an outline and the near ones stay filled; they fill one by one on load */
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mast { --ink: #1e4d3b; --face: 'Archivo', 'Helvetica Neue', Arial, sans-serif; --weight: 800; --ls: 0.07em; --k: 0.83; }
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark { font-stretch: 125%; padding-top: 0.17em; padding-bottom: 0.18em; border-color: #1e4d3b; background: #1e4d3b; color: #fff;
+  outline: 1px solid rgba(255, 255, 255, 0.4); outline-offset: calc(-1 * max(4px, 0.16em)); }
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark > a { -webkit-text-stroke: max(1px, 0.02em) #fff; }
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark .ch { -webkit-text-fill-color: rgb(255 255 255 / calc(1 - var(--pa) * 0.94 * (1 - var(--d))));
+  animation: t-fill-in .45s ease-out backwards; animation-delay: calc(.25s + var(--i) * 40ms); }
+/* 23. color: a gradient centred on the pointer: Red Hat Display Black between gold rules, in deep teal, navy and plum
+   (mixed in oklch); its centre follows the pointer and drifts back when it leaves; the rules draw on load */
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mast { --ink: #0b2545; --face: 'Red Hat Display', Helvetica, Arial, sans-serif; --weight: 900; --ls: 0.04em; --k: 1.17; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark { position: relative; border: 0; padding: 0.2em 0.2em 0.24em; }
 :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark::before, :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark::after { content: ""; position: absolute; left: 0; right: 0; background: #b08d57; animation: m-draw .9s cubic-bezier(.6,0,.2,1) both; }
 :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark::before { top: 0; height: max(3px, 0.1em); } :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark::after { bottom: 0; height: 1px; animation-delay: .15s; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark > a { color: var(--ink); background: linear-gradient(100deg, var(--g1), var(--g2)); -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; animation: t-hue 14s ease-in-out infinite; }
-/* 24. color: gold foil: a fine brushed texture moves slowly through Playfair Display SC on a burgundy band */
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mast { --ink: #6b1d2a; --face: 'Playfair Display SC', Georgia, serif; --weight: 900; --ls: 0.08em; --k: 1.01; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark > a { --gx: calc(16% + var(--pa) * (var(--mx) - 16%)); --gy: calc(30% + var(--pa) * (var(--my) - 30%)); color: var(--ink);
+  background: radial-gradient(circle 4.2em at var(--gx) var(--gy), #12808a 0%, #0b2545 58%, #43204e 100%);
+  background: radial-gradient(in oklch circle 4.2em at var(--gx) var(--gy), #12808a 0%, #0b2545 58%, #43204e 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+/* 24. color: gold foil with a sheen that tracks the pointer: Michroma on a burgundy band inside a gold hairline; a fine
+   brushed texture, and a band of light where the pointer is (as if the foil were tilted toward it); it crosses on load */
+:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mast { --ink: #6b1d2a; --face: 'Michroma', Helvetica, Arial, sans-serif; --weight: 400; --ls: 0.1em; --k: 0.75; }
 :is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark { border-color: #6b1d2a; background: #6b1d2a; box-shadow: inset 0 0 0 max(3px, 0.1em) #6b1d2a, inset 0 0 0 max(4px, 0.13em) #ead7a8; }
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark > a { color: #ead7a8; background: repeating-linear-gradient(135deg, #e6d09a 0 0.12em, #f9efce 0.2em, #c7a866 0.32em, #e6d09a 0.44em);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: t-foil 16s linear infinite; }
-/* 25. color: Bricolage Grotesque in teal; a highlighter sweeps in behind it and floods the line under the pointer */
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mast { --ink: #0f4c5c; --face: 'Bricolage Grotesque', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.06em; --k: 1.08; }
+:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark > a { color: #ead7a8;
+  background: linear-gradient(100deg, rgb(255 250 232 / 0) 30%, rgb(255 250 232 / 0.9) 50%, rgb(255 250 232 / 0) 70%) no-repeat,
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.07) 0 1px, rgb(255 255 255 / 0) 1px 3px),
+    linear-gradient(180deg, #f0deae 0%, #c8a462 55%, #e8d29b 100%);
+  background-size: 4.4em 100%, auto, 100% 100%; background-position: calc(28% + var(--pa) * (var(--mx) - 2.2em - 28%)) 0, 0 0, 0 0;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: t-foil-in 1.9s cubic-bezier(.45,0,.3,1) .3s backwards; }
+/* 25. color: a highlighter that swells under the pointer: Titillium Web in teal on a pale marker line; where the pointer
+   is, the marker rises in a smooth mound over the letters, and settles back to a line when it leaves; it draws in on
+   load */
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mast { --ink: #0f4c5c; --face: 'Titillium Web', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.08em; --k: 1.16; }
 :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark { border: 0; border-left: max(5px, 0.2em) solid #0f4c5c; padding-left: 0.6em; background: none; }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a { background: linear-gradient(#bfe6e3, #bfe6e3) 0 88% / 100% 0.42em no-repeat; animation: m-mark .9s .2s cubic-bezier(.6,0,.2,1) both;
-  transition: background-size 0.35s cubic-bezier(.3,0,.2,1), color 0.25s, background-color 0.25s; }
-@media (hover: hover) { :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark:hover > a { background-image: linear-gradient(#0f4c5c, #0f4c5c); background-size: 100% 100%; color: #fff; } }
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a {
+  background: radial-gradient(ellipse max(1px, calc(var(--pa) * 2.5em)) max(1px, calc(var(--pa) * 0.86em)) at var(--mx) 100%, rgb(191 230 227 / min(1, calc(var(--pa) * 12))) calc(100% - 1.5px), rgb(191 230 227 / 0) 100%) no-repeat,
+    linear-gradient(#bfe6e3, #bfe6e3) no-repeat;
+  background-size: 100% 100%, 100% 0.4em; background-position: 0 0, 0 100%; animation: t-mark .9s .2s cubic-bezier(.6,0,.2,1) backwards; }
 
 @media (prefers-reduced-motion: reduce) {
   .lsr-mark, .lsr-mark *, .lsr-mark::before, .lsr-mark::after, .lsr-mark > a::before, .lsr-mark > a::after { animation: none !important; transition: none !important; }

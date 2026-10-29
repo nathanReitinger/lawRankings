@@ -254,6 +254,7 @@
       l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=' + f + '&display=swap';
       document.head.appendChild(l);
     }
+    reactSync();
     pixelSync();
   }
 
@@ -293,6 +294,7 @@
         c.querySelectorAll('.lsr-foot, .mast-pick').forEach((x) => x.remove());
         c.querySelectorAll('.px-canvas').forEach((x) => x.remove());          // a copy of the page's dots, not the card's own
         c.querySelectorAll('.px-on').forEach((x) => x.classList.remove('px-on'));
+        c.querySelectorAll('.lsr-mark').forEach(reactClean);                // not the page's pointer state (11-25)
         c.querySelectorAll('a').forEach((x) => { x.removeAttribute('href'); x.setAttribute('tabindex', '-1'); });
         wrap.appendChild(c);
       }
@@ -343,6 +345,7 @@
     markCards();
     gallery.classList.add('on');
     document.documentElement.classList.add('mast-open');
+    reactSync();
     pixelSync();
     const cur = gallery.querySelector('.mast-card.is-now');
     (gallery.querySelector('.mast-x')).focus();
@@ -351,6 +354,7 @@
   function closeGallery() {
     gallery.classList.remove('on');
     document.documentElement.classList.remove('mast-open');
+    reactSync();
     pixelSync();
     if (opener) opener.focus();
   }
@@ -371,16 +375,16 @@
     else line.appendChild(box);
     box.appendChild(b);
   }
-  // each letter of the wordmark in its own span (--i: its place), for the masthead variants that bring letters in one
-  // by one (style.css); the words' own spans (.w1-.w3) stay, and the link keeps the name for screen readers
+  // each letter of the wordmark in its own span (--i: its place; data-c: the letter itself, which variant 12 swaps for
+  // passing characters and puts back), for the masthead variants that move, weigh or light letters one by one
+  // (style.css; the pointer layer below); the words' own spans (.w1-.w3) stay, and the link keeps the name for screen
+  // readers
   function splitLetters() {
     const a = document.querySelector('.lsr-mast .lsr-mark > a');
     if (!a || a.dataset.split) return;
     a.dataset.split = '1';
     a.setAttribute('aria-label', a.textContent.replace(/\s+/g, ' ').trim());
     a.dataset.text = a.textContent.replace(/\s+/g, ' ').trim();          // for the variants that draw a copy of the words
-    // each letter's own place to fly in from (variant 15): scattered, but the same on every visit
-    const rnd = (k) => { const x = Math.sin(k * 12.9898) * 43758.5453; return x - Math.floor(x); };
     let i = 0;
     const walk = (node) => [...node.childNodes].forEach((c) => {
       if (c.nodeType === 3) {
@@ -390,8 +394,7 @@
           sp.className = 'ch';
           sp.setAttribute('aria-hidden', 'true');
           sp.style.setProperty('--i', i);
-          sp.style.setProperty('--rx', ((rnd(i + 1) - 0.5) * 2.6).toFixed(2) + 'em');
-          sp.style.setProperty('--ry', ((rnd(i + 101) - 0.5) * 1.6).toFixed(2) + 'em');
+          sp.dataset.c = ch;
           i++;
           sp.textContent = ch;
           frag.appendChild(sp);
@@ -575,7 +578,188 @@
     marks.forEach((m) => { if (!pxMarks.has(m)) pxMarks.set(m, pixelMark(m)); });
   }
 
-  const ready = () => { splitLetters(); addPicker(); pixelSync(); };
+  // ---- 11-25 answer the pointer (2026-10-29, the owner: "improve the titles again. use a bunch of reactive titles from
+  // the two css links i shared. i want the title to feel professional but futuristic"). One small layer for all fifteen:
+  // it follows a mouse or pen anywhere on the page, or a finger on a touch screen (every listener passive, so the page
+  // scrolls as usual), and writes a few CSS custom properties that each variant's CSS turns into its effect (style.css,
+  // "11-25 answer the pointer"):
+  //   on the mark: --pa, how present the pointer is (0-1, eased in and out); --mx/--my, the pointer from the link's top
+  //   left, and --ux/--uy, from the mark's (px);
+  //   on each letter (.ch), for the variants with a radius r (em): --d, its closeness to the pointer (0-1); --dx/--dy,
+  //   where it sits from the pointer (-1 to 1, in radii).
+  // 12 runs a letter the pointer reaches through a few characters before it resolves (a monospaced face, so nothing
+  // moves), and 15 rolls one over. Frames run only while something is changing, and only for marks on screen (the
+  // page's, and the gallery's cards while it is open); nothing runs under prefers-reduced-motion, where each mark
+  // keeps its resting state.
+  const REACT = {
+    11: { r: 2.6 }, 12: { r: 1.6, hot: 'scramble' }, 13: { r: 2.4 }, 14: {}, 15: { r: 1.1, hot: 'roll' },
+    16: {}, 17: {}, 18: { r: 6 }, 19: { r: 2.6 }, 20: { r: 2.4 },
+    21: {}, 22: { r: 2.8 }, 23: {}, 24: {}, 25: {},
+  };
+  const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const MARK_VARS = ['--pa', '--mx', '--my', '--ux', '--uy'], CH_VARS = ['--d', '--dx', '--dy'];
+  const reacting = new Map();
+  const pointer = { x: 0, y: 0, on: false };
+  let reactRaf = 0, reactListening = false;
+  const mastOf = (mark) => { const w = mark.closest('.lsr-mast-wrap'); return w ? +(w.classList.contains('mast-preview') ? w.getAttribute('data-mast') : document.documentElement.getAttribute('data-mast')) : 0; };
+  const reactIO = 'IntersectionObserver' in window ? new IntersectionObserver((es) => es.forEach((e) => {
+    const st = reacting.get(e.target);
+    if (st) { st.seen = e.isIntersecting; if (st.seen) reactWake(); }
+  })) : null;
+  const reactRO = 'ResizeObserver' in window ? new ResizeObserver((es) => es.forEach((e) => { const st = reacting.get(e.target); if (st) reactMeasure(st); })) : null;
+
+  // a mark back at rest: no pointer properties, every letter its own (a gallery card is a copy of the page's mark)
+  function reactClean(mark) {
+    MARK_VARS.forEach((k) => mark.style.removeProperty(k));
+    if (!mark.getAttribute('style')) mark.removeAttribute('style');
+    mark.querySelectorAll('.ch').forEach((c) => {
+      CH_VARS.forEach((k) => c.style.removeProperty(k));
+      if (c.dataset.c != null && c.textContent !== c.dataset.c) c.textContent = c.dataset.c;
+      c.removeAttribute('data-s');
+      c.removeAttribute('data-r');
+    });
+  }
+  // where each letter sits at home (its centre, from the mark's top left), and the link's corner
+  function reactMeasure(st) {
+    const m = st.mark;
+    m.classList.add('mx-measure');
+    const box = m.getBoundingClientRect(), lb = st.a.getBoundingClientRect();
+    st.fs = parseFloat(getComputedStyle(m).fontSize) || 16;
+    st.lx = lb.left - box.left; st.ly = lb.top - box.top;
+    st.home = st.chars.map((c) => { const q = c.getBoundingClientRect(); return [(q.left + q.right) / 2 - box.left, (q.top + q.bottom) / 2 - box.top]; });
+    m.classList.remove('mx-measure');
+    reactWake();
+  }
+  function reactMark(mark, n) {
+    reactClean(mark);
+    const chars = [...mark.querySelectorAll('.ch')], zero = () => chars.map(() => 0);
+    const st = { mark, a: mark.querySelector('a'), n, cfg: REACT[n], chars, home: [], fs: 16, lx: 0, ly: 0, seen: true,
+      pa: 0, ux: 0, uy: 0, d: zero(), dx: zero(), dy: zero(), hot: chars.map(() => false), until: zero(), flip: zero(), rolled: zero(),
+      wm: {}, wc: chars.map(() => ({})) };
+    reacting.set(mark, st);
+    reactMeasure(st);
+    if (reactIO) reactIO.observe(mark);
+    if (reactRO) reactRO.observe(mark);
+    if (st.cfg.hot === 'scramble') {                 // on arrival the name decodes, left to right
+      const now = performance.now();
+      chars.forEach((c, i) => { if ((c.dataset.c || '').trim()) st.until[i] = now + 260 + i * 48; });
+    }
+    return st;
+  }
+  function reactDrop(st) {
+    reacting.delete(st.mark);
+    if (reactIO) reactIO.unobserve(st.mark);
+    if (reactRO) reactRO.unobserve(st.mark);
+    reactClean(st.mark);
+  }
+  // the pointer has reached letter i: 12 starts it running through characters, 15 rolls it over (once per crossing)
+  function reactHot(st, i, now) {
+    const c = st.chars[i];
+    if (!(c.dataset.c || '').trim()) return;
+    if (st.cfg.hot === 'scramble') { if (!st.until[i]) { st.until[i] = now + 180 + Math.random() * 160; st.flip[i] = 0; } }
+    else if (now - st.rolled[i] > 420) { st.rolled[i] = now; c.setAttribute('data-r', c.getAttribute('data-r') === 'a' ? 'b' : 'a'); }
+  }
+  const setv = (el, memo, k, v) => { if (memo[k] !== v) { memo[k] = v; el.style.setProperty(k, v); } };
+  // one frame for one mark (its box read beforehand); true while anything is still on its way
+  function reactStep(st, box, now) {
+    const cfg = st.cfg, fs = st.fs;
+    const px = pointer.x - box.left, py = pointer.y - box.top, pad = fs * 0.6;
+    const near = pointer.on && box.width > 0 && px > -pad && py > -pad && px < box.width + pad && py < box.height + pad;
+    let busy = false;
+    const ease = (cur, to, k, eps) => { if (Math.abs(to - cur) <= eps) return to; busy = true; return cur + (to - cur) * k; };
+    if (near) {
+      if (st.pa < 0.01) { st.ux = px; st.uy = py; }  // arriving: start where the pointer is
+      st.ux = ease(st.ux, px, 0.3, 0.1); st.uy = ease(st.uy, py, 0.3, 0.1);
+    }
+    st.pa = ease(st.pa, near ? 1 : 0, near ? 0.12 : 0.07, 0.002);
+    setv(st.mark, st.wm, '--pa', st.pa.toFixed(3));
+    if (st.pa > 0) {
+      setv(st.mark, st.wm, '--ux', st.ux.toFixed(1) + 'px'); setv(st.mark, st.wm, '--uy', st.uy.toFixed(1) + 'px');
+      setv(st.mark, st.wm, '--mx', (st.ux - st.lx).toFixed(1) + 'px'); setv(st.mark, st.wm, '--my', (st.uy - st.ly).toFixed(1) + 'px');
+    }
+    if (cfg.r) {
+      const R = cfg.r * fs;
+      st.chars.forEach((c, i) => {
+        const h = st.home[i];
+        if (!h) return;
+        let to = 0;
+        if (near) {
+          const ex = h[0] - st.ux, ey = h[1] - st.uy, q = Math.max(0, 1 - Math.hypot(ex, ey) / R);
+          to = q * q * (3 - 2 * q);
+          st.dx[i] = Math.max(-1, Math.min(1, ex / R)); st.dy[i] = Math.max(-1, Math.min(1, ey / R));
+          if (cfg.hot && to > 0.55 && !st.hot[i]) { st.hot[i] = true; reactHot(st, i, now); }
+          else if (to < 0.25) st.hot[i] = false;
+        } else st.hot[i] = false;
+        st.d[i] = ease(st.d[i], to, near ? 0.35 : 0.12, 0.002);
+        setv(c, st.wc[i], '--d', st.d[i].toFixed(3));
+        if (st.d[i] > 0 || st.pa > 0) { setv(c, st.wc[i], '--dx', st.dx[i].toFixed(3)); setv(c, st.wc[i], '--dy', st.dy[i].toFixed(3)); }
+      });
+    }
+    if (cfg.hot === 'scramble') st.chars.forEach((c, i) => {
+      if (!st.until[i]) return;
+      busy = true;
+      const own = c.dataset.c;
+      if (now >= st.until[i]) { st.until[i] = 0; c.textContent = own; c.removeAttribute('data-s'); return; }
+      if (now >= st.flip[i]) {
+        st.flip[i] = now + 60;
+        let g;
+        do { g = GLYPHS[Math.floor(Math.random() * GLYPHS.length)]; } while (g === own.toUpperCase());
+        c.textContent = g;
+        c.setAttribute('data-s', '');
+      }
+    });
+    return busy;
+  }
+  function reactTick(now) {
+    reactRaf = 0;
+    const live = [];
+    reacting.forEach((st) => { if (st.seen && st.home.length) live.push(st); });
+    const boxes = live.map((st) => st.mark.getBoundingClientRect());     // every read first, then the writes
+    let busy = false;
+    live.forEach((st, k) => { if (reactStep(st, boxes[k], now)) busy = true; });
+    if (busy) reactRaf = requestAnimationFrame(reactTick);
+  }
+  function reactWake() { if (!reactRaf && reacting.size && !document.hidden) reactRaf = requestAnimationFrame(reactTick); }
+  function reactPointer(e) {
+    if (e.pointerType === 'touch') return;          // fingers come through the touch events, which keep firing while the page scrolls
+    pointer.x = e.clientX; pointer.y = e.clientY; pointer.on = true;
+    reactWake();
+  }
+  function reactTouch(e) {
+    const t = e.touches && e.touches[0];
+    if (t) { pointer.x = t.clientX; pointer.y = t.clientY; pointer.on = true; } else pointer.on = false;
+    reactWake();
+  }
+  function reactAway() { pointer.on = false; reactWake(); }
+  function reactListen() {
+    if (reactListening) return;
+    reactListening = true;
+    const o = { passive: true };
+    window.addEventListener('pointermove', reactPointer, o);
+    window.addEventListener('pointerdown', reactPointer, o);
+    window.addEventListener('pointerout', (e) => { if (!e.relatedTarget && e.pointerType !== 'touch') reactAway(); }, o);
+    window.addEventListener('blur', reactAway, o);
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach((t) => window.addEventListener(t, reactTouch, o));
+    window.addEventListener('scroll', () => { if (pointer.on) reactWake(); }, { passive: true, capture: true });
+    document.addEventListener('visibilitychange', reactWake);
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => reacting.forEach(reactMeasure));
+  }
+  // start or stop the layer wherever 11-25 are showing: the page's masthead and, while the gallery is open, its cards
+  function reactSync() {
+    const want = new Map();
+    if (!still()) {
+      document.querySelectorAll('.lsr-mast-wrap .lsr-mark').forEach((m) => {
+        const n = mastOf(m);
+        if (REACT[n] && (!m.closest('.mast-gallery') || m.closest('.mast-gallery.on'))) want.set(m, n);
+      });
+    }
+    reacting.forEach((st, m) => { if (want.get(m) !== st.n) reactDrop(st); });
+    want.forEach((n, m) => { if (!reacting.has(m)) reactMark(m, n); });
+    if (want.size) reactListen();
+  }
+  try { window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', reactSync); } catch (e) { /* an old browser: the setting at load holds */ }
+
+  const ready = () => { splitLetters(); addPicker(); reactSync(); pixelSync(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready); else ready();
 
   window.LSR = { stampMasthead: stampMasthead, siteFooter: siteFooter, email: MAINTAINER_EMAIL, repo: REPO, crunch: crunch,
