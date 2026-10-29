@@ -2092,11 +2092,9 @@ ANON_DRAWS = 1000      # placebo draws for the randomization p-values
 ANON_PLACEBO_TOP = 100 # placebo switches go to comparison reviews of the U.S. News top 100 (the switchers' schools rank 9-85)
 # a dated policy counts as a switch when its year comes from the review's own announcement, its editors' account, or
 # a pair of archived pages (absent, then present); an "earliest documented" year is only an upper bound on when the
-# policy began (Harvard 1999, Yale 2004, Stanford 2012), not a switch. (research, 2026-10-28) UC Law Journal's year is
-# the first archived page with its anonymous track (Feb 2020), but Thomson (c. 2019) still lists it as asking for
-# CVs, so its year is bracketed too
+# policy began (Harvard 1999, Yale 2004, Stanford 2012), not a switch. (review, 2026-10-29) UC Law Journal's 2020 is
+# bracketed by its own archived pages (Dec 2019: a CV with every submission, no anonymous route; Feb 2020: the track)
 ANON_DATED_BASIS = ('announced', 'reported', 'bracketed')
-ANON_BRACKETED = {'UC Law Journal'}
 ANON_OUTCOMES = [      # the primary outcome first (chosen before any estimate was looked at)
     ('t14', 'Share of articles with an author at a top-14 school', 'share'),
     ('t25', 'Share of articles with an author at a top-25 school', 'share'),
@@ -2163,8 +2161,7 @@ def anonymous_review_analysis(data, last_year):
             continue
         row_of[ji] = r._asdict()
         anon = r.policy.endswith(('anonymous review', 'anonymous track')) and not r.policy.startswith('not ')
-        dated = bool(r.adopted) and r.confidence in ('high', 'medium') and (
-            r.adopted_basis.startswith(ANON_DATED_BASIS) or r.journal in ANON_BRACKETED)
+        dated = bool(r.adopted) and r.confidence in ('high', 'medium') and r.adopted_basis.startswith(ANON_DATED_BASIS)
         if anon and dated:
             role[ji] = 'switched'
         elif anon:
@@ -2382,7 +2379,11 @@ def anonymous_review_analysis(data, last_year):
         rob.append(r)
         add('switch_year', 'The switch year counted as after', panel(offset=0), offset=0)
         add('top50', 'Comparison: only the reviews of top-50 schools', panel(keep=lambda ji: ji in adopt or 1 <= rank_of[ji] <= 50))
-        add('evidence', 'Comparison: only reviews on record as naming authors or with no anonymity statement',
+        # (review, 2026-10-29) nearer peers: several top-14 reviews with no anonymity policy lost top-14 share too
+        add('top25', 'Comparison: only the reviews of top-25 schools', panel(keep=lambda ji: ji in adopt or 1 <= rank_of[ji] <= 25))
+        # (a review that switched too recently to test is a comparison here too, through its switch year)
+        recent = ', '.join(f'{J[j][0]} through its {adopt[j]} switch year' for j in sorted(too_recent))
+        add('evidence', 'Comparison: only reviews on record as naming authors or with no anonymity statement' + (f' (and {recent})' if recent else ''),
             panel(keep=lambda ji: ji in adopt or role.get(ji) in ('named', 'no statement')))
         add('fully', 'Switchers: only the fully anonymous policies',
             panel(keep=lambda ji: ji not in treated or row_of[ji]['policy'] == 'fully anonymous review'))

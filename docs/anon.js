@@ -57,7 +57,7 @@
     'too recent': { label: 'Switched 2025', color: '#86b6ef' },
     'named': { label: 'Names authors (on record)', color: '#eb6834' },
     'no statement': { label: 'No anonymity statement found', color: '#f2a27f' },
-    'unknown': { label: 'Not researched', color: '#c9c8c0' },
+    'unknown': { label: 'Article policy not found', color: '#c9c8c0' },     // (UCLA and WashU were looked up: only their student-note policies were found)
     'undated': { label: 'Anonymous, undated', color: '#104281' },
   };
 
@@ -176,7 +176,7 @@
     say('Compared with ' + num(C.comparison) + ' other flagship reviews over the same years, the share of the ' + sw.length + ' switchers’ faculty articles written by professors at top-14 schools went ');
     bold(Math.abs(100 * m.est).toFixed(1) + ' points ' + (fewer ? 'down' : 'up'));
     say(' after the switch (it was ' + val(k, m.treated_before) + ' before; 95% interval ' + ci(k, m.lo, m.hi) + ' points). ');
-    say('A randomization test, which hands the same switch years to reviews that never switched, gives ' + pIs(m.p_perm) + '; the usual clustered test gives ' + pIs(m.p) + '. ');
+    say('A randomization test, which hands the same switch years to comparison reviews, gives ' + pIs(m.p_perm) + '; the usual clustered test gives ' + pIs(m.p) + '. ');
     // does it rest on one review?
     const drops = (A.robust[k] || []).filter((r) => /^drop/.test(r.key));
     const weak = drops.filter((r) => (r.p_perm != null ? r.p_perm : r.p) >= 0.05).sort((a, b) => Math.abs(a.est) - Math.abs(b.est));
@@ -184,7 +184,10 @@
       const r = weak[0], who = r.label.replace(/^Without /, '');
       say('It leans on ' + jshort(who) + ': without it the change is ' + eff(k, r.est) + ' points and could be chance. ');
     }
-    if (!V.none && fewer) say('So these data do not bear out calling the policies fake: where a switch can be dated, the reviews moved away from top-14 authors' + (V.some ? ', though the evidence is borderline. ' : '. '));
+    // (review, 2026-10-29) not every switcher moved: name the ones whose own before-and-after did not go the group's way
+    const held = (A.per_journal[k] || []).filter((r) => r.diff != null && r.diff >= 0).map((r) => jshort(jname(r.j)));
+    if (!V.none && fewer) say('So these data do not bear out calling the policies fake: ' + (held.length ? 'as a group the switching reviews moved away from top-14 authors, though not all of them (' + listSay(held) + ' did not)'
+      : 'where a switch can be dated, the reviews moved away from top-14 authors') + (V.some ? (held.length ? '; the evidence is borderline. ' : ', though the evidence is borderline. ') : '. '));
     else if (!V.none) say('The change runs the opposite way from what anonymity is meant to do. ');
     else say('The test cannot tell this from no change: it would reliably catch only a change of about ' + (100 * m.mde).toFixed(0) + ' points or more, so it neither shows the policies work nor that they are fake. ');
     say('A test on ' + sw.length + ' reviews cannot settle it, though: the switches came in ' + y0 + '–' + y1 + ' alongside other changes, partial policies still show editors a CV, and authors are placed at the school where they teach now. ' +
@@ -203,7 +206,7 @@
     };
     const m = A.main.t14, C = A.counts;
     add(eff('t14', m.est), ' points', 'change in the share of articles by top-14 professors after a switch, against the other flagship reviews (95% interval ' + ci('t14', m.lo, m.hi) + ')');
-    add(fmtP(m.p_perm), null, 'randomization p-value (' + num(A.draws) + ' placebo switches; clustered ' + pIs(m.p) + ')');
+    add(fmtP(m.p_perm) + ' / ' + fmtP(m.p), null, 'p-values: randomization (' + num(A.draws) + ' placebo switches) / clustered by review');
     add(num(C.treated), ' reviews', 'switched with a dated policy and have volumes chosen after it (' + num(C.treated_articles_after) + ' articles); ' + num(C.comparison) + ' flagship reviews compared');
     $('anonymousBody').appendChild(box);
   }
@@ -224,10 +227,15 @@
     const T = el('div', { class: 'an-scroll' });
     c.fig.insertBefore(T, c.foot);
     table(T, ['Measure', 'Before', 'Change (95% interval)', 'p, clustered', 'p, random\u00ADization', 'Detectable*'], rows, 'an-main');
-    const m = A.main.t14;
-    c.foot.textContent = 'Reviews: ' + C.treated + ' switching, ' + num(C.comparison) + ' comparison (' + C.comparison_on_record + ' on record as naming authors or with no anonymity statement, the rest not researched); ' +
-      num(C.journal_years) + ' review-years and ' + num(C.articles) + ' articles. Before: the switching reviews’ level before their switch. Clustered: standard errors clustered by review. With only ' + C.treated + ' switching reviews those can be too small, so the randomization p-value is the safer one: ' +
-      'it gives the same switch years to ' + num(A.draws) + ' random sets of comparison reviews of top-' + A.placebo_top + ' schools (from ' + m.placebo_pool + ') and counts how often the placebo change is as large. ' +
+    const m = A.main.t14, recent = A.journals.filter((j) => j.role === 'too recent');
+    // (review, 2026-10-29) the comparison is the reviews on record, a review that switched too recently to test (until
+    // its switch), and the rest, whose article policy is not known (two were looked up: only student-note policies)
+    c.foot.textContent = 'Reviews: ' + C.treated + ' switching, ' + num(C.comparison) + ' comparison (' + C.comparison_on_record + ' on record as naming authors or with no anonymity statement, ' +
+      (recent.length ? listSay(recent.map((j) => jshort(j.name) + ' before its ' + j.adopted + ' switch')) + ', and ' : '') + num(C.comparison_unknown) + ' with no known article policy); ' +
+      num(C.journal_years) + ' review-years and ' + num(C.articles) + ' articles. Before: the switching reviews’ level before their switch. Clustered: standard errors clustered by review. With only ' + C.treated + ' switching reviews neither test is exact, so both are shown. The randomization test ' +
+      'gives the same switch years to ' + num(A.draws) + ' random sets of comparison reviews of top-' + A.placebo_top + ' schools (from ' + m.placebo_pool + ') and counts how often the placebo change is as large' +
+      // (review, 2026-10-29) it tests "no switching review changed at all", so one review that changed a lot can carry it
+      (m.se > m.placebo_sd ? '; it does not allow for the switching reviews changing by different amounts, so one review can carry it, and here it gives the smaller p-value (the clustered error, ' + (100 * m.se).toFixed(1) + ' points, is wider than the placebo spread, ' + (100 * m.placebo_sd).toFixed(1) + ')' : '') + '. ' +
       'Detectable: the smallest true change the test would catch four times in five (2.8 standard errors): ' + A.outcomes.map((o) => SHORT[o.key].toLowerCase() + ' ±' + (scale(o.key) * A.main[o.key].mde).toFixed(1) + unitWord(o.key)).join(', ') +
       '. Mean school rank: a higher number means authors from lower-ranked schools.';
   }
@@ -261,9 +269,15 @@
     const T = details(c.fig, 'The numbers, by year since the switch');
     const words = () => {
       const k = outcome, ev = E(), V = verdict(k);
-      const pre = (ev.pretest_p_perm != null ? ev.pretest_p_perm : ev.pretest_p) >= 0.1 ? 'the switchers moved with the other reviews' : 'the switchers were already moving apart';
-      const post = V.none ? 'after it, any gap is within chance' : k === 'rank' ? 'after it, their authors came from ' + (V.m.est > 0 ? 'lower' : 'higher') + '-ranked schools'
-        : 'after it, they took ' + (V.m.est < 0 ? 'fewer' : 'more') + ' ' + SAY[k];
+      // (review, 2026-10-29) the heading also says what the dots show: a year whose 95% interval leaves out 0
+      const off = (lo, hi) => lo > 0 || hi < 0;
+      const preOff = ev.e.filter((e, i) => e < -1 && off(ev.lo[i], ev.hi[i])).length;
+      const postOff = ev.e.filter((e, i) => e >= 1 && off(ev.lo[i], ev.hi[i])).length;
+      const pre = (ev.pretest_p_perm != null ? ev.pretest_p_perm : ev.pretest_p) < 0.1 ? 'the switchers were already moving apart'
+        : preOff ? 'the gap moved about, though no more than chance (' + (preOff === 1 ? 'one earlier year sits' : preOff + ' earlier years sit') + ' apart from zero)'
+          : 'the switchers moved with the other reviews';
+      const post = (V.none ? 'after it, any gap is within chance' + (postOff ? ' (' + (postOff === 1 ? 'one later year sits' : postOff + ' later years sit') + ' apart from zero)' : '') : k === 'rank' ? 'after it, their authors came from ' + (V.m.est > 0 ? 'lower' : 'higher') + '-ranked schools'
+        : 'after it, they took ' + (V.m.est < 0 ? 'fewer' : 'more') + ' ' + SAY[k]) + (!V.none && !postOff ? ', though no single year is clearly apart from zero' : '');
       c.h.textContent = 'Year by year: before the switch ' + pre + '; ' + post;
       c.p.textContent = 'Each dot is how far the switching reviews were from the comparison reviews in a year counted from the switch, against the year before the switch (set to 0), in ' + SHORT[k].toLowerCase() +
         (isShare(k) ? ' (percentage points)' : ' (places)') + ', with its 95% interval. Years six or more before or after are pooled at the ends. The switch year itself (0) mostly holds articles chosen before the policy. Dots near 0 on the left mean the two groups moved together before the switch, which is what the comparison needs.';
@@ -358,9 +372,9 @@
   }
 
   // ---------------------------------------------------------------- 5. robustness
-  const ROB_SHORT = { main: 'Main estimate', stacked: 'Stacked DiD', switch_year: 'Switch year as after', top50: 'Top-50 comparisons', evidence: 'On-record comparisons',
+  const ROB_SHORT = { main: 'Main estimate', stacked: 'Stacked DiD', switch_year: 'Switch year as after', top50: 'Top-50 comparisons', top25: 'Top-25 comparisons', evidence: 'On-record comparisons',
     fully: 'Fully anonymous only', unweighted: 'Unweighted', since2000: 'From 2000' };
-  const ROB_NARROW = { switch_year: 'Switch year after', top50: 'Top-50 only', evidence: 'On-record only', fully: 'Fully anonymous' };
+  const ROB_NARROW = { switch_year: 'Switch year after', top50: 'Top-50 only', top25: 'Top-25 only', evidence: 'On-record only', fully: 'Fully anonymous' };
   const robLabel = (r, narrow) => (narrow && ROB_NARROW[r.key]) || ROB_SHORT[r.key] ||
     (/^drop/.test(r.key) ? 'Without ' + (narrow ? jshort(r.label.replace(/^Without /, '')).replace(/ Journal$/, ' J.') : jshort(r.label.replace(/^Without /, ''))) : r.label);
   function figRobust() {
@@ -370,11 +384,11 @@
     const words = () => {
       const k = outcome, R = rows();
       const others = R.slice(1), same = others.filter((r) => Math.sign(r.est) === Math.sign(R[0].est)).length;
-      const withP = others.filter((r) => r.p_perm != null), sig = withP.filter((r) => r.p_perm < 0.05).length;
+      const withP = others.filter((r) => r.p_perm != null), sig = withP.filter((r) => r.p_perm < 0.05).length, sigC = others.filter((r) => r.p < 0.05).length;
       c.h.textContent = 'Checks' + (k === 't14' ? '' : ' (' + SHORT[k].toLowerCase() + ')') + ': ' + same + ' of ' + others.length + ' point the same way as the main estimate; ' +
-        sig + ' of ' + withP.length + ' have a randomization p-value below 0.05';
+        sig + ' of ' + withP.length + ' have a randomization p-value below 0.05, ' + sigC + ' of ' + others.length + ' a clustered one';
       c.p.textContent = 'The same comparison done other ways. The stacked difference-in-differences runs each switch year as its own experiment against reviews that do not switch within six years, so no review that has already switched serves as a control (the worry with staggered switches). ' +
-        'The others change the comparison reviews, which switchers count, the weighting, or the years, and leave out one switching review at a time. Rows resting on two switching reviews are the least reliable; the randomization p-value is the safer guide throughout.';
+        'The others change the comparison reviews, which switchers count, the weighting, or the years, and leave out one switching review at a time. Rows resting on two switching reviews are the least reliable; read the two p-values together.';
       table(T.tb, ['Check', 'Change (95% interval)', 'p, clustered', 'p, random\u00ADization', 'Reviews'],
         R.map((r, i) => [[robLabel(r), r.label], [eff(k, r.est) + unitWord(k), ci(k, r.lo, r.hi)], fmtP(r.p), r.p_perm == null ? '–' : fmtP(r.p_perm), [r.n_treated + ' / ' + num(r.n_control), 'switching / comparison'], i === 0 ? { cls: 'an-primary' } : {}]), 'an-rob');
       c.foot.textContent = 'Stacked: no randomization p-value (its placebo would need the stacking redone each draw). Unweighted: each review-year with 5 or more articles counts once, however many articles it has.';
@@ -517,7 +531,7 @@
     const ul = el('ul');
     [
       'Authors are credited to the school where they teach now, not where they taught when the article came out: a professor who published in 2015 and later moved to a top-14 school counts as top-14 in 2015. Older years therefore look more top-14 than they were. The year fixed effects take out what all reviews share; a review whose authors move up more often than others’ could still drift on its own, and ' +
-        (quiet ? 'the years before the switches show no such drift for the switchers.' : 'the years before the switches do show the switchers moving apart, so read the estimate with care.'),
+        (quiet ? 'the years before the switches show no drift for the switchers beyond chance.' : 'the years before the switches do show the switchers moving apart, so read the estimate with care.'),
       'Only ' + C.treated + ' reviews switched in a dated year with volumes chosen after it, all in ' + Math.min.apply(null, yrs) + '–' + Math.max.apply(null, yrs) + '. A test this small can miss a real change and can be swayed by one review; the leave-one-out rows show by how much.',
       'Anonymity cannot be told apart from anything else the same reviews changed at the same time, such as the diversity commitments many reviews made in 2020.',
       (() => {
@@ -525,7 +539,7 @@
         return 'Of the ' + sw.length + ' switchers’ policies, ' + n(/^partially/) + ' are partial (editors still see a CV at some stage), ' + n(/track$/) + ' is an optional track and ' + n(/^fully/) +
           ' are fully anonymous. A weak effect may mean a policy leaks rather than that it is fake, and a strong one does not show which stage of review made the difference.';
       })(),
-      'The comparison reviews were mostly not looked up (' + num(C.comparison_unknown) + ' of ' + num(C.comparison) + '). If some quietly went anonymous too, the test understates any change.',
+      'The comparison reviews mostly have no known article policy (' + num(C.comparison_unknown) + ' of ' + num(C.comparison) + '). If some quietly went anonymous too, the test understates any change.',
       'Counted are research articles by current faculty of U.S. law schools, the people this site ranks; articles by practitioners, students, foreign scholars or those who left teaching are not, so a review that took more of them after switching would not show it here.',
     ].forEach((t) => ul.appendChild(el('li', null, t)));
     box.appendChild(ul);
@@ -582,6 +596,8 @@
     const got = window.LSR_INS;
     if (!got || !got.INS || INS) return;
     INS = got.INS; DATA = got.DATA; A = INS.anon || null;
+    const ms = $('mAnonSince');                 // the method note's first year (insights.html)
+    if (ms && A && A.since) ms.textContent = A.since;
     const sec = $('anonymous');
     let done = false;
     const go = () => {

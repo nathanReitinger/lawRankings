@@ -36,13 +36,14 @@
   // 14), so a slice can hold more reviews than its number. Colors: one blue, darker for the narrower slice (an ordinal
   // ramp, steps 700/600/500/350/250), and every review in the page's second ink. The two light steps are under 3:1 on
   // white (2.99 and 2.11) and the two darkest are close (1.5:1 apart), so every mark is also named directly: the Lorenz
-  // curves on the chart, the five-year lines at their ends, the Gini bars on their axis.
+  // curves on the chart, the five-year lines at their ends, the Gini bars on their axis. key: the tables' column heads,
+  // named as on the charts ('1–14' broke after its dash on a phone; 'Top 14' wraps as 'Top' over '14' and stays narrow)
   const SLICES = [
     { cut: 1, short: 'Ranked 1st', key: '1st', color: '#0d366b' },
-    { cut: 3, short: 'Top 3', key: '1–3', color: '#184f95' },
-    { cut: 14, short: 'Top 14', key: '1–14', color: '#256abf' },
-    { cut: 50, short: 'Top 50', key: '1–50', color: '#5598e7' },
-    { cut: 100, short: 'Top 100', key: '1–100', color: '#86b6ef' },
+    { cut: 3, short: 'Top 3', key: 'Top 3', color: '#184f95' },
+    { cut: 14, short: 'Top 14', key: 'Top 14', color: '#256abf' },
+    { cut: 50, short: 'Top 50', key: 'Top 50', color: '#5598e7' },
+    { cut: 100, short: 'Top 100', key: 'Top 100', color: '#86b6ef' },
     { cut: Infinity, short: 'All flagship', key: 'All', color: '#52514e' },
   ];
   const inSlice = (r, cut) => (cut === Infinity ? r >= 0 : r >= 1 && r <= cut);   // 0: the review of an unranked school
@@ -89,6 +90,7 @@
     const NL = SLICES.length;
     const cnt = SLICES.map(() => new Int32Array(NS)), arts = new Int32Array(NL);
     const wcnt = wins.map(() => SLICES.map(() => new Int32Array(NS))), warts = wins.map(() => new Int32Array(NL));
+    const thinA = [], thinB = [];   // the headline slice's articles (their schools) in the first and the last five years
     const ss = [];
     for (let p = 0; p < NP; p++) {
       if (P.minor && P.minor[p]) continue;
@@ -102,12 +104,24 @@
       for (let i = 0; i < NL; i++) {
         if (!inSlice(r, SLICES[i].cut)) continue;
         if (inWin) { arts[i]++; for (const s of ss) cnt[i][s]++; }
-        if (w >= 0) { warts[w][i]++; for (const s of ss) wcnt[w][i][s]++; }
+        if (w >= 0) {
+          warts[w][i]++; for (const s of ss) wcnt[w][i][s]++;
+          if (i === HEAD) { if (w === 0) thinA.push(ss.slice()); else if (w === wins.length - 1) thinB.push(ss.slice()); }   // (a copy: ss is reused)
+        }
       }
     }
     const R = { from, to, US, n: US.length, wins, reviews };
     R.slices = SLICES.map((sl, i) => Object.assign(lorenz(cnt[i], US), { articles: arts[i], counts: cnt[i] }));
     R.time = wins.map((w, k) => SLICES.map((sl, i) => Object.assign(lorenz(wcnt[k][i], US), { articles: warts[k][i] })));
+    // how much fewer articles raise the Gini by themselves: the last five years' top-14 articles thinned to as many as
+    // the first five years have (evenly spaced in the papers' order, which runs by year and within a year mostly by
+    // review, so each keeps about its share), and the Gini of what is left (on the 2026-10-29 data 0.753; 300 random
+    // draws of 737 of the 1,556 average 0.749)
+    if (thinA.length && thinB.length > thinA.length) {
+      const c = new Int32Array(NS);
+      for (let k = 0; k < thinA.length; k++) for (const s of thinB[Math.floor(k * thinB.length / thinA.length)]) c[s]++;
+      R.thin = lorenz(c, US).g;
+    }
     return R;
   }
 
@@ -168,7 +182,9 @@
   }
   const has = (type) => typeof Highcharts !== 'undefined' && !!(Highcharts.seriesTypes && Highcharts.seriesTypes[type]);
   const faded = (color) => (typeof Highcharts !== 'undefined' ? Highcharts.color(color).setOpacity(0.2).get() : color);
-  const isOn = (i) => focus == null || focus === i;
+  // a slice is on when none is picked, when it is the one picked, or when the chart does not draw the one picked (the
+  // five-year chart has no 'Ranked 1st' or 'Top 100': picking one of those in the Lorenz key leaves that chart whole)
+  const isOn = (i, here) => focus == null || focus === i || (!!here && here.indexOf(focus) < 0);
 
   // a card in the page's style: a heading that states the finding, what is counted, the figure, a note and the numbers
   function card(id, title, caption) {
@@ -243,9 +259,10 @@
     keys.forEach((b) => b.setAttribute('aria-pressed', String(focus === +b.dataset.slice)));
     charts.forEach((ch) => {
       if (!ch || !ch.series) return;
+      const here = ch.series.map((s) => (s.options.custom || {}).slice).filter((x) => x != null);   // the slices this chart draws
       ch.series.forEach((s) => {
         const o = s.options.custom || {};
-        if (o.slice != null) s.update({ opacity: isOn(o.slice) ? 1 : 0.2, zIndex: (o.z || 1) + (focus === o.slice ? 10 : 0) }, false);
+        if (o.slice != null) s.update({ opacity: isOn(o.slice, here) ? 1 : 0.2, zIndex: (o.z || 1) + (focus === o.slice ? 10 : 0) }, false);
         if (o.bars) s.points.forEach((pt) => pt.update({ color: isOn(pt.custom) ? SLICES[pt.custom].color : faded(SLICES[pt.custom].color) }, false));
       });
       ch.redraw(false);
@@ -321,7 +338,7 @@
     });
     table(E.tb, ['School', 'U.S. News'].concat(SLICES.map((sl) => sl.key)),
       rows.map((s) => [S[s][0], S[s][2] || 'unranked'].concat(SLICES.map((sl, i) => num(R.slices[i].counts[s])))), 'eq-schools');
-    E.tb.insertBefore(el('p', { class: 'eq-note' }, 'Articles in each slice of flagship reviews, ' + R.from + '–' + R.to + ', by current faculty of each U.S. law school (an article once per school). The columns are the slices by school rank: 1st, 1–3, 1–14, 1–50, 1–100, and every flagship review.'), E.tb.firstChild);
+    E.tb.insertBefore(el('p', { class: 'eq-note' }, 'Articles in each slice of flagship reviews, ' + R.from + '–' + R.to + ', by current faculty of each U.S. law school (an article once per school). The columns are the slices by school rank, ties kept: the school ranked 1st, the top 3, 14, 50 and 100, and every flagship review.'), E.tb.firstChild);
     if (!has('line') || !has('bar')) { noChart(c, T.d); return { h, half, ten }; }
 
     // the chart and, beside it (under it on a phone), each slice's Gini as a bar
@@ -513,14 +530,17 @@
       'Among today’s faculty, the top-14 reviews’ Gini ' + (h1.g < h0.g - 0.01 ? 'fell' : h1.g > h0.g + 0.01 ? 'rose' : 'went') + ' from ' + gini(h0.g) + ' in ' + lab(W5[0]) + ' to ' + gini(h1.g) + ' in ' + lab(W5[W5.length - 1]) + trend,
       'The Gini coefficient of the same counts, in five-year windows from ' + lab(W5[0]) + ' to ' + lab(W5[W5.length - 1]) + ', for four of the slices (the table has all six); ' +
       'every U.S. law school is counted in every window, those with no articles included. The reviews keep today’s ranks throughout. Only today’s faculty are counted, ' +
-      'so the early windows hold the earlier work of those still teaching: fewer articles, which leave more schools at zero and by themselves raise the Gini. Read the change with that in mind.');
+      'so the early windows hold the earlier work of those still teaching, each credited to the school where they teach now' +
+      (R.thin != null ? '. The early windows also have fewer articles, and fewer articles raise the Gini by themselves: taking only ' + num(h0.articles) + ' of the ' +
+        num(h1.articles) + ' top-14 articles of ' + lab(W5[W5.length - 1]) + ' (evenly spaced) gives a Gini of ' + gini(R.thin) + ', against ' + gini(h1.g) + ' with all of them and ' +
+        gini(h0.g) + ' in ' + lab(W5[0]) + '.' : '.'));
     key(c, OVER_TIME.map((i) => [i, '']));
     c.foot.textContent = 'Articles counted in the top-14 reviews: ' + num(h0.articles) + ' in ' + lab(W5[0]) + ', ' + num(h1.articles) + ' in ' + lab(W5[W5.length - 1]) +
       '; in every flagship review, ' + num(first[5].articles) + ' and ' + num(last[5].articles) + '.';
     const D = details(c, 'The numbers, by five years');
     table(D.tb, ['Years'].concat(SLICES.map((sl) => sl.key)),
       W5.map((w, k) => [lab(w)].concat(SLICES.map((sl, i) => [gini(T[k][i].g), num(T[k][i].articles)]))), 'eq-time');
-    D.tb.insertBefore(el('p', { class: 'eq-note' }, 'Each cell: the Gini coefficient, and under it the number of articles. The columns are the slices by school rank: 1st, 1–3, 1–14, 1–50, 1–100, and every flagship review.'), D.tb.firstChild);
+    D.tb.insertBefore(el('p', { class: 'eq-note' }, 'Each cell: the Gini coefficient, and under it the number of articles. The columns are the slices by school rank, ties kept: the school ranked 1st, the top 3, 14, 50 and 100, and every flagship review.'), D.tb.firstChild);
     if (!has('line')) { noChart(c, D.d); return { h0, h1, fell, rose }; }
     const rule = css('--axis', '#c3c2b7'), ink2 = css('--ink-2', '#52514e');
     figs.push({ box: c.box, draw: () => {
@@ -541,7 +561,7 @@
           const x = ch.plotLeft + ch.plotWidth + 10;
           ends.forEach((l) => {
             if (Math.abs(l.y - l.y0) > 3) ch.renderer.path([['M', l.x + 6, l.y0], ['L', x - 3, l.y]]).attr({ stroke: rule, 'stroke-width': 1 }).add(g);
-            ch.renderer.text(esc(endText(l.i)), x, l.y + 4).css({ fontSize: '11.5px', fontWeight: '600', color: ink2, opacity: isOn(l.i) ? 1 : 0.35 }).add(g);
+            ch.renderer.text(esc(endText(l.i)), x, l.y + 4).css({ fontSize: '11.5px', fontWeight: '600', color: ink2, opacity: isOn(l.i, OVER_TIME) ? 1 : 0.35 }).add(g);
           });
         } } },
         accessibility: { description: 'Lines: the Gini coefficient of four slices of flagship law reviews in five-year windows, ' + lab(W5[0]) + ' to ' + lab(W5[W5.length - 1]) + '. The table below has every number.' },
@@ -554,7 +574,7 @@
         } },
         plotOptions: { series: { marker: { enabled: true, symbol: 'circle', radius: narrow ? 3 : 3.5, lineWidth: 1, lineColor: '#ffffff' }, states: { hover: { lineWidthPlus: 0 } } } },
         series: OVER_TIME.map((i, z) => ({ name: SLICES[i].short, color: SLICES[i].color, lineWidth: 2, custom: { slice: i, z: 1 + z },
-          opacity: isOn(i) ? 1 : 0.2, zIndex: 1 + z + (focus === i ? 10 : 0), data: T.map((row) => row[i].g) })),
+          opacity: isOn(i, OVER_TIME) ? 1 : 0.2, zIndex: 1 + z + (focus === i ? 10 : 0), data: T.map((row) => row[i].g) })),
       }, W);
     } });
     return { h0, h1, fell, rose };
