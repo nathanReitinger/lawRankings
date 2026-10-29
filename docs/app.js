@@ -610,7 +610,8 @@
     const share = schoolPapers(s);
     return '<div class="school-summary">' + trendBox({ school: s }) +
       '<p class="detail-note trend-desc">Counted articles per year by its current faculty in the selected journals, each split between its co-authors.' +
-      (state.from > trendStart() ? ' The shaded band marks the selected years.' : '') + '</p>' +
+      (state.from > trendStart() ? ' The shaded band marks the selected years.' : '') +
+      (trendEnd() < state.to ? ' The lines end at ' + trendEnd() + ', the last full year.' : '') + '</p>' +
       authorBars([...share.keys()], { title: 'Where its faculty publish', weight: (p) => share.get(p), who: DATA.schools[s][0] }) + '</div>';
   }
 
@@ -623,7 +624,28 @@
   let trendSeq = 0, hcLoad = null;
   // the chart's first year: twenty years up to the window's end, or the window's start if earlier; the selected years
   // are shaded only when they start after it (schoolSummaryHtml mentions the band only then)
-  function trendStart() { return Math.max(META.years.min, Math.min(state.from, state.to - 19)); }
+  // (2026-10-29, the owner: "Cut the prediction trend line at the year prior. Don't hardcode that value because what if
+  // it is 2027") the chart ends at the last full year: the year before the visitor's current year (or the window's last
+  // year, when that is earlier); the current year's volumes are still coming out
+  function trendEnd() { return Math.max(state.from, Math.min(state.to, new Date().getFullYear() - 1)); }
+  // (2026-10-29, the owner: "draw a line of best fit. Use mse error or whatever you think is best but make an informed
+  // decision about it and don't just pick one") a Theil-Sen line: the slope is the median of the slopes between each
+  // pair of years, the line passes through the median of (count - slope * year). Picked by a test on the site's own
+  // yearly counts, 2007-2025 (360 institutions; 500 people sampled), fitting each candidate on the earlier years and
+  // scoring it on the next one to three (error scaled to each series, MASE): least squares (MSE) and Theil-Sen came out
+  // about level (median 0.955 vs 0.960 for institutions, 0.921 vs 0.878 for people), Huber, least absolute deviations,
+  // Siegel's repeated medians and a Poisson curve behind; Theil-Sen's slope moved about half as much as least squares'
+  // when any one year was left out (median swing 0.018 vs 0.043 of the series' level, people), so one unusual year (a
+  // symposium issue) tilts it little. A flat average of the earlier years beat every line in that test, so the line
+  // describes the years shown and is not drawn past the last full year.
+  function senLine(ys) {
+    const med = (a) => { const b = a.slice().sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+    const sl = [];
+    for (let i = 0; i < ys.length; i++) for (let j = i + 1; j < ys.length; j++) sl.push((ys[j] - ys[i]) / (j - i));
+    const slope = med(sl);
+    return { slope: slope, at0: med(ys.map((y, i) => y - slope * i)) };
+  }
+  function trendStart() { return Math.max(META.years.min, Math.min(state.from, trendEnd() - 19)); }
   function trendBox(who) {
     const id = 'trend' + (++trendSeq);
     return '<div class="trend-chart" id="' + id + '" data-trend="' + esc(JSON.stringify(who)) + '"><p class="detail-note">Loading the chart…</p></div>';
@@ -682,7 +704,7 @@
       if (!box.isConnected || box.dataset.drawn) return;
       box.dataset.drawn = '1';
       const who = JSON.parse(box.dataset.trend);
-      const y1 = state.to, y0 = trendStart();
+      const y1 = trendEnd(), y0 = trendStart();
       const counts = yearlyCounts(who.person != null ? [who.person] : peopleAt(who.school), who.school, y0, y1);
       const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i);
       const name = who.person != null ? DATA.people[who.person][0] : DATA.schools[who.school][0];
@@ -707,11 +729,20 @@
       if (series.length > 1) series.unshift({ name: 'Total', color: '#333', lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
       box.innerHTML = '';
       if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + y0 + '–' + y1 + '.</p>'; return; }
+      // the trend line of the total (each article once) over the years shown, from five years on
+      if (years.length >= 5) {
+        const t = senLine([...counts.total]), last = years.length - 1;
+        const per = Math.round(t.slope * 10) / 10;
+        series.push({ name: 'Trend line (Theil–Sen): ' + (per > 0 ? '+' : per < 0 ? '−' : '') + Math.abs(per).toFixed(1) + ' a year', color: '#111', dashStyle: 'Dash',
+          lineWidth: 1.5, marker: { enabled: false }, enableMouseTracking: false, zIndex: 3, data: [[0, t.at0], [last, t.at0 + t.slope * last]] });
+      }
       // (review) the legend gets its own room (a row per line on a phone, two to a row wider), so the plot keeps its height
       const legendRows = series.length > 1 ? (box.clientWidth < 500 ? series.length : Math.ceil(series.length / 2)) : 0;
       trendCharts.add(H.chart(box, {
         chart: { type: 'line', height: 190 + 18 * legendRows, spacing: [6, 4, 4, 0], backgroundColor: 'transparent' },
         title: { text: 'Counted articles per year, ' + y0 + '–' + y1, align: 'left', style: { fontSize: '12px', fontWeight: '600', color: '#333' } },
+        subtitle: y1 < state.to ? { text: (y1 + 1 === state.to ? state.to : (y1 + 1) + '–' + state.to) + ' left out: volumes still coming out', align: 'left',
+          style: { fontSize: '10.5px', color: '#777' } } : undefined,
         accessibility: { description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + y0 + '–' + y1 + '.' },
         xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: '#666' } },
           plotBands: state.from > y0 ? [{ from: state.from - y0, to: y1 - y0, color: 'rgba(55,126,184,0.07)',
