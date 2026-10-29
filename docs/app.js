@@ -18,6 +18,7 @@
   const PER_PROF_MIN = 10;          // the per-professor option ranks schools with at least this many people listed
   const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
   const STORAGE_KEY = 'lawRankings.v4';
+  const DEFAULT_YEARS = 20;          // the default window's year labels (2026-10-29)
   const MAINTAINER_EMAIL = 'nathan.reitinger@law.northwestern.edu';   // the owner asked for an email button (2026-10-24)
   const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers
   const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
@@ -53,10 +54,11 @@
   ////////////////////////////////////////////// state: URL hash > localStorage > defaults
 
   function defaultState() {
-    // (2026-10-26, from the audit of why the list differs from U.S. News) ten year labels ending at the build's
-    // default_to, the latest well-collected year, not at the visitor's clock (eleven labels before)
-    const to = META.default_to || Math.min(new Date().getFullYear(), META.years.max);
-    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: to - 9, to: to, region: 'us', minor: false, src: 'usnews', host: 'any',
+    // (2026-10-29, the owner: "set default time to 20 years back from whatever date it is now") twenty year labels
+    // ending at the visitor's current year, or at the latest year in the data if the clock runs ahead of it (before:
+    // ten labels ending at the build's default_to, the latest well-collected year)
+    const to = Math.max(META.years.min, Math.min(new Date().getFullYear(), META.years.max));
+    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: Math.max(META.years.min, to - (DEFAULT_YEARS - 1)), to: to, region: 'us', minor: false, src: 'usnews', host: 'any',
              perProf: false, noHome: false };
   }
 
@@ -129,7 +131,7 @@
     const d = defaultState();
     const same = JSON.stringify(cleanState(state)) === JSON.stringify(d);
     if (same) { try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* private mode */ } return; }
-    store(STORAGE_KEY, JSON.stringify(Object.assign({}, state, { v: 5 }, state.to === d.to ? { latest: state.to - state.from } : {})));
+    store(STORAGE_KEY, JSON.stringify(Object.assign({}, state, { v: 6 }, state.to === d.to ? { latest: state.to - state.from } : {})));
   }
 
   // a stored view: a window that ended at the latest year then ends at the latest year now
@@ -139,6 +141,8 @@
     if (!saved.v && saved.latest === 10) saved = Object.assign({}, saved, { latest: 9 });
     // 2.0.0 and earlier (before 2026-10-24 23:39) stored every view, the default 2016-2026 included, without 'latest'
     if (!saved.v && saved.latest == null && +saved.from === 2016 && +saved.to === 2026) saved = Object.assign({}, saved, { latest: 9 });
+    // (2026-10-29) the default window was ten year labels before; a view stored then as "the latest 10" is now the latest 20
+    if (saved.v === 5 && saved.latest === 9) saved = Object.assign({}, saved, { latest: DEFAULT_YEARS - 1 });
     if (typeof saved.latest === 'number' && saved.latest >= 0) {
       const d = defaultState();
       saved = Object.assign({}, saved, { to: d.to, from: d.to - saved.latest });

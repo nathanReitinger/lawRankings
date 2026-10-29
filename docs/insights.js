@@ -1404,9 +1404,9 @@
 
   function setup() {
     const maxY = Math.min(new Date().getFullYear(), META.years.max);
-    // (2026-10-26) the same default window as the rankings page: ten year labels ending at the build's default_to
-    st.to = Math.min(META.default_to || maxY, maxY);
-    st.from = st.to - 9;
+    // the same default window as the rankings page (2026-10-29): twenty year labels ending at the current year
+    st.to = maxY;
+    st.from = Math.max(META.years.min, st.to - 19);
     for (let y = maxY; y >= Math.max(META.years.min, 1950); y--) { $('wFrom').add(new Option(y, y)); $('wTo').add(new Option(y, y)); }
     $('wFrom').value = st.from;
     $('wTo').value = st.to;

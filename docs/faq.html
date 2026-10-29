@@ -62,8 +62,8 @@
     </ul>
     <p>These ranks only decide which journals are counted. Schools themselves are ordered by the count described above.</p>
 
-    <h2 id="window">Which years does the default view count?</h2>
-    <p>Ten years of volumes, ending with the latest year whose volumes are mostly in (now <span data-meta="defaultWindow"></span>): the latest year in which current faculty's articles in the default journals (each co-author counted) reach at least 75% of their average over the five years before it. Journals post their issues over time, so a year that has only begun would pull every school down unevenly. An article's year is the last year in its volume's label (2024-2025 counts as 2025), except where that would put two consecutive volumes of a journal in one year and leave the year before empty; then the earlier volume takes the year before, inside its own label. A label that runs into next year counts as its first year. Ten years because, in our October 2026 check, agreement with <i>U.S. News</i> was about the same for any window from eight to twenty years, while shorter windows made the order jumpy: when a five-year window moves on by a year, about four of the top 25 schools move three or more places; with ten years, about one. Any range can be chosen in the filters.</p>
+    <h2 id="window">Default years</h2>
+    <p>Twenty years of volumes, ending with the current year (now <span data-meta="defaultWindow"></span>), taken from the visitor's date when the page opens. Journals post their issues through the year, so the current year holds fewer articles until its volumes are in. An article's year is the last year in its volume's label (2024-2025 counts as 2025), except where that would put two consecutive volumes of a journal in one year and leave the year before empty; then the earlier volume takes the year before, inside its own label. A label that runs into next year counts as its first year. The "from" and "to" menus above the ranking change the years.</p>
 
     <h2 id="usnews">Why doesn't the ranking match <i>U.S. News</i>?</h2>
     <p>Because it measures something else. The <i>U.S. News</i> overall rank rests mostly on students and outcomes: employment and bar passage carry 58% of its weight, admissions selectivity 10%, and the survey of deans and faculty, the part closest to scholarship, 12.5%. This site counts only where current faculty publish. Even so, the two agree closely: over the top 50 schools, the default view's order has a rank correlation (Spearman) of 0.81 with the <i>U.S. News</i> overall rank and 0.86 with its peer-reputation rank, about as close as the overall rank is to the peer rank itself (0.86). Studies of scholarship-based rankings report 0.62 to 0.80 (for example, Black &amp; Caron, 81 Ind. L.J. 83 (2006)).</p>
@@ -151,7 +151,7 @@
     set('buildHash', m.build_hash || String(m.digest || '').slice(0, 7) || '?');
     set('updatedDate', m.data_updated ? new Date(m.data_updated * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : '?');
     set('built', fmt(m.built));
-    set('defaultWindow', m.default_to ? (m.default_to - 9) + '–' + m.default_to : 'the last ten years');
+    { const to = Math.min(new Date().getFullYear(), (m.years || {}).max || new Date().getFullYear()); set('defaultWindow', (to - 19) + '–' + to); }   // as app.js: defaultState
     document.getElementById('groupList').innerHTML = Object.entries(m.group_subjects).map(([g, subs]) =>
       '<li><b>' + esc(g) + ':</b> ' + subs.map(esc).join('; ') + '</li>').join('');
     document.getElementById('coverage').innerHTML = m.coverage.map((c) =>
