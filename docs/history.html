@@ -30,7 +30,7 @@
   </div>
 
   <div class="prose">
-    <p>Versions are <i>major.data.site</i>: the middle number goes up when the substantive data changes (articles, faculty, schools, journals, ranks), the last when only the site itself changes. Each version lists when each source was collected, how many articles and faculty are counted, and how the default view changed (<span id="defaultView">flagship law reviews of the US News top 25 schools, the ten years ending at the latest well-collected year, US law schools</span>). Entries before version 2.0.0 were numbered as builds.</p>
+    <p>Versions are <i>major.data.site</i>: the middle number goes up when the substantive data changes (articles, faculty, schools, journals, ranks), the last when only the site itself changes. Each version lists when each source was collected, how many articles and faculty are counted, and the top 30 schools in one view (<span id="defaultView">flagship law reviews of the US News top 25 schools, the ten years ending at the latest well-collected year, US law schools</span>). Entries before version 2.0.0 were numbered as builds.</p>
     <div id="builds"><p class="loading">Loading…</p></div>
   </div>
 
@@ -46,6 +46,7 @@
   Promise.all([fetch('data/history.json').then((r) => r.json()), fetch('data/meta.json').then((r) => r.json())]).then(([history, meta]) => {
     window.LSR.stampMasthead(meta);
     document.getElementById('footer').innerHTML = window.LSR.siteFooter(meta);
+    if (meta.default_view) document.getElementById('defaultView').textContent = meta.default_view;   // the lede in the data's own words (build_data.py DEFAULT_VIEW), as each entry's view
     document.getElementById('builds').innerHTML = history.slice().reverse().map((e) => {
       const ch = e.changes;
       const moved = ch ? ch.moved.map(([school, before, now]) => before
@@ -58,14 +59,14 @@
         '<ul>' +
         '<li>Articles collected ' + esc(fmt(e.papers_collected.from)) + ' – ' + esc(fmt(e.papers_collected.to)) + ' (' + e.papers_collected.journals + ' journals)</li>' +
         '<li>Faculty lists ' + esc(fmt(e.faculty_collected.from)) + ' – ' + esc(fmt(e.faculty_collected.to)) + ' (' + e.faculty_collected.faculty.toLocaleString() + ' people at ' + e.faculty_collected.schools + ' institutions)</li>' +
-        '<li>Journal ranks: ' + (e.flagship_ranks ? 'US News ' + esc(e.flagship_ranks.edition) + ' (flagship), ' : '') + 'W&amp;L ' + esc(e.rankings_edition) + (e.flagship_ranks ? ' (specialty)' : ' (all journals)') + '</li>' +
+        '<li>Journal ranks: ' + (e.flagship_ranks ? 'US News ' + esc(e.flagship_ranks.edition) + ' (flagship), ' : '') + 'W&amp;L ' + esc(e.rankings_edition) + (e.flagship_ranks ? ' (specialty)' : ' (flagship and specialty)') + '</li>' +
         '<li>' + e.counts.papers.toLocaleString() + ' articles by ' + e.counts.faculty_with_papers.toLocaleString() + ' current faculty' +
           (ch ? ' (' + signed(ch.papers) + ' articles, ' + signed(ch.faculty_with_papers) + ' faculty since the previous version)' : '') + '</li>' +
         '</ul>' +
-        (ch ? (ch.view_changed ? '<p class="text-muted">The default view changed in this version (now: ' + esc(ch.view_changed) + '), so its top 30 is not compared with the previous version.</p>'
-               : ch.moved.length ? '<details><summary>' + ch.moved.length + ' schools moved in the default top 30</summary><ul>' + moved + '</ul></details>'
-                                 : '<p class="text-muted">No change in the default top 30.</p>') : '') +
-        '<details><summary>Default top 30 in this version</summary><table><thead><tr><th>#</th><th>School</th><th>Count</th><th>Faculty</th></tr></thead><tbody>' +
+        (ch ? (ch.view_changed ? '<p class="text-muted">View in this version: ' + esc(ch.view_changed) + '; its top 30 is not compared with the previous version.</p>'
+               : ch.moved.length ? '<details><summary>Changes in the top 30 (' + ch.moved.length + ' schools)</summary><ul>' + moved + '</ul></details>'
+                                 : '<p class="text-muted">Top 30: same schools and places as the previous version.</p>') : '') +
+        '<details><summary>Top 30 in this version</summary><table><thead><tr><th>#</th><th>School</th><th>Count</th><th>Faculty</th></tr></thead><tbody>' +
         e.top.map(([s, score, n], i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(s) + '</td><td>' + score + '</td><td>' + n + '</td></tr>').join('') +
         '</tbody></table></details>';
     }).join('');

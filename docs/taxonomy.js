@@ -68,7 +68,7 @@
   const ruleText = (basis) => RULE[String(basis).trim()[0]] || basis || '';
   const counts = (c) => (c && c[0] != null ? num(c[0]) + ' papers · ' + num(c[1]) + ' since 2016 · ' + num(c[2]) + ' current faculty' : '');
 
-  // ---- the category picker: All, the thirteen subject areas, then "Also" the method and the general journals
+  // ---- the category picker: Full tree (the All view), the thirteen subject areas, then "Also" the method and the general journals
   function renderPicker() {
     const box = $('txPick');
     box.replaceChildren();
@@ -78,7 +78,7 @@
       b.addEventListener('click', () => pick(i));
       box.appendChild(b);
     };
-    add(ALL, 'All', 'tx-pick-all');
+    add(ALL, 'Full tree', 'tx-pick-all');
     T.areas.forEach((a, i) => { if (!ALSO.includes(a.n)) add(i, a.n); });
     const also = T.areas.map((a, i) => [a, i]).filter(([a]) => ALSO.includes(a.n));
     if (also.length) {
@@ -147,7 +147,7 @@
       li.appendChild(el('span', { class: 'tx-arrow', 'aria-label': 'in the group' }, ' → '));
       li.appendChild(el('span', null, g || 'no group'));
       li.appendChild(el('span', { class: 'tx-arrow', 'aria-label': 'in the higher-level group' }, ' → '));
-      li.appendChild(el('b', null, up || 'none'));
+      li.appendChild(el('b', null, up || 'no higher-level group'));
       li.appendChild(el('span', { class: 'tx-counts' }, ' · ' + num(k) + ' article' + (k === 1 ? '' : 's')));
       ul.appendChild(li);
     });
@@ -217,7 +217,7 @@
   function tipHTML(p, all) {
     const c = p.custom || {};
     const s = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
-    if (c.kind === 'root') return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">Every higher-level group</div><div>' +
+    if (c.kind === 'root') return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">Higher-level groups</div><div>' +
       s(T.areas.length, 'higher-level group') + ' · ' + s(c.groups, 'group') + ' · ' + s(c.journals, 'specialty journal') + '</div><div>' + esc(counts(c.c)) + '</div></div>';
     if (c.kind === 'category') return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">Higher-level group</div>' +
       (all ? '<div>' + s(c.a.k.length, 'group') + ' · ' + s(c.a.k.reduce((n, f) => n + f.j.length, 0), 'specialty journal') + '</div>' : '') +
@@ -230,7 +230,7 @@
     return '<div class="tx-tip"><b>' + esc(p.name) + '</b><div class="tx-tip-k">' + esc(c.up) + ' &rarr; ' + esc(c.cat) + '</div>' +
       (hostText(c.ji) ? '<div>' + esc(hostText(c.ji)) + '</div>' : '') + '<div>' + (sc != null && sc >= 0 ? 'W&amp;L score ' + sc : 'Not scored by W&amp;L') + ' · ' +
       esc(counts(c.c)) + '</div><div class="tx-tip-d">Placed: ' + esc(ruleText(basis)) + (words ? ' (' + esc(clip(words, 140)) + ')' : '') + '</div>' +
-      (wl ? '<div class="tx-tip-h">W&amp;L subject: ' + esc(wl) + '</div>' : '') + (c.cnt ? '' : '<div class="tx-tip-h">General scope: puts no author in a bucket</div>') +
+      (wl ? '<div class="tx-tip-h">W&amp;L subject: ' + esc(wl) + '</div>' : '') + (c.cnt ? '' : '<div class="tx-tip-h">General scope: not used for author buckets</div>') +
       '<div class="tx-tip-h">' + verb() + ' for its row in the table below</div></div>';
   }
 
@@ -273,7 +273,7 @@
   function drawTree(a) {
     const box = $('txChart');
     if (chart) { chart.destroy(); chart = null; }
-    if (typeof Highcharts === 'undefined') { box.replaceChildren(el('p', { class: 'tx-none' }, 'The chart library did not load; the table below has every journal.')); return; }
+    if (typeof Highcharts === 'undefined') { box.replaceChildren(el('p', { class: 'tx-none' }, 'The chart library did not load; the table below lists the journals.')); return; }
     const W = box.clientWidth || 700;
     const narrow = W < 560;
     const pts = [{ id: 'c', name: a.n, color: INK, marker: { radius: narrow ? 8 : 10, fillColor: INK }, custom: { kind: 'category', a: a } }];
@@ -297,7 +297,7 @@
         if (p.custom && p.custom.hit && l && l.graphic) l.graphic.attr({ stroke: INK, 'stroke-width': 1.6 });
       }) : null,
       height: Math.max(220, rows * (narrow ? 20 : 22) + 40), narrow: narrow, data: pts, all: false,
-      label: a.n + ': its groups and every specialty journal in them. The groups under the chart and the table below list the same journals with what each placement rests on.',
+      label: a.n + ': its groups and their specialty journals. The groups under the chart and the table below list the same journals with the basis of each placement.',
       series: {
         dataLabels: { enabled: true, crop: false, overflow: 'allow', align: 'left', x: 8, useHTML: false,
           style: { fontSize: narrow ? '10.5px' : '12px', fontWeight: '400', color: '#52514e', textOutline: '3px #ffffff', whiteSpace: 'nowrap' },
@@ -348,7 +348,7 @@
   function drawAll() {
     const box = $('txChart');
     if (chart) { chart.destroy(); chart = null; }
-    if (typeof Highcharts === 'undefined') { box.replaceChildren(el('p', { class: 'tx-none' }, 'The chart library did not load; the groups below and the table list every journal.')); return; }
+    if (typeof Highcharts === 'undefined') { box.replaceChildren(el('p', { class: 'tx-none' }, 'The chart library did not load; the groups below and the table list the journals.')); return; }
     const W = box.clientWidth || 700;
     const narrow = W < 560;
     const pts = [];
@@ -384,7 +384,7 @@
     });
     chart = treeChart(box, {
       height: allHeight(narrow), width: wide ? CW : null, marginRight: MR, narrow: narrow, data: pts, all: true,
-      label: 'Every higher-level group and its groups; each group opens to its specialty journals. The groups under the chart and the table below list every journal.',
+      label: 'Higher-level groups and their groups; each group opens to its specialty journals. The groups under the chart and the table below list the journals.',
       series: {
         dataLabels: { enabled: true, crop: false, overflow: 'allow', align: 'left', x: 9, useHTML: false,
           style: { fontSize: narrow ? '10.5px' : '12px', fontWeight: '400', color: '#52514e', textOutline: '3px #ffffff', whiteSpace: 'nowrap' },
@@ -413,8 +413,8 @@
   function renderAll() {
     const groups = T.areas.reduce((n, a) => n + a.k.length, 0), journals = T.areas.reduce((n, a) => n + a.k.reduce((m, f) => m + f.j.length, 0), 0);
     const tc = T.counts || {};
-    $('txName').textContent = 'All higher-level groups';
-    $('txDesc').textContent = 'Every higher-level group and its groups in one tree. ' + (touchy() ? 'Tap' : 'Click') + ' a group (+) to show its journals, or a higher-level group to fold it; ' +
+    $('txName').textContent = 'Higher-level groups';
+    $('txDesc').textContent = 'The higher-level groups and their groups in one tree. ' + (touchy() ? 'Tap' : 'Click') + ' a group (+) to show its journals, or a higher-level group to fold it; ' +
       (touchy() ? 'tap a journal twice' : 'click a journal') + ' for its row in the table below.';
     $('txCounts').textContent = num(journals) + ' specialty journals in ' + groups + ' groups and ' + T.areas.length + ' higher-level groups · ' +
       counts([tc.faculty_papers, tc.faculty_papers_2016_on, tc.faculty]);
@@ -423,7 +423,7 @@
     const box = $('txGroups');
     groupBox.clear();
     const wrap = el('div', { class: 'tx-tree' });
-    wrap.appendChild(el('p', { class: 'tx-label' }, 'Every higher-level group: open one for its groups, and a group for its definition, its journals\' own words and its journals'));
+    wrap.appendChild(el('p', { class: 'tx-label' }, 'Higher-level groups: open one for its groups, and a group for its definition, its journals\' own words and its journals'));
     T.areas.forEach((a) => {
       const d = el('details', { class: 'tx-node tx-l0' });
       const s = el('summary');
@@ -441,7 +441,7 @@
     });
     box.replaceChildren(wrap);
     const bb = $('txBucket');
-    bb.replaceChildren(el('p', { class: 'tx-label' }, 'One bucket of authors per higher-level group: the current faculty with an article in its journals (a person can be in several). Pick one for its list:'));
+    bb.replaceChildren(el('p', { class: 'tx-label' }, 'Author buckets by higher-level group: number of current faculty with an article in its journals (a person can be in several). A higher-level group\'s name opens its list.'));
     const ul = el('ul', { class: 'tx-bucket tx-plain' });
     T.areas.forEach((a, i) => {
       const li = el('li');
@@ -449,7 +449,7 @@
       b.addEventListener('click', () => { pick(i); $('txFig').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' }); });
       li.appendChild(b);
       const k = (a.b || [0])[0];
-      li.appendChild(el('span', { class: 'text-muted' }, ' · ' + (k ? num(k) + ' current faculty' : 'no bucket (no subject focus)')));
+      li.appendChild(el('span', { class: 'text-muted' }, ' · ' + (k ? num(k) + ' current faculty' : 'no bucket (general scope)')));
       ul.appendChild(li);
     });
     bb.appendChild(ul);
@@ -460,8 +460,8 @@
     const box = $('txBucket');
     box.replaceChildren();
     const [n, top] = a.b || [0, []];
-    if (!n) { box.appendChild(el('p', { class: 'tx-none' }, 'No one is placed in this higher-level group: its journals have no subject focus.')); return; }
-    box.appendChild(el('p', { class: 'tx-label' }, num(n) + ' current faculty in this bucket: everyone with an article in these journals. Most articles:'));
+    if (!n) { box.appendChild(el('p', { class: 'tx-none' }, 'No author bucket for this higher-level group: its journals have a general scope.')); return; }
+    box.appendChild(el('p', { class: 'tx-label' }, num(n) + ' current faculty with an article in these journals. Most articles:'));
     const ol = el('ol', { class: 'tx-bucket' });
     top.forEach(([name, schools, home, k]) => {
       const li = el('li');
@@ -489,7 +489,7 @@
       const go = el('button', { type: 'button', class: 'tx-catlink' }, a.n);
       go.addEventListener('click', () => { pick(ai); $('txFig').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' }); });
       td3.appendChild(go);
-      if (!cnt) td3.appendChild(el('div', { class: 'text-muted' }, 'puts no author in a bucket'));
+      if (!cnt) td3.appendChild(el('div', { class: 'text-muted' }, 'not used for author buckets'));
       const td4 = el('td', { 'data-h': 'Placed by' });
       td4.appendChild(el('div', null, ruleText(basis)));
       if (words) td4.appendChild(el('div', { class: 'tx-words' }, '“' + clip(words.replace(/^["“\s]+|["”\s]+$/g, ''), 180) + '”'));
@@ -577,7 +577,7 @@
     document.querySelectorAll('.ins-section').forEach((s) => { s.hidden = false; });
     if (typeof Highcharts !== 'undefined') allowFolding();
     renderPicker();
-    try { drawnW = $('txChart').clientWidth; renderCategory(); } catch (e) { $('txChart').replaceChildren(el('p', { class: 'tx-none' }, 'The chart could not be drawn (' + e.message + '); the table below has every journal.')); }
+    try { drawnW = $('txChart').clientWidth; renderCategory(); } catch (e) { $('txChart').replaceChildren(el('p', { class: 'tx-none' }, 'The chart could not be drawn (' + e.message + '); the table below lists the journals.')); }
     renderTable();
     renderSources(tree.sources || []);
     window.addEventListener('resize', onResize);

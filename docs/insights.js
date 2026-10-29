@@ -274,30 +274,20 @@
     const yrs = st.from + '–' + st.to;
     tile(pct(a), 'of top-14 faculty\'s flagship-review articles appeared in top-14 law reviews (' + yrs + ')');
     tile(pct(c), 'of the top-14 reviews\' articles by U.S. law faculty had a top-14 author');
-    tile(pct(outside), 'had an author from a school ranked below 25');
+    tile(pct(outside), 'of the top-14 reviews\' articles by U.S. law faculty had an author from a school ranked below 25');
     const lede = $('whereLede');
     lede.replaceChildren();
-    // (review, 2026-10-25) the wording follows the numbers: thin years, a top 14 that does not stand out, a
-    // closed top
+    // (2026-10-29, the owner: the site describes what is shown and does not state findings) the lede gives the
+    // numbers with what they measure; thin years get a count instead
     if (!(flag(D[0]) >= 30) || a == null) {
-      lede.append('Too few articles by top-14 faculty in flagship reviews from ' + st.from + ' to ' + st.to + ' to say; try a wider range of years.');
+      lede.append('Fewer than 30 flagship-review articles by top-14 faculty, ' + yrs + '.');
       return;
     }
-    const others = max([1, 2, 3, 4].map(share).filter((x) => x != null)) || 0;
-    const ratio = b > 0 ? a / b : null;
-    lede.append(a >= 0.5 ? 'Largely, yes. ' : a >= 1.5 * others ? 'Not only, but far more than anyone else. ' : 'Not only, and not much more than others. ');
-    lede.append('From ' + st.from + ' to ' + st.to + ', faculty at the top 14 schools placed ');
+    lede.append('Share of flagship-review articles in top-14 reviews, ' + yrs + ': ');
     lede.appendChild(el('b', null, pct(a)));
-    lede.append(' of their flagship-review articles in top-14 reviews' + (ratio ? ', ' + ratio.toFixed(1) + ' times the share for faculty at schools ranked 51–100 (' + pct(b) + ')' : '') + '. ');
-    if (outside >= 0.1) {
-      lede.append('The top reviews are not closed, though: ');
-      lede.appendChild(el('b', null, pct(outside)));
-      lede.append(' of their articles by law faculty had an author from a school ranked below 25.');
-    } else {
-      lede.append('Few of the top reviews\' articles by law faculty (');
-      lede.appendChild(el('b', null, pct(outside)));
-      lede.append(') had an author from a school ranked below 25.');
-    }
+    lede.append(' for faculty at top-14 schools' + (b != null ? ', ' + pct(b) + ' for faculty at schools ranked 51–100' : '') + '. Share of the top-14 reviews\' articles by U.S. law faculty with an author from a school ranked below 25: ');
+    lede.appendChild(el('b', null, pct(outside)));
+    lede.append('.');
   }
 
 
@@ -347,7 +337,7 @@
     lede.replaceChildren();
     const jname = DATA.journals[jn.journal][0];
     if (!R.articles) {
-      lede.append('No articles by current faculty in ' + jname + ' from ' + st.from + ' to ' + st.to + '.');
+      lede.append('0 articles by current faculty in ' + jname + ', ' + st.from + '–' + st.to + '.');
       clearChart('jnGraph');
       $('jnList').replaceChildren();
       return;
@@ -364,11 +354,11 @@
     }
     lede.appendChild(el('b', null, jname));
     lede.append(', ' + st.from + '–' + st.to + ': ' + num(R.articles) + ' article' + (R.articles === 1 ? '' : 's') + ' by current faculty at ' +
-      num(R.list.length) + ' institution' + (R.list.length === 1 ? '' : 's') + ' (any institution on the faculty lists, courts and non-US schools included).');
+      num(R.list.length) + ' institution' + (R.list.length === 1 ? '' : 's') + ' (institutions on the faculty lists, courts and non-US schools included).');
     if (R.list.length > 5) {
-      lede.append(' The top five (' + top5.map((o) => shortName(DATA.schools[o.s][0], 22)).join(', ') + ') had an author on ');
+      lede.append(' Share with an author from the five institutions with the most articles (' + top5.map((o) => shortName(DATA.schools[o.s][0], 22)).join(', ') + '): ');
       lede.appendChild(el('b', null, pct(top5papers.size / R.articles)));
-      lede.append(' of them.');
+      lede.append('.');
     }
 
     // ---- the chart (Highcharts; 2026-10-25, the owner: "multiple level with first journal. Then schools of authors who
@@ -496,7 +486,7 @@
       // the journal's name over the tree, clear of its links
       title: { text: esc(narrow ? shortName(jname, 40) : jname.length > 80 ? jname.slice(0, 79) + '…' : jname), align: 'left', x: 0, y: 14, margin: 0,
         style: { fontSize: '13px', fontWeight: '700', color: INK } },
-      accessibility: { enabled: true, description: 'Institutions and authors publishing in ' + jname + ', ' + st.from + '–' + st.to + '. The list beside the chart has every institution and author.',
+      accessibility: { enabled: true, description: 'Institutions and authors publishing in ' + jname + ', ' + st.from + '–' + st.to + '. The list beside the chart lists the institutions and authors.',
         point: { descriptionFormatter: describe } },
       tooltip: tooltip,
       series: [{
@@ -641,7 +631,7 @@
     draw('network', {
       chart: { height: wide ? 460 : 420, marginLeft: wide ? 176 : 4, marginRight: wide ? 196 : 4, marginTop: 8, marginBottom: 8 },
       accessibility: { description: 'Flows of flagship-review articles, ' + st.from + '–' + st.to + ', from groups of law schools by ' + SRC_LABEL[st.src] +
-        ' rank to the groups of flagship law reviews by their school\'s rank. The table "Where each group of schools publishes" has the shares.' },
+        ' rank to the groups of flagship law reviews by their school\'s rank. The table "Each group of schools’ articles, by group of journals" has the shares.' },
       tooltip: { followTouchMove: false, formatter: tip },
       series: [{
         type: 'sankey', name: 'Flagship-review articles', keys: ['from', 'to', 'weight'], data: links, nodes: nodes,
@@ -721,7 +711,7 @@
       const v = W1.school.get(st.school);
       const p = el('div');
       p.appendChild(el('b', null, DATA.schools[st.school][0]));
-      if (!v || !v.n) { p.append(' (' + rankLabel(st.school) + '): no flagship-review articles in ' + yrs + '.'); d.appendChild(p); return; }
+      if (!v || !v.n) { p.append(' (' + rankLabel(st.school) + '): 0 flagship-review articles, ' + yrs + '.'); d.appendChild(p); return; }
       p.append(' (' + rankLabel(st.school) + '): ' + num(v.n) + ' flagship-review articles, ' + yrs + '. In reviews of schools ranked ' + bandShares(v.cols, v.n) + '.' + (v.median ? ' Median review rank ' + v.median + '.' : ''));
       d.appendChild(p);
       d.appendChild(el('div', { style: 'margin-top:6px' }, 'Most often in:'));
@@ -732,7 +722,7 @@
       const v = W1.journal.get(st.journal);
       const p = el('div');
       p.appendChild(el('b', null, DATA.journals[st.journal][0]));
-      if (!v) { p.append(': no articles by U.S. law faculty in ' + yrs + '.'); d.appendChild(p); return; }
+      if (!v) { p.append(': 0 articles by U.S. law faculty, ' + yrs + '.'); d.appendChild(p); return; }
       p.append(': ' + num(v.papers.n) + ' articles by U.S. law faculty, ' + yrs + '. With an author from schools ranked ' + bandShares(v.papers.bands, v.papers.n) +
         ' (an article with authors from two groups counts in both).');
       d.appendChild(p);
@@ -744,7 +734,7 @@
     const cols = st.band >= 0 ? W1.D[st.band].slice(0, 5) : W1.colPapers.slice(0, 5);
     const total = sum(cols);
     const p = el('div');
-    p.appendChild(el('b', null, st.band >= 0 ? 'Faculty at schools ranked ' + BANDS[st.band].label.toLowerCase() : 'All U.S. law faculty'));
+    p.appendChild(el('b', null, st.band >= 0 ? 'Faculty at schools ranked ' + BANDS[st.band].label.toLowerCase() : 'U.S. law faculty'));
     p.append(': ' + num(total) + ' flagship-review articles, ' + yrs + '. In reviews of schools ranked ' + bandShares(cols, total) + '.');
     d.appendChild(p);
     d.appendChild(el('div', { class: 'text-muted', style: 'margin-top:4px;font-size:13px' }, 'Tap a group on the left to pick it, a flow for its numbers; pick a school or a law review above to follow its own flows.'));
@@ -793,7 +783,7 @@
     const narrow = $('figMatrix').clientWidth < 560;
     const heads = narrow ? BANDS.map((b) => b.short).concat(['Online', 'Spec.'])
       : MATRIX_HEADS.slice(0, 5).map(esc).concat(['Online &amp; other<br>general', 'Specialty<br>journals']);
-    $('matrixTitle').textContent = byRow ? 'Where each group of schools publishes' : 'Who writes for each group of journals';
+    $('matrixTitle').textContent = byRow ? 'Each group of schools’ articles, by group of journals' : 'Author credits in each group of journals, by group of schools';
     $('matrixNote').textContent = (byRow
       ? 'Each row is a group of law schools; across it, the share of its faculty\'s articles in each group of journals (rows add to 100%).'
       : 'Each column is a group of journals; down it, each group of schools\' share of the author credits there (an article counts once for each school with an author on it; columns add to 100%).') +
@@ -904,7 +894,7 @@
           click() { setSelection(null, null); },
           render() {
             if (this.insEmpty) { this.insEmpty.destroy(); this.insEmpty = null; }
-            if (!pts.length) this.insEmpty = this.renderer.text('No school has 10 or more flagship-review articles in these years.', this.plotLeft + this.plotWidth / 2, this.plotTop + this.plotHeight / 2)
+            if (!pts.length) this.insEmpty = this.renderer.text('0 schools with 10 or more flagship-review articles in these years.', this.plotLeft + this.plotWidth / 2, this.plotTop + this.plotHeight / 2)
               .attr({ align: 'center', zIndex: 6 }).css({ color: MUTED, fontSize: '12px' }).add();
           } } },
       // the y axis's name sits above the plot, where it reads across
@@ -926,8 +916,8 @@
           style: { color: MUTED, fontSize: '11.5px', fontWeight: '400', textOutline: '3px #ffffff' } } }, [top, top]],
           color: alpha(INK2, 0.45), lineWidth: 1, marker: { enabled: false }, enableMouseTracking: false, accessibility: { enabled: false } },
         { type: 'scatter', name: 'Regions', data: [
-          { x: top * 0.98, y: top * 0.05, dataLabels: { format: 'publishing up', align: 'right' } },
-          { x: top * 0.03, y: top * 0.95, dataLabels: { format: 'publishing down', align: 'left' } }],
+          { x: top * 0.98, y: top * 0.05, dataLabels: { format: 'reviews ranked above the school', align: 'right' } },
+          { x: top * 0.03, y: top * 0.95, dataLabels: { format: 'reviews ranked below the school', align: 'left' } }],
           marker: { enabled: false }, enableMouseTracking: false, accessibility: { enabled: false },
           dataLabels: { enabled: true, style: { color: MUTED, fontSize: '11.5px', fontWeight: '400', fontStyle: 'italic', textOutline: 'none' } } },
         { name: 'Law schools', data: pts.filter((d) => d.s !== st.school).map(point), enableMouseTracking: false, accessibility: { enabled: false },
@@ -969,7 +959,7 @@
 
   function renderCoText() {
     const end = lastFull();
-    const early = sumRows(ALL, 1950, 1959), late = sumRows(ALL, end - 4, end), mid = sumRows(ALL, 1950, 1999), y2k = sumRows(ALL, 1996, 2000);
+    const early = sumRows(ALL, 1950, 1959), late = sumRows(ALL, end - 4, end), mid = sumRows(ALL, 1950, 1999);
     const t = $('coTiles');
     t.replaceChildren();
     const tile = (a, b, l, f) => {
@@ -987,16 +977,13 @@
     tile(measureOf(early, '3'), measureOf(late, '3'), 'had three or more', pct1);
     tile(measureOf(early, 'mean'), measureOf(late, 'mean'), 'authors per article, on average', (x) => x.toFixed(2));
     const f = measureOf(sumRows(['flagship'], end - 4, end), '2'), s = measureOf(sumRows(['specialty'], end - 4, end), '2');
-    const ratio = measureOf(late, '2') / measureOf(y2k, '2');
-    const word = ratio >= 1.85 ? 'roughly doubled' : ratio >= 1.45 ? 'risen by more than half' : ratio >= 1.15 ? 'risen' : 'barely moved';
     const lede = $('coLede');
     lede.replaceChildren();
-    lede.append(ratio >= 1.15 ? 'Yes, and the rise is recent. ' : 'Not much. ');
-    lede.append('From 1950 to 1999, about ');
+    lede.append('Share of articles in the journals collected here with more than one author: ');
     lede.appendChild(el('b', null, pct(measureOf(mid, '2'))));
-    lede.append(' of articles in the journals collected here had more than one author. Since the late 1990s that share has ' + word + ', to ');
+    lede.append(' in 1950–1999 and ');
     lede.appendChild(el('b', null, pct(measureOf(late, '2'))));
-    lede.append(' in ' + (end - 4) + '–' + end + ': ' + pct(s) + ' in specialty journals and ' + pct(f) + ' in flagship law reviews.');
+    lede.append(' in ' + (end - 4) + '–' + end + ' (' + pct(s) + ' in specialty journals, ' + pct(f) + ' in flagship law reviews).');
     $('cPanelNote').textContent = '(' + INS.panel.journals + ' journals publishing since ' + INS.panel.since + ')';
   }
 
@@ -1038,7 +1025,7 @@
       chart: { type: 'line', height: H, marginRight: wide ? 150 : 44,
         events: { render() { endLabels(this, series.map((s, i) => ({ i: i, text: (wide ? KIND_LABEL[s.k].replace(' law reviews', '') + ' ' : '') +
           (s.pts.length ? fmt(s.pts[s.pts.length - 1].v) : '') }))); } } },
-      accessibility: { description: $('trendTitle').textContent + ', by year, flagship law reviews and specialty journals. The table below the chart has every year.' },
+      accessibility: { description: $('trendTitle').textContent + ', by year, flagship law reviews and specialty journals. The table below the chart lists the years.' },
       xAxis: { min: 1950, max: end, tickInterval: wide ? 10 : 20, tickLength: 4, labels: { formatter() { return String(this.value); } },
         crosshair: { color: alpha(INK2, 0.5), width: 1 } },
       yAxis: { min: st.measure === 'mean' ? 1 : 0, softMax: st.measure === 'mean' ? Math.max(1.1, vmax) : vmax, tickAmount: 6, gridLineWidth: 1,
@@ -1199,7 +1186,7 @@
     };
     const chart = draw('spread', {
       chart: { height: H, marginRight: pick != null ? (wide ? 12 : 8) : 8 },
-      accessibility: { description: 'For each period since 1980, every U.S. law school with at least 15 articles by its current faculty, at the share of those articles that were co-authored, with the median school and the middle half of schools. The table below the chart has the numbers.' },
+      accessibility: { description: 'For each period since 1980, U.S. law schools with at least 15 articles by their current faculty, each at the share of those articles that were co-authored, with the median school and the middle half of schools. The table below the chart has the numbers.' },
       xAxis: { min: -0.5, max: periods.length - 0.5, tickPositions: periods.map((p, i) => i), lineWidth: 1, tickLength: 0, startOnTick: false, endOnTick: false,
         labels: { autoRotation: false, formatter() { const p = periods[this.value]; return p ? (wide ? p.label : String(p.a)) : ''; } } },
       yAxis: { min: 0, max: top, tickInterval: 0.1, startOnTick: false, endOnTick: false, gridLineWidth: 1, labels: { formatter() { return pct(this.value); } } },
@@ -1266,16 +1253,14 @@
     const lede = $('tiLede');
     lede.replaceChildren();
     if (!a || !b || !c || !d) return;
-    const drop = (b[0] - a[0]) / a[0], dropLow = (d[0] - c[0]) / c[0];
-    lede.append(drop <= -0.15 && dropLow > -0.1 ? 'At the top, yes. ' : drop <= -0.15 ? 'Yes. ' : 'Not much. ');
-    lede.append('The median research-article title in the Top 14 law reviews ran ');
+    lede.append('Median research-article title length in the Top 14 law reviews: ');
     lede.appendChild(el('b', null, Math.round(a[0]) + ' characters'));
     lede.append(' in ' + w0[0] + '–' + w0[1] + ' and ');
     lede.appendChild(el('b', null, String(Math.round(b[0]))));
     lede.append(' in ' + w1[0] + '–' + w1[1] + '; in reviews ranked 101 and below, or unranked, ' + Math.round(c[0]) + ' and ' + Math.round(d[0]) + '.');
     if (fa && fb && fc && fd) {
-      lede.append(' By the author\'s school, titles by current faculty at Top 14 schools went from ' + Math.round(fa[0]) + ' to ' + Math.round(fb[0]) +
-        ' characters, and at schools ranked 101 and below, or unranked, from ' + Math.round(fc[0]) + ' to ' + Math.round(fd[0]) + '.');
+      lede.append(' By the author\'s school: ' + Math.round(fa[0]) + ' and ' + Math.round(fb[0]) +
+        ' characters for current faculty at Top 14 schools, ' + Math.round(fc[0]) + ' and ' + Math.round(fd[0]) + ' at schools ranked 101 and below, or unranked.');
     }
   }
 
@@ -1291,7 +1276,7 @@
     $('tiTitle').textContent = mi === 3 ? 'Share of titles with a subtitle (a colon)' : 'Median title length, in characters';
     $('tiNote').textContent = by === 'review'
       ? 'Research articles in each school\'s main law review, grouped by the U.S. News rank of the school that publishes it, whoever wrote them (pieces labelled as student work left out). Each point pools the year with the years either side.'
-      : 'Research articles by current faculty in any journal collected here, grouped by the U.S. News rank of the author\'s school (an article by authors in two groups counts in both). Each point pools the year with the years either side.';
+      : 'Research articles by current faculty in the journals collected here, grouped by the U.S. News rank of the author\'s school (an article by authors in two groups counts in both). Each point pools the year with the years either side.';
     const series = T.bands.map((b, k) => ({ b: b, k: k, pts: T[by][b].p.map((r, i) => (r ? { y: T.years[i], v: r[mi], n: r[2] } : null)).filter(Boolean) }));
     const all = series.flatMap((s) => s.pts.map((d) => d.v));
     const lg = $('tiLegend');
@@ -1325,7 +1310,7 @@
     draw('tiChart', {
       chart: { type: 'line', height: H, marginRight: wide ? 120 : 84,
         events: { render() { endLabels(this, series.map((s, i) => ({ i: i, text: s.pts.length ? tiShort(s.b) + ' ' + fmt(s.pts[s.pts.length - 1].v) : '' }))); } } },
-      accessibility: { description: $('tiTitle').textContent + ', by year, by ' + (by === 'review' ? 'the law review\'s rank' : 'the author\'s school\'s rank') + '. The table below the chart has every year.' },
+      accessibility: { description: $('tiTitle').textContent + ', by year, by ' + (by === 'review' ? 'the law review\'s rank' : 'the author\'s school\'s rank') + '. The table below the chart lists the years.' },
       xAxis: { min: first, max: last, tickInterval: wide ? 5 : 10, tickLength: 4, labels: { formatter() { return String(this.value); } },
         crosshair: { color: alpha(INK2, 0.5), width: 1 } },
       yAxis: mi === 3 ? { min: 0, softMax: Math.max(0.1, max(all) || 1), tickAmount: 6, gridLineWidth: 1, labels: { formatter() { return fmt(this.value); } } }
@@ -1349,9 +1334,9 @@
     if (!box || !L || !C || !L['Top 14'] || !L[low]) return;
     const p = (x) => (x == null ? '–' : Math.round(100 * x) + '%');
     const m = (r) => (r && r[0] != null ? String(Math.round(r[0])) : '–');
-    box.textContent = 'This rule is not small: of the research articles otherwise measured in the main law reviews, it leaves out ' +
+    box.textContent = 'Share of the research articles otherwise measured in the main law reviews that this rule leaves out: ' +
       p(L['Top 14'][0]) + ' in the Top 14 reviews in ' + w0[0] + '–' + w0[1] + ' and ' + p(L['Top 14'][1]) + ' in ' + w1[0] + '–' + w1[1] +
-      ', and ' + p(L[low][0]) + ' and ' + p(L[low][1]) + ' in reviews ranked 101 and below, or unranked. As a check, keeping those titles with the shared ending cut off instead (a guess, right about five times in six) gives medians of ' +
+      '; ' + p(L[low][0]) + ' and ' + p(L[low][1]) + ' in reviews ranked 101 and below, or unranked. With those titles kept and the shared ending cut off instead (a guess, right about five times in six), the medians are ' +
       m(C['Top 14'][0]) + ' and ' + m(C['Top 14'][1]) + ' characters for the Top 14 reviews, and ' + m(C[low][0]) + ' and ' + m(C[low][1]) + ' for those ranked 101 and below.';
   }
   function renderTitles() {
@@ -1385,7 +1370,7 @@
   function fillSchoolSelect(id) {
     const s = $(id);
     const keep = s.value;
-    s.replaceChildren(new Option('— none —', ''));
+    s.replaceChildren(new Option('— no school —', ''));
     const us = DATA.schools.map((x, i) => i).filter((i) => DATA.schools[i][1]);
     us.sort((a, b) => ((schoolRank(a) || 1e9) - (schoolRank(b) || 1e9)) || DATA.schools[a][0].localeCompare(DATA.schools[b][0]));
     us.forEach((i) => s.add(new Option((schoolRank(i) ? schoolRank(i) + ' · ' : 'NR · ') + DATA.schools[i][0], String(i))));
@@ -1394,7 +1379,7 @@
   function fillJournalSelect() {
     const s = $('netJournal');
     const keep = s.value;
-    s.replaceChildren(new Option('— none —', ''));
+    s.replaceChildren(new Option('— no law review —', ''));
     const jr = journalRanks();
     const ids = DATA.journals.map((j, i) => i).filter((i) => journalColumn(i, jr) <= 4);
     ids.sort((a, b) => ((jr[a] || 1e9) - (jr[b] || 1e9)) || DATA.journals[a][0].localeCompare(DATA.journals[b][0]));
@@ -1424,7 +1409,7 @@
     $('wShort').addEventListener('change', () => { st.skipShort = $('wShort').checked; renderWhere(); });
 
     const chips = $('netChips');
-    [['All schools', -1]].concat(BANDS.map((b, k) => [b.label === 'Top 14' ? 'Top 14' : b.label.replace('101 & below, unranked', '101+ & unranked'), k])).forEach(([label, k]) => {
+    [['Groups together', -1]].concat(BANDS.map((b, k) => [b.label === 'Top 14' ? 'Top 14' : b.label.replace('101 & below, unranked', '101+ & unranked'), k])).forEach(([label, k]) => {
       const c = el('button', { type: 'button', class: 'ins-chip', role: 'radio', 'aria-checked': String(k === st.band), 'data-k': String(k) }, label);
       c.addEventListener('click', () => setBand(k));
       chips.appendChild(c);

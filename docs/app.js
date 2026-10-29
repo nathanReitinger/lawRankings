@@ -278,7 +278,7 @@
       const subs = groupSubjects[g] || [];
       const tr = document.createElement('tr');
       tr.innerHTML = '<td><span class="hovertip" data-group-toggle="' + gi + '" title="Show/hide groups">&#9658;</span> <label for="grp' + gi + '">' + esc(g) + '</label>' +
-        '<div class="sub-list" id="grpList' + gi + '" hidden><p>groups (open one to see its journals)</p><table><tbody>' +
+        '<div class="sub-list" id="grpList' + gi + '" hidden><p>groups (open a group for its journals)</p><table><tbody>' +
         subs.map((s, si) => '<tr><td><span class="hovertip" data-field-toggle="' + gi + '_' + si + '" title="Show/hide journals">&#9658;</span> ' +
           '<label for="sub' + gi + '_' + si + '">' + esc(s) + '</label> <small class="text-muted">(' + fieldJournalIds(s).length + ')</small>' +
           '<div class="sub-list" id="fieldList' + gi + '_' + si + '" data-field="' + esc(s) + '" hidden></div></td>' +
@@ -377,7 +377,7 @@
       const r = flagshipRank(ji);
       return (r > 0 ? '#' + r + ' ' : 'unranked ') + esc(j[0]);
     };
-    return head + (ids.length ? ids.map((ji) => '<div class="jrnl">' + line(ji) + '</div>').join('') : '<div class="jrnl">none</div>');
+    return head + (ids.length ? ids.map((ji) => '<div class="jrnl">' + line(ji) + '</div>').join('') : '<div class="jrnl">no journals listed</div>');
   }
 
   // (2026-10-29, the owner: "call it TaxProf peer rank") the peer-reputation ranks are named for where they are published
@@ -407,7 +407,7 @@
         : (publisher ? '<span class="text-muted">' + esc(publisher) + '</span>' : '<span class="text-muted">publisher not recorded yet</span>');
       return '<div class="jrnl' + (hostOk(ji) ? '' : ' not-counted') + '">' + wl + ' · ' + esc(j[0]) + ' — ' + host + '</div>';
     };
-    return '<p>in order of W&amp;L score; host school and its rank</p>' + (ids.length ? ids.map((ji, i) => line(ji, i)).join('') : '<div class="jrnl">none</div>');
+    return '<p>in order of W&amp;L score; host school and its rank</p>' + (ids.length ? ids.map((ji, i) => line(ji, i)).join('') : '<div class="jrnl">no journals listed</div>');
   }
 
   function syncPanel() {
@@ -448,7 +448,7 @@
 
   // ---- BETA (2026-10-26, the owner: "the title area classification mark as a beta function. so the website doesn't
   // operate using that by default but a user can see what it would look like"): with the switch on, a person's tags
-  // and "What they work on" show the categories a title model gives their articles in any journal (data/beta.json,
+  // and "Subject areas" line show the categories a title model gives their articles in any journal (data/beta.json,
   // build_data.beta_title_areas), marked as beta. Off by default; the choice is remembered on this browser.
   let BETA = null, betaOn = false;
   function setBeta(on) {
@@ -462,11 +462,11 @@
     renderRanking();
   }
   const betaNote = () => (BETA && BETA.model && BETA.model.accuracy != null
-    ? 'the model is right ' + Math.round(BETA.model.accuracy * 100) + '% of the time on journals it never saw (always guessing the largest category: ' + Math.round(BETA.model.baseline_accuracy * 100) + '%)'
+    ? 'title model accuracy on journals held out of training: ' + Math.round(BETA.model.accuracy * 100) + '%; most-common-category baseline: ' + Math.round(BETA.model.baseline_accuracy * 100) + '%'
     : 'a beta model');
   function betaTags(person) {
     const b = (BETA && BETA.people[person]) || [];
-    return b.map(([g, n]) => areaTag(g, n, 'Beta: ' + n + ' of their titles (any journal) read as ' + DATA.groups[g] + '; ' + betaNote() +
+    return b.map(([g, n]) => areaTag(g, n, 'Beta: ' + n + ' of their titles (collected journals) classified as ' + DATA.groups[g] + '; ' + betaNote() +
       '. Opens ' + DATA.groups[g] + ' on the Subject areas page.', areaHref(g), 'c-beta')).join('');
   }
 
@@ -478,8 +478,8 @@
       (state.perProf ? ' · per professor' : '') + (state.noHome ? ' · own journals left out' : '') : '';
     $('drawerDone').textContent = rows.length ? 'Show ' + rows.length + ' schools' : 'Show rankings';
     if (!nAreas) {
-      win.innerHTML = '<p class="empty-note">Select at least one group of journals on the left' +
-        ' (<a href="#" id="resetDefaults">or go back to the default</a>).</p>';
+      win.innerHTML = '<p class="empty-note">No journals selected.' +
+        ' <a href="#" id="resetDefaults">Restore the default selection</a>.</p>';
       $('resetDefaults').addEventListener('click', (e) => { e.preventDefault(); state = defaultState(); update(); });
       return;
     }
@@ -493,7 +493,7 @@
           '<th class="num"><abbr title="Faculty with at least one counted article, of the people on the school\'s faculty list">Faculty</abbr></th>'
         : '<th class="num"><abbr title="Geometric mean, across the selected areas, of the adjusted article counts plus one">Count</abbr></th>' +
           '<th class="num"><abbr title="Faculty with at least one counted article">Faculty</abbr></th>') +
-      '<th class="spark-col"><abbr title="Counted articles (adjusted for co-authors) in each of the selected years, oldest on the left: a school that has only lately begun to publish in these journals rises to the right">By year</abbr></th></tr></thead><tbody>';
+      '<th class="spark-col"><abbr title="Counted articles (adjusted for co-authors) in each of the selected years, oldest on the left">By year</abbr></th></tr></thead><tbody>';
     destroyTrends();
     let rank = 0;
     rows.forEach((r, i) => {
@@ -609,8 +609,8 @@
   function schoolSummaryHtml(s) {
     const share = schoolPapers(s);
     return '<div class="school-summary">' + trendBox({ school: s }) +
-      '<p class="detail-note trend-desc">Counted articles per year by its current faculty in the selected journals, each split between its co-authors. ' +
-      'The shaded band marks the selected years.</p>' +
+      '<p class="detail-note trend-desc">Counted articles per year by its current faculty in the selected journals, each split between its co-authors.' +
+      (state.from > trendStart() ? ' The shaded band marks the selected years.' : '') + '</p>' +
       authorBars([...share.keys()], { title: 'Where its faculty publish', weight: (p) => share.get(p), who: DATA.schools[s][0] }) + '</div>';
   }
 
@@ -621,6 +621,9 @@
   const TREND_COLORS = ['#377eb8', '#ff7f00', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
   const trendCharts = new Set();
   let trendSeq = 0, hcLoad = null;
+  // the chart's first year: twenty years up to the window's end, or the window's start if earlier; the selected years
+  // are shaded only when they start after it (schoolSummaryHtml mentions the band only then)
+  function trendStart() { return Math.max(META.years.min, Math.min(state.from, state.to - 19)); }
   function trendBox(who) {
     const id = 'trend' + (++trendSeq);
     return '<div class="trend-chart" id="' + id + '" data-trend="' + esc(JSON.stringify(who)) + '"><p class="detail-note">Loading the chart…</p></div>';
@@ -679,7 +682,7 @@
       if (!box.isConnected || box.dataset.drawn) return;
       box.dataset.drawn = '1';
       const who = JSON.parse(box.dataset.trend);
-      const y1 = state.to, y0 = Math.max(META.years.min, Math.min(state.from, y1 - 19));
+      const y1 = state.to, y0 = trendStart();
       const counts = yearlyCounts(who.person != null ? [who.person] : peopleAt(who.school), who.school, y0, y1);
       const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i);
       const name = who.person != null ? DATA.people[who.person][0] : DATA.schools[who.school][0];
@@ -728,7 +731,7 @@
     const people = [...r.faculty].sort((a, b) => b[1].adj - a[1].adj || DATA.people[a[0]][0].localeCompare(DATA.people[b[0]][0]));
     let html = '<tr class="faculty"><td></td><td colspan="4">' + schoolSummaryHtml(r.school) +
       '<table class="faculty-table"><thead><tr><th class="indent"></th>' +
-      '<th><abbr title="Click a name to see where they publish">Faculty</abbr></th>' +
+      '<th><abbr title="Click a name for their articles by journal and group">Faculty</abbr></th>' +
       '<th class="num"><abbr title="Articles counted in this ranking"># Pubs</abbr></th>' +
       '<th class="num"><abbr title="Each article counts 1, split between its co-authors">Adj. #</abbr></th>' +
       '<th class="spark-col"><abbr title="Their counted articles (adjusted for co-authors) in each of the selected years, oldest on the left">By year</abbr></th></tr></thead><tbody>';
@@ -742,7 +745,7 @@
       // with no specialty-journal article
       const tags = betaOn && BETA ? betaTags(person) : (DATA.people[person][4] || []).map(([g, n]) => areaTag(g, n,
         areaTitle(person, g, n) + '. Opens ' + DATA.groups[g] + ' on the Subject areas page, with these journals.',
-        areaHref(g, personAreaJournals(person, g), DATA.people[person][0] + ', all years'))).join('');
+        areaHref(g, personAreaJournals(person, g), DATA.people[person][0] + ', years collected'))).join('');
       html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
@@ -818,13 +821,13 @@
   // a tag's tooltip: the area's count and its fields, all years (build_data.py: people[i][5])
   function areaTitle(person, g, n) {
     const fields = (DATA.people[person][5] || []).filter(([fi]) => areaOfField(fi) === g);
-    return n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' in ' + DATA.groups[g] + ', all years: ' +
+    return n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' in ' + DATA.groups[g] + ', years collected: ' +
       fields.map(([fi, k]) => DATA.subjects[fi] + ' ' + k).join(', ');
   }
   // the field a journal's articles count toward (build_data.py: data.field_of; -1 none), as in the tags
   const fieldOfJournal = (ji) => (DATA.field_of ? DATA.field_of[ji] : (DATA.journals[ji][3] && DATA.journals[ji][3].length ? DATA.journals[ji][3][0][0] : -1));
 
-  // the drop-down's "What they work on": their articles in specialty journals in the chosen years, as a small tree, area
+  // the drop-down's "Subject areas, from specialty journals": their articles in specialty journals in the chosen years, as a small tree, area
   // > field > journals (each journal's own place in the taxonomy; nothing guessed), and flagship law reviews alongside
   function worksOn(person, papers) {
     const P = DATA.papers;
@@ -856,23 +859,23 @@
     const b = betaOn && BETA ? (BETA.people[person] || []) : [];
     const areaLink = (g, js, whose) => '<a class="area-link" href="' + esc(areaHref(g, js, whose)) + '" title="' + esc('Opens ' + DATA.groups[g] +
       ' on the Subject areas page, with these journals') + '">' + esc(DATA.groups[g]) + '</a>';
-    const tagLine = (all.length ? '<p class="works-tag">All years: ' + all.map(([g, n]) => '<b>' + areaLink(g, personAreaJournals(person, g), DATA.people[person][0] + ', all years') +
+    const tagLine = (all.length ? '<p class="works-tag">Years collected: ' + all.map(([g, n]) => '<b>' + areaLink(g, personAreaJournals(person, g), DATA.people[person][0] + ', years collected') +
       '</b> ' + n).join(' · ') + '</p>' : '') +
-      (betaOn && BETA ? '<p class="works-beta"><span class="beta-badge">Beta</span> From their titles in any journal, the title model would say: ' +
-        (b.length ? b.map(([g, n]) => esc(DATA.groups[g]) + ' ' + n).join(' · ') : 'nothing it is sure of') + ' (' + esc(betaNote()) + ').</p>' : '');
+      (betaOn && BETA ? '<p class="works-beta"><span class="beta-badge">Beta</span> Title model categories, from their titles in the collected journals (flagship reviews included): ' +
+        (b.length ? b.map(([g, n]) => esc(DATA.groups[g]) + ' ' + n).join(' · ') : 'no title at model probability ' + (BETA.min_p != null ? BETA.min_p : 0.5) + ' or above') + ' (' + esc(betaNote()) + ').</p>' : '');
     if (!areas.length) {
-      return '<div class="works"><div class="bars-title">What they work on, from specialty journals</div>' + tagLine + '<p class="detail-note">' + who +
-        ' has no specialty-journal articles in ' + state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') +
-        (all.length ? '' : ', and none in any year, so no area is shown') + '.</p></div>';
+      return '<div class="works"><div class="bars-title">Subject areas, from specialty journals</div>' + tagLine + '<p class="detail-note">' + who +
+        ': 0 specialty-journal articles in ' + state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') +
+        (all.length ? '' : '; 0 in the other years collected') + '.</p></div>';
     }
     const tree = areas.map(([g, a]) => '<li><b>' + (DATA.groups[g] ? areaLink(g, a.fields.flatMap(([, , js]) => js).sort((x, y) => y[1] - x[1]),
       DATA.people[person][0] + ', ' + state.from + '–' + state.to) : 'Other') + '</b> <span class="text-muted">' + a.n + '</span><ul>' +
       a.fields.sort((x, y) => y[1] - x[1] || DATA.subjects[x[0]].localeCompare(DATA.subjects[y[0]])).map(([f, n, js]) => '<li>' + esc(DATA.subjects[f]) +
         ' <span class="text-muted">' + n + '</span> · ' + js.map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') + '</li>').join('') +
       '</ul></li>').join('');
-    return '<div class="works"><div class="bars-title">What they work on, from specialty journals (' + state.from + '–' + state.to + ')</div>' + tagLine +
+    return '<div class="works"><div class="bars-title">Subject areas, from specialty journals (' + state.from + '–' + state.to + ')</div>' + tagLine +
       '<p class="works-lede">' + (state.minor ? '' : '<span class="text-muted">Short pieces included. </span>') + who + ': ' + specialty + ' specialty-journal article' +
-      (specialty === 1 ? '' : 's') + (flagship ? ', besides ' + flagship + ' in flagship law reviews' : '') + '. Each journal sits in one group, each group in one higher-level group.</p>' +
+      (specialty === 1 ? '' : 's') + (flagship ? '; ' + flagship + ' in flagship law reviews' : '') + '. Each journal sits in one group, each group in one higher-level group.</p>' +
       '<ul class="works-list works-tree">' + tree + '</ul></div>';
   }
 
