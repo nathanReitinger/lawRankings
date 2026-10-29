@@ -13,7 +13,7 @@
     { id: '4', range: '51 and above', lo: 51, hi: Infinity },   // includes schools left unranked
     { id: '5', label: 'Online editions & other general journals', other: true },
   ];
-  const SOURCE_SHORT = { usnews: 'U.S. News rank', peer: 'U.S. News peer rank' };   // (audit) every label names its rank
+  const SOURCE_SHORT = { usnews: 'U.S. News rank', peer: 'TaxProf peer rank' };   // (audit) every label names its rank
   const HOST_TIERS = ['any', '25', '50', '100'];
   const PER_PROF_MIN = 10;          // the per-professor option ranks schools with at least this many people listed
   const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
@@ -266,8 +266,9 @@
         '<td class="chk"><input type="checkbox" id="band' + b.id + '" data-band="' + b.id + '"></td>';
       gen.appendChild(tr);
     });
-    (DATA.rank_sources || [['usnews', 'U.S. News overall rank', '']]).forEach(([id, label, ed]) =>
-      $('rankSource').add(new Option(label.replace(/^U\.S\. News /, 'U.S. News ') + (ed ? ' (' + ed + ')' : ''), id)));
+    // (2026-10-29, the owner: "make the peer rank selector an optional feature. like add it as a check box") the
+    // TaxProf peer rank is a switch under Options, off by default, shown when the data have it
+    if (sources().includes('peer')) $('peerRow').hidden = false;
     const spec = $('specialtyBody');
     DATA.groups.forEach((g, gi) => {
       const subs = groupSubjects[g] || [];
@@ -315,8 +316,8 @@
         state.noHome = t.checked;
       } else if (t.id === 'cutoff') {
         state.cutoff = t.value;
-      } else if (t.id === 'rankSource') {
-        state.src = t.value;
+      } else if (t.id === 'usePeer') {
+        state.src = t.checked ? 'peer' : 'usnews';
       } else if (t.id === 'hostTier') {
         state.host = t.value;
       } else {
@@ -375,9 +376,11 @@
     return head + (ids.length ? ids.map((ji) => '<div class="jrnl">' + line(ji) + '</div>').join('') : '<div class="jrnl">none</div>');
   }
 
+  // (2026-10-29, the owner: "call it TaxProf peer rank") the peer-reputation ranks are named for where they are published
+  const SOURCE_NAME = { usnews: 'U.S. News overall rank', peer: 'TaxProf peer rank' };
   function sourceName() {
     const s = (DATA.rank_sources || []).find((x) => x[0] === state.src);
-    return s ? s[1].replace(/^U\.S\. News /, 'U.S. News ') + (s[2] ? ' (' + s[2] + ')' : '') : 'U.S. News rank';
+    return s ? (SOURCE_NAME[s[0]] || s[1]) + (s[2] ? ' (' + s[2] + ')' : '') : 'U.S. News rank';
   }
 
   // a field's journals: W&L rank, the journal, its host school and that school's rank (2026-10-25, the owner: "you
@@ -412,9 +415,10 @@
     });
     document.querySelectorAll('[data-subject]').forEach((c) => { c.checked = (state.groups[c.dataset.group] || []).includes(c.dataset.subject); });
     $('cutoff').value = state.cutoff;
-    $('rankSource').value = state.src;
+    $('usePeer').checked = state.src === 'peer';
+    $('rankSourceName').textContent = sourceName();
     $('hostTier').value = state.host;
-    $('hostRankName').textContent = state.src === 'peer' ? 'U.S. News peer' : 'U.S. News';
+    $('hostRankName').textContent = state.src === 'peer' ? 'TaxProf peer' : 'U.S. News';
     BANDS.forEach((b) => { const l = $('bandLabel' + b.id); if (l) l.textContent = bandLabel(b); });
     $('skipMinor').checked = state.minor;
     $('perProf').checked = state.perProf;
