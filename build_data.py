@@ -686,10 +686,10 @@ def load_faculty_edits():
                 return pd.DataFrame(columns=['action', 'hein_name', 'school', 'name', 'homepage', 'note'])
             e[col] = ''
     e['action'] = e['action'].str.strip().str.lower()
-    bad = e[~e['action'].isin(['add', 'remove', 'move', 'alias', 'homepage'])]
+    bad = e[~e['action'].isin(['add', 'remove', 'move', 'alias', 'homepage', 'not_paper'])]
     if len(bad):
         print(f'  !! faculty/edits.csv: {len(bad)} rows with an unknown action, ignored:', bad['action'].tolist()[:5])
-    return e[e['action'].isin(['add', 'remove', 'move', 'alias', 'homepage'])]
+    return e[e['action'].isin(['add', 'remove', 'move', 'alias', 'homepage', 'not_paper'])]
 
 
 def apply_faculty_edits(df):
@@ -736,7 +736,7 @@ def write_faculty_list(roster):
 
 
 def load_roster():
-    '''newest faculty list for each school, from get_authors_from_v3 runs (faculty_runs/) and the older authors_latest.csv'''
+    '''newest faculty list for each school, from the faculty lists in faculty_runs/ and the older authors_latest.csv'''
     sources = []   # oldest first
     old = os.path.join(SOURCE_DIR, 'authors_latest.csv')
     if os.path.exists(old):
@@ -1402,7 +1402,7 @@ def same_school(a, b):
 
 
 # PATCH 20 (2026-10-25, the owner: "stop using the saved profile spellings so every faculty member is matched by name
-# only"): the Hein profile metadata read before the profile phase was stopped (116 faculty) stays in hein_profiles/
+# only"): the Hein profile metadata kept from before PATCH 20 (116 faculty) stays in hein_profiles/
 # but decides nothing; with no profiles, match_authors gives exactly the name rules' decisions (and edits.csv aliases)
 USE_PROFILE_METADATA = False
 
@@ -1427,7 +1427,7 @@ def match_authors(papers, roster, non_school=frozenset(), journal_schools=None):
     - an unprofiled person's own exact name is theirs (it was lost to a profiled person's punctuation twin)
     - the punctuation rule keeps the one-letter-particle guard ("d'Avis" vs "Davis" with no middle initial)
     - a spelling the name rules give a profiled person but their profile does not list is recorded in
-      hein_profiles/unexplained.json, so the next update refreshes that profile (HeinOnline adds new spellings)"""
+      hein_profiles/unexplained.json (off since PATCH 20: no profile metadata is collected)"""
     profiles = hp.load_good() if USE_PROFILE_METADATA else {}
     pk = roster['link'].map(lambda l: hp.norm_form(hp.search_name(l)))
     rows_of = defaultdict(list)
@@ -1573,9 +1573,8 @@ def match_authors(papers, roster, non_school=frozenset(), journal_schools=None):
 
 def record_unexplained(dropped, papers):
     """PATCH 16 (review): spellings the name rules give a profiled person that their profile does not list, with when
-    each was first seen (when its earliest row was collected), merged into hein_profiles/unexplained.json. The next update refreshes such a
-    profile again RECHECK_DAYS later if the spelling turned up after the profile's metadata was collected; once it has
-    been updated again, the same spelling never triggers another update (hein_profiles.due)."""
+    each was first seen (when its earliest row was collected), merged into hein_profiles/unexplained.json. Runs only
+    with USE_PROFILE_METADATA, which is off since PATCH 20 (no profile metadata is collected)."""
     if not dropped:
         return
     first = papers.groupby('author')[js.COLLECTED_AT].min() if js.COLLECTED_AT in papers.columns else {}
@@ -1594,10 +1593,8 @@ def record_unexplained(dropped, papers):
 
 
 def write_profile_wants(papers, roster, us_schools, info):
-    '''hein_profiles/wanted.txt: every faculty member's Hein search_name, in the order the next update should refresh their
-    profiles: US law schools first; within them, people whose matching by name is least certain (credited on a
-    spelling that differs from their listing, or held back as unsure), then people with papers, then the rest; more
-    paper rows at stake first. Also faculty_runs/priority.txt: US law schools first for the faculty-list pass.'''
+    '''faculty_runs/priority.txt: US law schools first for the faculty-list pass. (With USE_PROFILE_METADATA, off since
+    PATCH 20, it also wrote hein_profiles/wanted.txt, faculty ordered by how uncertain their name matching is.)'''
     rows_per_link = papers.groupby('author').size()
     stake = defaultdict(int)
     for link, idx in info['by_name'].items():
@@ -2430,6 +2427,26 @@ def build():
                 seen[key] = r.author
                 credit_paper.append(key[0])
                 credit_person.append(key[1])
+    # (2026-10-28, audit R104) one spelling can carry two people's papers ("Hubbard, William": Baltimore's patent work and
+    # two papers by Chicago's William H.J. Hubbard); an alias works per spelling, so faculty/edits.csv can take back a
+    # single paper: action not_paper, the spelling, the school credited, and name = "journal|year|title start"
+    takeback = [r for r in load_faculty_edits().itertuples() if r.action == 'not_paper']
+    if takeback:
+        def taken(pk, person):
+            spelling = hp.search_name(seen[(pk, person)]).strip()
+            row = first_rows.loc[paper_keys[pk]]
+            for r in takeback:
+                j, _, rest = r.name.partition('|')
+                y, _, start = rest.partition('|')
+                if (r.hein_name.strip() == spelling and (not r.school or r.school in [schools[x] for x in people[person][1]])
+                        and j.strip() == row['journal'] and y.strip() == str(int(row['year']))
+                        and str(row['title']).lower().startswith(start.strip().lower())):
+                    return True
+            return False
+        keep = [not taken(pk, person) for pk, person in zip(credit_paper, credit_person)]
+        print(f'  faculty/edits.csv not_paper: {keep.count(False)} credits taken back ({len(takeback)} rows)')
+        credit_paper = [x for x, k in zip(credit_paper, keep) if k]
+        credit_person = [x for x, k in zip(credit_person, keep) if k]
     # (2026-10-26, the audit of why the list differs from U.S. News) a student Note (HeinOnline ends its title with
     # "Note" or "Notes") is not credited to a faculty member whose other credited work began 5 or more years before it:
     # a namesake student wrote it (NYU's Liam B. Murphy was credited with a 2022 Vanderbilt Law Review note). "Comment"
