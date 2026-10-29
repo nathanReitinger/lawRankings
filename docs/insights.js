@@ -43,7 +43,7 @@
     { label: '101 & below, unranked', short: '101+', lo: 101, hi: Infinity },
   ];
   const bandOf = (r) => (r == null || r <= 0 ? 4 : BANDS.findIndex((b) => r >= b.lo && r <= b.hi));
-  const SRC_LABEL = { usnews: 'U.S. News', peer: 'peer-reputation' };
+  const SRC_LABEL = { usnews: 'U.S. News', peer: 'TaxProf peer' };
   // (2026-10-26, the owner: "add analysis on title character length over time. break it out per law review rank and
   // school rank") the groups' colors, here and in every figure that colors by group: the reference categorical order
   // (blue, orange, aqua, yellow, magenta), which passes the adjacent-pair color-vision checks on white; three sit under
@@ -1410,7 +1410,7 @@
     for (let y = maxY; y >= Math.max(META.years.min, 1950); y--) { $('wFrom').add(new Option(y, y)); $('wTo').add(new Option(y, y)); }
     $('wFrom').value = st.from;
     $('wTo').value = st.to;
-    (DATA.rank_sources || [['usnews', 'U.S. News overall rank']]).forEach((s) => $('wSrc').add(new Option(s[0] === 'peer' ? 'U.S. News peer reputation (TaxProf)' : 'U.S. News overall', s[0])));
+    (DATA.rank_sources || [['usnews', 'U.S. News overall rank']]).forEach((s) => $('wSrc').add(new Option(s[0] === 'peer' ? 'TaxProf peer rank' : 'U.S. News overall rank', s[0])));
     $('wSrc').value = st.src;
     const yearChange = () => {
       let a = +$('wFrom').value, b = +$('wTo').value;

@@ -2942,7 +2942,7 @@ def build():
         # 2026-10-25 (the owner: "Add in another ranking. Use tax prof ... allow a user to select that as the source"):
         # the flagship tiers and the specialty host filter can use either source
         'rank_sources': [['usnews', 'U.S. News overall rank', us_meta['edition']]] +
-                        ([['peer', 'U.S. News peer reputation rank (TaxProf Blog)', us_meta['edition']]] if us_meta.get('peer') else []),
+                        ([['peer', 'TaxProf peer rank', us_meta['edition']]] if us_meta.get('peer') else []),
         'journal_ranks': rank_by if us_meta.get('peer') else {'usnews': rank_by['usnews']},
         'host_ranks': host_by if us_meta.get('peer') else {'usnews': host_by['usnews']},
         'people': people,
