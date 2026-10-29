@@ -53,8 +53,9 @@
   ////////////////////////////////////////////////////////////////////////// the numbers
 
   // One pass over the papers. Every figure counts research articles (short pieces left out) with at least one author on
-  // the faculty of a U.S. law school; "the window" is the ten years the rankings show by default (meta.default_to and
-  // the nine before), "twenty years earlier" the same ten years two decades back.
+  // the faculty of a U.S. law school; "the window" is the ten years ending at meta.default_to (the latest year whose
+  // volumes are mostly in) and the nine before; "twenty years earlier" the same ten years two decades back. (Until
+  // 2026-10-29 this was also the rankings page's default window; that is now twenty years ending this year.)
   function compute(DATA, META) {
     const P = DATA.papers, C = DATA.credits, S = DATA.schools, J = DATA.journals, people = DATA.people;
     const NP = P.n || P.journal.length, NS = S.length, NJ = J.length;
