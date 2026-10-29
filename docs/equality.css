@@ -1,1 +1,53 @@
-/* Law School Rankings: the Insights page, section equality (equality.js) */
+/* Law School Rankings: the Insights page, section 5 "How equal is publishing?" (equality.js). The cards, tiles, legends
+   and tables are the page's own (insights.css .ins-card, .ins-tile, .ins-legend, .ins-table); this adds what the
+   Lorenz curves, the Gini bars and the five-year lines need. */
+
+.eq-card { overflow: hidden; }
+.eq-chart { min-height: 120px; }
+.eq-chart .highcharts-container { margin: 0 auto; }
+.eq-chart svg { display: block; font-family: var(--sans); }
+.eq-legend:empty, .eq-foot:empty { display: none; }
+.eq-foot { color: var(--ink-2); font-size: 14px; line-height: 1.45; max-width: 820px; }
+.eq-none { font-family: var(--sans); font-size: 13.5px; padding: 12px 0; margin: 0; }
+
+/* the key: each slice is a button that picks its curve out in every chart of the section */
+.eq-legend { gap: 4px 10px; margin-bottom: 4px; }
+.eq-key { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 9px; margin: 0 -2px; border: 1px solid transparent; border-radius: 999px;
+  background: none; font: inherit; color: var(--ink-2); cursor: pointer; text-align: left; line-height: 1.25; }
+.eq-key:hover { border-color: var(--hair); color: var(--ink); }
+.eq-key[aria-pressed="true"] { border-color: var(--ink-2); color: var(--ink); background: var(--plane); }
+.eq-key:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.eq-legend i { flex: none; width: 18px; height: 3px; border-radius: 2px; }
+.eq-legend .eq-lab, .eq-legend .eq-long { display: inline; }
+.eq-ref { padding: 0 9px; min-height: 30px; }
+/* the diagonal of equal shares: a dashed rule, as in the chart */
+.eq-legend i.dash { height: 0; border-top: 1.5px dashed var(--axis); background: none !important; }
+
+/* the Lorenz curves with each slice's Gini beside them; one above the other on a narrow screen */
+.eq-split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 4px 22px; align-items: start; }
+.eq-side { padding-top: 6px; }
+.eq-sub { font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin: 0 0 2px; }
+
+/* the tables */
+.eq-card .ins-table th, .eq-card .ins-table td { overflow-wrap: break-word; }
+.eq-card .ins-table thead th { vertical-align: bottom; font-weight: 600; color: var(--ink-2); }
+.eq-card .ins-table tbody th { font-weight: 400; text-align: left; }
+.eq-card .ins-table td small { display: block; color: var(--muted); font-size: 11px; }
+.eq-note { font-size: 12.5px; color: var(--ink-2); margin: 8px 0 0; max-width: 760px; line-height: 1.4; }
+
+@media (max-width: 759px) {
+  .eq-split { grid-template-columns: minmax(0, 1fr); }
+  .eq-side { padding-top: 12px; }
+}
+@media (max-width: 767px) {
+  .eq-foot { font-size: 13.5px; }
+  .eq-legend { font-size: 12.5px; }
+  .eq-legend .eq-long { display: none; }
+  .eq-card .ins-table table { font-size: 11.5px; }
+  .eq-card .ins-table th, .eq-card .ins-table td { padding: 3px 3px; }
+  /* the tables of six slices: a size smaller, so they fit a phone without breaking a number */
+  .eq-card .ins-table table.eq-sum, .eq-card .ins-table table.eq-schools, .eq-card .ins-table table.eq-time { font-size: 11px; }
+  .eq-card .ins-table .eq-sum th, .eq-card .ins-table .eq-sum td,
+  .eq-card .ins-table .eq-schools th, .eq-card .ins-table .eq-schools td,
+  .eq-card .ins-table .eq-time th, .eq-card .ins-table .eq-time td { padding: 3px 2px; }
+}
