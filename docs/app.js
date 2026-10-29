@@ -13,11 +13,12 @@
     { id: '4', range: '51 and above', lo: 51, hi: Infinity },   // includes schools left unranked
     { id: '5', label: 'Online editions & other general journals', other: true },
   ];
-  const SOURCE_SHORT = { usnews: 'U.S. News rank', peer: 'U.S. News peer rank' };   // (audit) every label names its rank
+  const SOURCE_SHORT = { usnews: 'U.S. News rank', peer: 'TaxProf peer rank' };   // (audit) every label names its rank
   const HOST_TIERS = ['any', '25', '50', '100'];
   const PER_PROF_MIN = 10;          // the per-professor option ranks schools with at least this many people listed
   const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
   const STORAGE_KEY = 'lawRankings.v4';
+  const DEFAULT_YEARS = 20;          // the default window's year labels (2026-10-29)
   const MAINTAINER_EMAIL = 'nathan.reitinger@law.northwestern.edu';   // the owner asked for an email button (2026-10-24)
   const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers
   const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
@@ -53,10 +54,11 @@
   ////////////////////////////////////////////// state: URL hash > localStorage > defaults
 
   function defaultState() {
-    // (2026-10-26, from the audit of why the list differs from U.S. News) ten year labels ending at the build's
-    // default_to, the latest well-collected year, not at the visitor's clock (eleven labels before)
-    const to = META.default_to || Math.min(new Date().getFullYear(), META.years.max);
-    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: to - 9, to: to, region: 'us', minor: false, src: 'usnews', host: 'any',
+    // (2026-10-29, the owner: "set default time to 20 years back from whatever date it is now") twenty year labels
+    // ending at the visitor's current year, or at the latest year in the data if the clock runs ahead of it (before:
+    // ten labels ending at the build's default_to, the latest well-collected year)
+    const to = Math.max(META.years.min, Math.min(new Date().getFullYear(), META.years.max));
+    return { bands: DEFAULT_BANDS.slice(), groups: {}, cutoff: '10', from: Math.max(META.years.min, to - (DEFAULT_YEARS - 1)), to: to, region: 'us', minor: false, src: 'usnews', host: 'any',
              perProf: false, noHome: false };
   }
 
@@ -129,7 +131,7 @@
     const d = defaultState();
     const same = JSON.stringify(cleanState(state)) === JSON.stringify(d);
     if (same) { try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* private mode */ } return; }
-    store(STORAGE_KEY, JSON.stringify(Object.assign({}, state, { v: 5 }, state.to === d.to ? { latest: state.to - state.from } : {})));
+    store(STORAGE_KEY, JSON.stringify(Object.assign({}, state, { v: 6 }, state.to === d.to ? { latest: state.to - state.from } : {})));
   }
 
   // a stored view: a window that ended at the latest year then ends at the latest year now
@@ -139,6 +141,8 @@
     if (!saved.v && saved.latest === 10) saved = Object.assign({}, saved, { latest: 9 });
     // 2.0.0 and earlier (before 2026-10-24 23:39) stored every view, the default 2016-2026 included, without 'latest'
     if (!saved.v && saved.latest == null && +saved.from === 2016 && +saved.to === 2026) saved = Object.assign({}, saved, { latest: 9 });
+    // (2026-10-29) the default window was ten year labels before; a view stored then as "the latest 10" is now the latest 20
+    if (saved.v === 5 && saved.latest === 9) saved = Object.assign({}, saved, { latest: DEFAULT_YEARS - 1 });
     if (typeof saved.latest === 'number' && saved.latest >= 0) {
       const d = defaultState();
       saved = Object.assign({}, saved, { to: d.to, from: d.to - saved.latest });
@@ -266,8 +270,9 @@
         '<td class="chk"><input type="checkbox" id="band' + b.id + '" data-band="' + b.id + '"></td>';
       gen.appendChild(tr);
     });
-    (DATA.rank_sources || [['usnews', 'U.S. News overall rank', '']]).forEach(([id, label, ed]) =>
-      $('rankSource').add(new Option(label.replace(/^U\.S\. News /, 'U.S. News ') + (ed ? ' (' + ed + ')' : ''), id)));
+    // (2026-10-29, the owner: "make the peer rank selector an optional feature. like add it as a check box") the
+    // TaxProf peer rank is a switch under Options, off by default, shown when the data have it
+    if (sources().includes('peer')) $('peerRow').hidden = false;
     const spec = $('specialtyBody');
     DATA.groups.forEach((g, gi) => {
       const subs = groupSubjects[g] || [];
@@ -315,8 +320,8 @@
         state.noHome = t.checked;
       } else if (t.id === 'cutoff') {
         state.cutoff = t.value;
-      } else if (t.id === 'rankSource') {
-        state.src = t.value;
+      } else if (t.id === 'usePeer') {
+        state.src = t.checked ? 'peer' : 'usnews';
       } else if (t.id === 'hostTier') {
         state.host = t.value;
       } else {
@@ -375,9 +380,11 @@
     return head + (ids.length ? ids.map((ji) => '<div class="jrnl">' + line(ji) + '</div>').join('') : '<div class="jrnl">none</div>');
   }
 
+  // (2026-10-29, the owner: "call it TaxProf peer rank") the peer-reputation ranks are named for where they are published
+  const SOURCE_NAME = { usnews: 'U.S. News overall rank', peer: 'TaxProf peer rank' };
   function sourceName() {
     const s = (DATA.rank_sources || []).find((x) => x[0] === state.src);
-    return s ? s[1].replace(/^U\.S\. News /, 'U.S. News ') + (s[2] ? ' (' + s[2] + ')' : '') : 'U.S. News rank';
+    return s ? (SOURCE_NAME[s[0]] || s[1]) + (s[2] ? ' (' + s[2] + ')' : '') : 'U.S. News rank';
   }
 
   // a field's journals: W&L rank, the journal, its host school and that school's rank (2026-10-25, the owner: "you
@@ -412,9 +419,10 @@
     });
     document.querySelectorAll('[data-subject]').forEach((c) => { c.checked = (state.groups[c.dataset.group] || []).includes(c.dataset.subject); });
     $('cutoff').value = state.cutoff;
-    $('rankSource').value = state.src;
+    $('usePeer').checked = state.src === 'peer';
+    $('rankSourceName').textContent = sourceName();
     $('hostTier').value = state.host;
-    $('hostRankName').textContent = state.src === 'peer' ? 'U.S. News peer' : 'U.S. News';
+    $('hostRankName').textContent = state.src === 'peer' ? 'TaxProf peer' : 'U.S. News';
     BANDS.forEach((b) => { const l = $('bandLabel' + b.id); if (l) l.textContent = bandLabel(b); });
     $('skipMinor').checked = state.minor;
     $('perProf').checked = state.perProf;
@@ -458,8 +466,8 @@
     : 'a beta model');
   function betaTags(person) {
     const b = (BETA && BETA.people[person]) || [];
-    return b.map(([g, n]) => '<span class="c-beta" title="' + esc('Beta: ' + n + ' of their titles (any journal) read as ' + DATA.groups[g] + '; ' + betaNote()) + '">' +
-      esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('');
+    return b.map(([g, n]) => areaTag(g, n, 'Beta: ' + n + ' of their titles (any journal) read as ' + DATA.groups[g] + '; ' + betaNote() +
+      '. Opens ' + DATA.groups[g] + ' on the Subject areas page.', areaHref(g), 'c-beta')).join('');
   }
 
   function renderRanking() {
@@ -529,6 +537,29 @@
   // pass and kept until the years or the short-piece switch change. As for a person, only specialty journals speak to
   // a subject, and journals whose scope is law or policy generally count toward none.
   let schoolAreaCache = { key: '', map: null };
+  // (2026-10-29, the owner: "get link to every area tag. it needs to have a clear link from journal to higher-level
+  // tag") an area tag links to its higher-level group on the Subject areas page, carrying the journals behind the tag
+  // (journal id:articles) and whose they are, so that page can show each journal, its group and the tag in one line:
+  // taxonomy.html?j=7:2,194:1&w=<whose>#<higher-level group>
+  function areaHref(g, journals, who) {
+    const q = [];
+    if (journals && journals.length) q.push('j=' + journals.map(([ji, k]) => ji + ':' + k).join(','));
+    if (who) q.push('w=' + encodeURIComponent(who));
+    return 'taxonomy.html' + (q.length ? '?' + q.join('&') : '') + '#' + encodeURIComponent(DATA.groups[g]);
+  }
+  function areaTag(g, n, title, href, cls) {
+    return '<a class="' + (cls || 'c-specialty') + ' area-tag" href="' + esc(href) + '" title="' + esc(title) + '">' +
+      esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></a>';
+  }
+  // the journals behind a person's tag, all years (build_data.py: people[i][5], [[field, articles, [[journal, articles]]]])
+  const personAreaJournals = (person, g) => (DATA.people[person][5] || []).filter(([f]) => areaOfField(f) === g)
+    .flatMap(([, , js]) => js || []).sort((a, b) => b[1] - a[1]);
+  // the journals of a set of articles, most articles first
+  function journalsOf(papers) {
+    const m = new Map();
+    papers.forEach((p) => { const ji = DATA.papers.journal[p]; m.set(ji, (m.get(ji) || 0) + 1); });
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }
   function schoolAreas(s) {
     const key = state.from + '-' + state.to + '-' + (state.minor ? 1 : 0);
     if (schoolAreaCache.key !== key) {
@@ -551,23 +582,36 @@
     }
     const m = schoolAreaCache.map.get(s);
     if (!m) return [];
-    return [...m.entries()].map(([g, set]) => [g, set.size]).sort((a, b) => b[1] - a[1] || DATA.groups[a[0]].localeCompare(DATA.groups[b[0]]));
+    return [...m.entries()].map(([g, set]) => [g, set.size, set]).sort((a, b) => b[1] - a[1] || DATA.groups[a[0]].localeCompare(DATA.groups[b[0]]));
   }
   function schoolTagsHtml(s, top) {
     const all = schoolAreas(s);
     if (!all.length) return '';
     const name = DATA.schools[s][0];
-    return ' <span class="areaname school-tags">' + all.slice(0, top).map(([g, n]) => '<span class="c-specialty" title="' +
-      esc(name + ': ' + n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' by its current faculty in ' + DATA.groups[g] + ', ' + state.from + '–' + state.to) + '">' +
-      esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('') + '</span>';
+    const when = state.from + '–' + state.to;
+    return ' <span class="areaname school-tags">' + all.slice(0, top).map(([g, n, set]) => areaTag(g, n,
+      name + ': ' + n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' by its current faculty in ' + DATA.groups[g] + ', ' + when +
+      '. Opens ' + DATA.groups[g] + ' on the Subject areas page, with these journals.', areaHref(g, journalsOf(set), name + ', ' + when))).join('') + '</span>';
   }
+  // the articles of a school's current faculty in the chosen years (short pieces as the switch says), each once, with
+  // the share of its authors who are on that faculty (for the bars' adjusted counts)
+  function schoolPapers(s) {
+    const P = DATA.papers, share = new Map();
+    peopleAt(s).forEach((person) => (personPapers.get(person) || []).forEach((p) => {
+      if (P.year[p] < state.from || P.year[p] > state.to || (state.minor && P.minor[p])) return;
+      share.set(p, (share.get(p) || 0) + 1 / P.authors[p]);
+    }));
+    return share;
+  }
+  // (2026-10-29, the owner: "don't include this below the chart, just include a quick description of it" and "include
+  // the specialty area graph, to show where scholars at that school mostly publish. like the bar chart") the trend chart,
+  // a line on what it plots, and the school's bars, as a person's drop-down has
   function schoolSummaryHtml(s) {
-    const all = schoolAreas(s);
-    const tags = all.length
-      ? '<p class="works-tag">Subject areas of its faculty\'s specialty-journal articles, ' + state.from + '–' + state.to + ': ' +
-        all.map(([g, n]) => '<b>' + esc(DATA.groups[g]) + '</b> ' + n).join(' · ') + '</p>'
-      : '<p class="detail-note">Its faculty have no specialty-journal articles in ' + state.from + '–' + state.to + '.</p>';
-    return '<div class="school-summary">' + trendBox({ school: s }) + tags + '</div>';
+    const share = schoolPapers(s);
+    return '<div class="school-summary">' + trendBox({ school: s }) +
+      '<p class="detail-note trend-desc">Counted articles per year by its current faculty in the selected journals, each split between its co-authors. ' +
+      'The shaded band marks the selected years.</p>' +
+      authorBars([...share.keys()], { title: 'Where its faculty publish', weight: (p) => share.get(p), who: DATA.schools[s][0] }) + '</div>';
   }
 
   // the chart under an opened school or person: their counted articles per year in the selected journals, one line per
@@ -657,7 +701,7 @@
       const series = shown.map((x, i) => ({ name: x.name, color: x.color || TREND_COLORS[i], data: [...x.raw].map(r1) }));
       // (the owner, 2026-10-28: "line chart not bar") one line per selected area, and their total when there are several:
       // each article once, as in the By year strip
-      if (series.length > 1) series.unshift({ name: 'All selected', color: '#333', lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
+      if (series.length > 1) series.unshift({ name: 'Total', color: '#333', lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
       box.innerHTML = '';
       if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + y0 + '–' + y1 + '.</p>'; return; }
       // (review) the legend gets its own room (a row per line on a phone, two to a row wider), so the plot keeps its height
@@ -696,8 +740,9 @@
       // inference is made. If they have multiple specialty then it might be multi tag"): every area of the specialty
       // journals they published in, all years, each with its count (build_data.py: people[i][4]); nothing for someone
       // with no specialty-journal article
-      const tags = betaOn && BETA ? betaTags(person) : (DATA.people[person][4] || []).map(([g, n]) => '<span class="c-specialty" title="' + esc(areaTitle(person, g, n)) + '">' +
-        esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('');
+      const tags = betaOn && BETA ? betaTags(person) : (DATA.people[person][4] || []).map(([g, n]) => areaTag(g, n,
+        areaTitle(person, g, n) + '. Opens ' + DATA.groups[g] + ' on the Subject areas page, with these journals.',
+        areaHref(g, personAreaJournals(person, g), DATA.people[person][0] + ', all years'))).join('');
       html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
@@ -756,7 +801,7 @@
       ' (' + state.from + '–' + state.to + ') count in this ranking' +
       (papers.length > f.papers.length ? '; the others are outside the selected journals' + (skipped ? ' or skipped as short pieces (' + skipped + ')' : '') : '') +
       '.' + (DATA.people[person][3] ? ' <a href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener">Faculty page</a>' : '') + '</p>';
-    detailRow.firstElementChild.innerHTML = trendBox({ person: person, school: s }) + worksOn(person, forBars) + authorBars(forBars) + note;
+    detailRow.firstElementChild.innerHTML = trendBox({ person: person, school: s }) + worksOn(person, forBars) + authorBars(forBars, { who: DATA.people[person][0] }) + note;
     drawPending(detailRow);
   }
 
@@ -809,7 +854,10 @@
     const all = DATA.people[person][4] || [];
     // (audit) the tags (all years) above the chosen years' tree, so the two cannot read as a contradiction
     const b = betaOn && BETA ? (BETA.people[person] || []) : [];
-    const tagLine = (all.length ? '<p class="works-tag">All years: ' + all.map(([g, n]) => '<b>' + esc(DATA.groups[g]) + '</b> ' + n).join(' · ') + '</p>' : '') +
+    const areaLink = (g, js, whose) => '<a class="area-link" href="' + esc(areaHref(g, js, whose)) + '" title="' + esc('Opens ' + DATA.groups[g] +
+      ' on the Subject areas page, with these journals') + '">' + esc(DATA.groups[g]) + '</a>';
+    const tagLine = (all.length ? '<p class="works-tag">All years: ' + all.map(([g, n]) => '<b>' + areaLink(g, personAreaJournals(person, g), DATA.people[person][0] + ', all years') +
+      '</b> ' + n).join(' · ') + '</p>' : '') +
       (betaOn && BETA ? '<p class="works-beta"><span class="beta-badge">Beta</span> From their titles in any journal, the title model would say: ' +
         (b.length ? b.map(([g, n]) => esc(DATA.groups[g]) + ' ' + n).join(' · ') : 'nothing it is sure of') + ' (' + esc(betaNote()) + ').</p>' : '');
     if (!areas.length) {
@@ -817,7 +865,8 @@
         ' has no specialty-journal articles in ' + state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') +
         (all.length ? '' : ', and none in any year, so no area is shown') + '.</p></div>';
     }
-    const tree = areas.map(([g, a]) => '<li><b>' + esc(DATA.groups[g] || 'Other') + '</b> <span class="text-muted">' + a.n + '</span><ul>' +
+    const tree = areas.map(([g, a]) => '<li><b>' + (DATA.groups[g] ? areaLink(g, a.fields.flatMap(([, , js]) => js).sort((x, y) => y[1] - x[1]),
+      DATA.people[person][0] + ', ' + state.from + '–' + state.to) : 'Other') + '</b> <span class="text-muted">' + a.n + '</span><ul>' +
       a.fields.sort((x, y) => y[1] - x[1] || DATA.subjects[x[0]].localeCompare(DATA.subjects[y[0]])).map(([f, n, js]) => '<li>' + esc(DATA.subjects[f]) +
         ' <span class="text-muted">' + n + '</span> · ' + js.map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') + '</li>').join('') +
       '</ul></li>').join('');
@@ -831,22 +880,29 @@
   function catShort(c) { return c === 0 ? 'flagship' : c === -1 ? 'other general' : shortName(DATA.groups[c - 1]); }
 
   // horizontal bars, most to least; empty categories are left out
-  function authorBars(papers) {
-    const n = new Map(), adj = new Map();
+  // opts (a school's bars): title, weight(p) = the share of the article's authors on its faculty, who = the school
+  function authorBars(papers, opts) {
+    const o = opts || {};
+    const n = new Map(), adj = new Map(), byCat = new Map();
     papers.forEach((p) => {
       journalCats[DATA.papers.journal[p]].forEach((c) => {
         n.set(c, (n.get(c) || 0) + 1);
-        adj.set(c, (adj.get(c) || 0) + 1 / DATA.papers.authors[p]);
+        adj.set(c, (adj.get(c) || 0) + (o.weight ? o.weight(p) : 1 / DATA.papers.authors[p]));
+        if (c > 0) { if (!byCat.has(c)) byCat.set(c, []); byCat.get(c).push(p); }
       });
     });
     const cats = [...n.keys()].sort((a, b) => n.get(b) - n.get(a) || a - b);   // most to least
     if (!cats.length) return '';
     const max = Math.max(...n.values());
-    return '<div class="bars" role="img" aria-label="Where they publish, ' + state.from + '–' + state.to + '">' +
-      '<div class="bars-title">Where they publish, ' + state.from + '–' + state.to + '</div>' +
+    const title = (o.title || 'Where they publish') + ', ' + state.from + '–' + state.to;
+    return '<div class="bars" aria-label="' + esc(title) + '">' +
+      '<div class="bars-title">' + esc(title) + '</div>' +
       cats.map((c) => {
         const tip = catLabel(c) + ': ' + n.get(c) + ' article' + (n.get(c) === 1 ? '' : 's') + ' (adjusted for co-authors: ' + one(adj.get(c)) + ')';
-        return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + esc(catLabel(c)) + '</span>' +
+        const label = c > 0 && o.who
+          ? '<a class="area-link" href="' + esc(areaHref(c - 1, journalsOf(byCat.get(c)), o.who + ', ' + state.from + '–' + state.to)) + '">' + esc(catLabel(c)) + '</a>'
+          : esc(catLabel(c));
+        return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + label + '</span>' +
           '<span class="bar-track"><span class="bar ' + (c === 0 ? 'bg-general' : c === -1 ? 'bg-other' : 'bg-specialty') + '" style="width:' + (100 * n.get(c) / max).toFixed(1) + '%"></span></span>' +
           '<span class="bar-value">' + n.get(c) + '</span></div>';
       }).join('') + '</div>';

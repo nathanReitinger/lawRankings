@@ -36,6 +36,18 @@
   // a phone or tablet: a tap shows the tooltip first, a second tap on the same journal or group follows it
   const touchy = () => !!(window.matchMedia && window.matchMedia('(hover: none)').matches);
   const verb = () => (touchy() ? 'Tap again' : 'Click');
+  // (2026-10-29, the owner: "get link to every area tag. it needs to have a clear link from journal to higher-level
+  // tag") an area tag on the rankings page opens its higher-level group here with the journals behind the tag
+  // (taxonomy.html?j=<journal id>:<articles>,...&w=<whose>#<higher-level group>): each is listed as journal, group,
+  // higher-level group, and marked in the tree and in its group's list
+  const FROM = (() => {
+    try {
+      const q = new URLSearchParams(location.search);
+      const j = (q.get('j') || '').split(',').map((x) => x.split(':').map(Number)).filter(([a]) => Number.isInteger(a) && a >= 0);
+      return j.length ? { who: (q.get('w') || '').slice(0, 160), j: new Map(j.map(([a, k]) => [a, Number.isFinite(k) ? k : 0])), area: -2 } : null;
+    } catch (e) { return null; }
+  })();
+  const marked = (ji) => !!(FROM && FROM.area === current && FROM.j.has(ji));
 
   // the school that publishes a journal and that school's U.S. News rank, as the rankings page shows them (the owner,
   // 2026-10-25: "the associated school" and "its US News rank"); a journal no school publishes shows its publisher
@@ -104,9 +116,43 @@
       d.appendChild(ul);
       src.appendChild(d);
     }
+    renderFrom(a);
     drawTree(a);
     renderGroups(a);
     renderBucket(a);
+  }
+
+  // the journals behind the tag that opened this page, each on one line: journal, its group, its higher-level group
+  function renderFrom(a) {
+    const box = $('txFrom');
+    if (!box) return;
+    box.replaceChildren();
+    box.hidden = !(FROM && FROM.area === current);
+    if (box.hidden) return;
+    const where = new Map();   // journal -> [group, higher-level group], anywhere in the scheme
+    T.areas.forEach((x) => x.k.forEach((f) => f.j.forEach(([ji]) => where.set(ji, [f.n, x.n]))));
+    const total = [...FROM.j.values()].reduce((t, k) => t + k, 0);
+    const head = el('p', { class: 'tx-from-head' });
+    head.append('From the rankings page' + (FROM.who ? ': ' : ''));
+    if (FROM.who) head.appendChild(el('b', null, FROM.who));
+    head.append(', ' + num(total) + ' article' + (total === 1 ? '' : 's') + ' in ' + a.n + ', by journal and group:');
+    box.appendChild(head);
+    const ul = el('ul', { class: 'tx-from-list' });
+    FROM.j.forEach((k, ji) => {
+      const [g, up] = where.get(ji) || ['', ''];
+      const li = el('li');
+      const b = el('button', { type: 'button', class: 'tx-catlink tx-jname', title: 'Its row in the table below' }, jname(ji) || 'Journal ' + ji);
+      b.addEventListener('click', () => showRow(ji));
+      li.appendChild(b);
+      li.appendChild(el('span', { class: 'tx-arrow', 'aria-label': 'in the group' }, ' → '));
+      li.appendChild(el('span', null, g || 'no group'));
+      li.appendChild(el('span', { class: 'tx-arrow', 'aria-label': 'in the higher-level group' }, ' → '));
+      li.appendChild(el('b', null, up || 'none'));
+      li.appendChild(el('span', { class: 'tx-counts' }, ' · ' + num(k) + ' article' + (k === 1 ? '' : 's')));
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    box.appendChild(el('p', { class: 'text-muted tx-from-note' }, 'These journals are marked in black in the tree and in their groups\' lists below.'));
   }
 
   // the groups of this higher-level group, each a drop-down (2026-10-28, audit R50; the owner, 2026-10-23: "drop-down
@@ -127,6 +173,7 @@
     const ul = el('ul');
     f.j.forEach(([ji, papers]) => {
       const li = el('li');
+      if (marked(ji)) li.className = 'tx-marked';
       const b = el('button', { type: 'button', class: 'tx-catlink tx-jname', title: 'Its row in the table below' }, jname(ji));
       b.addEventListener('click', () => showRow(ji));
       li.appendChild(b);
@@ -205,7 +252,8 @@
   function treeChart(box, opts) {
     box.ontouchstart = () => { lastTouch = Date.now(); };
     return Highcharts.chart(box, {
-      chart: { height: opts.height, width: opts.width || null, backgroundColor: 'transparent', spacing: [8, 4, 8, 4], marginLeft: opts.narrow ? 6 : 16,
+      chart: { events: { render() { if (opts.onRender) { try { opts.onRender(this); } catch (e) { /* the marks are an extra */ } } } },
+        height: opts.height, width: opts.width || null, backgroundColor: 'transparent', spacing: [8, 4, 8, 4], marginLeft: opts.narrow ? 6 : 16,
         marginRight: opts.marginRight || (opts.narrow ? 150 : 360), style: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' } },
       title: { text: null }, credits: { enabled: false }, exporting: { enabled: false },
       accessibility: { enabled: true, description: opts.label },
@@ -230,15 +278,24 @@
     const narrow = W < 560;
     const pts = [{ id: 'c', name: a.n, color: INK, marker: { radius: narrow ? 8 : 10, fillColor: INK }, custom: { kind: 'category', a: a } }];
     let rows = 0;
+    const any = FROM && FROM.area === current;
     a.k.forEach((f, fi) => {
-      pts.push({ id: 'f' + fi, parent: 'c', name: f.n, color: FIELD, marker: { radius: narrow ? 5 : 6, fillColor: FIELD }, custom: { kind: 'field', f: f, up: a.n } });
+      const hit = any && f.j.some(([ji]) => marked(ji));
+      pts.push({ id: 'f' + fi, parent: 'c', name: f.n, color: hit ? INK : FIELD, marker: { radius: narrow ? 5 : 6, fillColor: hit ? INK : FIELD },
+        custom: { kind: 'field', f: f, up: a.n, hit: hit } });
       f.j.forEach(([ji, papers, since, faculty, cnt]) => {
         rows++;
-        pts.push({ id: 'j' + ji, parent: 'f' + fi, name: jname(ji), color: JOUR, marker: { radius: 3.5, fillColor: JOUR },
-          custom: { kind: 'journal', ji: ji, c: [papers, since, faculty], cnt: cnt, up: f.n, cat: a.n } });
+        const m = marked(ji);
+        pts.push({ id: 'j' + ji, parent: 'f' + fi, name: jname(ji), color: m ? INK : JOUR, marker: { radius: m ? 5 : 3.5, fillColor: m ? INK : JOUR },
+          dataLabels: m ? { style: { fontWeight: '700', color: INK } } : any ? { style: { color: '#9a9893' } } : undefined,
+          custom: { kind: 'journal', ji: ji, c: [papers, since, faculty], cnt: cnt, up: f.n, cat: a.n, hit: m } });
       });
     });
     chart = treeChart(box, {
+      onRender: any ? (ch) => ch.series[0].points.forEach((p) => {
+        const l = p.linkToParent;
+        if (p.custom && p.custom.hit && l && l.graphic) l.graphic.attr({ stroke: INK, 'stroke-width': 1.6 });
+      }) : null,
       height: Math.max(220, rows * (narrow ? 20 : 22) + 40), narrow: narrow, data: pts, all: false,
       label: a.n + ': its groups and every specialty journal in them. The groups under the chart and the table below list the same journals with what each placement rests on.',
       series: {
@@ -515,6 +572,7 @@
     const isAll = fold(want) === 'all';   // taxonomy.html#all opens the All view
     const at = T.areas.findIndex((a) => fold(a.n) === fold(want));
     if (isAll) current = ALL; else if (at >= 0) current = at;
+    if (FROM && at >= 0) FROM.area = at;
     $('loading').remove();
     document.querySelectorAll('.ins-section').forEach((s) => { s.hidden = false; });
     if (typeof Highcharts !== 'undefined') allowFolding();
@@ -525,6 +583,7 @@
     window.addEventListener('resize', onResize);
     if (want && at < 0 && !isAll && !['tree', 'mapping', 'how', 'sources'].includes(want)) { $('find').value = want; $('find').dispatchEvent(new Event('input')); $('mapping').scrollIntoView(); }
     else if (location.hash && at < 0 && !isAll) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }
+    if (FROM && FROM.area === current) $('txFrom').scrollIntoView({ block: 'start' });
     if (window.LSR.crunch) window.LSR.crunch.hide();
   }).catch((e) => {
     if (window.LSR.crunch) window.LSR.crunch.hide(0);

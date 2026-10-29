@@ -50,4 +50,11 @@
   .eq-card .ins-table .eq-sum th, .eq-card .ins-table .eq-sum td,
   .eq-card .ins-table .eq-schools th, .eq-card .ins-table .eq-schools td,
   .eq-card .ins-table .eq-time th, .eq-card .ins-table .eq-time td { padding: 3px 2px; }
+  /* and a five-year window ('1982–1986') never broken after its dash (the slices' column heads are 'Top 14' and the
+     like, which wrap between the words) */
+  .eq-card .ins-table .eq-time tbody th { white-space: nowrap; }
+}
+/* the narrowest phones (320px): each school's articles a half size smaller still, so its eight columns fit the box */
+@media (max-width: 359px) {
+  .eq-card .ins-table table.eq-schools { font-size: 10.5px; }
 }
