@@ -20,10 +20,10 @@ Not on GitHub, or not sure? Email [Nathan Reitinger](mailto:nathan.reitinger@law
 
 | column | what goes in it |
 |---|---|
-| `action` | `add`, `remove`, `move`, `alias` or `homepage` |
+| `action` | `add`, `remove`, `move`, `alias`, `homepage` or `not_paper` |
 | `hein_name` | the person's name exactly as HeinOnline writes it on their author page: `Last, First Middle` |
 | `school` | the school exactly as it is written in `list-*.csv` (for `add`, `move`, and optionally `remove`) |
-| `name` | for `alias` only: the person's name as it is on the list |
+| `name` | for `alias`: the person's name as it is on the list; for `not_paper`: `journal\|year\|start of the title` |
 | `homepage` | for `homepage` only: a link to their faculty page |
 | `note` | why (a link to the faculty page helps the review) |
 
@@ -36,6 +36,7 @@ remove,"Roe, Richard",Example University,,,emeritus since 2024
 move,"Poe, Pat",University of Michigan,,,moved from Example University in 2026
 alias,"Smith, John Q.",Example University,"Smith, John",,HeinOnline also lists his articles under this spelling
 homepage,"Doe, Jane A.",,,https://law.example.edu/faculty/doe,
+not_paper,"Doe, Jane",Northwestern University,"Example Law Review|2021|A Title That Is Not Hers",,another Jane Doe wrote it
 ```
 
 - **add**: puts the person on that school's list (a second school for a joint appointment is fine).
@@ -44,3 +45,5 @@ homepage,"Doe, Jane A.",,,https://law.example.edu/faculty/doe,
 - **alias**: another HeinOnline spelling of a person already on the list, so articles written under that spelling
   are credited to them. Use it when the site misses some of someone's articles.
 - **homepage**: a link shown next to the person's name on the site.
+- **not_paper**: takes one article back from a person when the spelling it is listed under also carries another
+  person's articles (an alias works for a whole spelling; this works for one article).
