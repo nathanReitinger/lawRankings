@@ -227,6 +227,16 @@
 .tx-table tr.tx-hit td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .tx-catlink { padding: 0; border: 0; background: none; font: inherit; color: var(--accent); cursor: pointer; text-align: left; }
 .tx-catlink:hover { text-decoration: underline; }
+/* (2026-10-29) the journals behind an area tag from the rankings page: journal -> group -> higher-level group */
+.tx-from { margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--rule, rgba(11,11,11,.12)); border-left: 3px solid #0b0b0b; border-radius: 6px; background: var(--plane); }
+.tx-from[hidden] { display: none; }
+.tx-from-head { margin: 0 0 6px; font-size: 14px; }
+.tx-from-list { margin: 0; padding: 0; list-style: none; font-size: 13.5px; }
+.tx-from-list li { padding: 3px 0; border-top: 1px solid rgba(11,11,11,.06); }
+.tx-from-list li:first-child { border-top: 0; }
+.tx-from-list .tx-arrow { color: var(--muted); padding: 0 2px; }
+.tx-from-note { margin: 6px 0 0; font-size: 12.5px; }
+.tx-journals li.tx-marked .tx-jname { font-weight: 700; color: #0b0b0b; }
 .tx-words { font-family: var(--serif); font-style: italic; color: var(--ink-2); margin: 2px 0; }
 .tx-cite { font-size: 12.5px; margin-top: 2px; overflow-wrap: anywhere; }
 @media (max-width: 640px) {

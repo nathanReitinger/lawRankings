@@ -458,8 +458,8 @@
     : 'a beta model');
   function betaTags(person) {
     const b = (BETA && BETA.people[person]) || [];
-    return b.map(([g, n]) => '<span class="c-beta" title="' + esc('Beta: ' + n + ' of their titles (any journal) read as ' + DATA.groups[g] + '; ' + betaNote()) + '">' +
-      esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('');
+    return b.map(([g, n]) => areaTag(g, n, 'Beta: ' + n + ' of their titles (any journal) read as ' + DATA.groups[g] + '; ' + betaNote() +
+      '. Opens ' + DATA.groups[g] + ' on the Subject areas page.', areaHref(g), 'c-beta')).join('');
   }
 
   function renderRanking() {
@@ -529,6 +529,29 @@
   // pass and kept until the years or the short-piece switch change. As for a person, only specialty journals speak to
   // a subject, and journals whose scope is law or policy generally count toward none.
   let schoolAreaCache = { key: '', map: null };
+  // (2026-10-29, the owner: "get link to every area tag. it needs to have a clear link from journal to higher-level
+  // tag") an area tag links to its higher-level group on the Subject areas page, carrying the journals behind the tag
+  // (journal id:articles) and whose they are, so that page can show each journal, its group and the tag in one line:
+  // taxonomy.html?j=7:2,194:1&w=<whose>#<higher-level group>
+  function areaHref(g, journals, who) {
+    const q = [];
+    if (journals && journals.length) q.push('j=' + journals.map(([ji, k]) => ji + ':' + k).join(','));
+    if (who) q.push('w=' + encodeURIComponent(who));
+    return 'taxonomy.html' + (q.length ? '?' + q.join('&') : '') + '#' + encodeURIComponent(DATA.groups[g]);
+  }
+  function areaTag(g, n, title, href, cls) {
+    return '<a class="' + (cls || 'c-specialty') + ' area-tag" href="' + esc(href) + '" title="' + esc(title) + '">' +
+      esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></a>';
+  }
+  // the journals behind a person's tag, all years (build_data.py: people[i][5], [[field, articles, [[journal, articles]]]])
+  const personAreaJournals = (person, g) => (DATA.people[person][5] || []).filter(([f]) => areaOfField(f) === g)
+    .flatMap(([, , js]) => js || []).sort((a, b) => b[1] - a[1]);
+  // the journals of a set of articles, most articles first
+  function journalsOf(papers) {
+    const m = new Map();
+    papers.forEach((p) => { const ji = DATA.papers.journal[p]; m.set(ji, (m.get(ji) || 0) + 1); });
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }
   function schoolAreas(s) {
     const key = state.from + '-' + state.to + '-' + (state.minor ? 1 : 0);
     if (schoolAreaCache.key !== key) {
@@ -551,23 +574,36 @@
     }
     const m = schoolAreaCache.map.get(s);
     if (!m) return [];
-    return [...m.entries()].map(([g, set]) => [g, set.size]).sort((a, b) => b[1] - a[1] || DATA.groups[a[0]].localeCompare(DATA.groups[b[0]]));
+    return [...m.entries()].map(([g, set]) => [g, set.size, set]).sort((a, b) => b[1] - a[1] || DATA.groups[a[0]].localeCompare(DATA.groups[b[0]]));
   }
   function schoolTagsHtml(s, top) {
     const all = schoolAreas(s);
     if (!all.length) return '';
     const name = DATA.schools[s][0];
-    return ' <span class="areaname school-tags">' + all.slice(0, top).map(([g, n]) => '<span class="c-specialty" title="' +
-      esc(name + ': ' + n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' by its current faculty in ' + DATA.groups[g] + ', ' + state.from + '–' + state.to) + '">' +
-      esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('') + '</span>';
+    const when = state.from + '–' + state.to;
+    return ' <span class="areaname school-tags">' + all.slice(0, top).map(([g, n, set]) => areaTag(g, n,
+      name + ': ' + n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' by its current faculty in ' + DATA.groups[g] + ', ' + when +
+      '. Opens ' + DATA.groups[g] + ' on the Subject areas page, with these journals.', areaHref(g, journalsOf(set), name + ', ' + when))).join('') + '</span>';
   }
+  // the articles of a school's current faculty in the chosen years (short pieces as the switch says), each once, with
+  // the share of its authors who are on that faculty (for the bars' adjusted counts)
+  function schoolPapers(s) {
+    const P = DATA.papers, share = new Map();
+    peopleAt(s).forEach((person) => (personPapers.get(person) || []).forEach((p) => {
+      if (P.year[p] < state.from || P.year[p] > state.to || (state.minor && P.minor[p])) return;
+      share.set(p, (share.get(p) || 0) + 1 / P.authors[p]);
+    }));
+    return share;
+  }
+  // (2026-10-29, the owner: "don't include this below the chart, just include a quick description of it" and "include
+  // the specialty area graph, to show where scholars at that school mostly publish. like the bar chart") the trend chart,
+  // a line on what it plots, and the school's bars, as a person's drop-down has
   function schoolSummaryHtml(s) {
-    const all = schoolAreas(s);
-    const tags = all.length
-      ? '<p class="works-tag">Subject areas of its faculty\'s specialty-journal articles, ' + state.from + '–' + state.to + ': ' +
-        all.map(([g, n]) => '<b>' + esc(DATA.groups[g]) + '</b> ' + n).join(' · ') + '</p>'
-      : '<p class="detail-note">Its faculty have no specialty-journal articles in ' + state.from + '–' + state.to + '.</p>';
-    return '<div class="school-summary">' + trendBox({ school: s }) + tags + '</div>';
+    const share = schoolPapers(s);
+    return '<div class="school-summary">' + trendBox({ school: s }) +
+      '<p class="detail-note trend-desc">Counted articles per year by its current faculty in the selected journals, each split between its co-authors. ' +
+      'The shaded band marks the selected years.</p>' +
+      authorBars([...share.keys()], { title: 'Where its faculty publish', weight: (p) => share.get(p), who: DATA.schools[s][0] }) + '</div>';
   }
 
   // the chart under an opened school or person: their counted articles per year in the selected journals, one line per
@@ -657,7 +693,7 @@
       const series = shown.map((x, i) => ({ name: x.name, color: x.color || TREND_COLORS[i], data: [...x.raw].map(r1) }));
       // (the owner, 2026-10-28: "line chart not bar") one line per selected area, and their total when there are several:
       // each article once, as in the By year strip
-      if (series.length > 1) series.unshift({ name: 'All selected', color: '#333', lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
+      if (series.length > 1) series.unshift({ name: 'Total', color: '#333', lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
       box.innerHTML = '';
       if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + y0 + '–' + y1 + '.</p>'; return; }
       // (review) the legend gets its own room (a row per line on a phone, two to a row wider), so the plot keeps its height
@@ -696,8 +732,9 @@
       // inference is made. If they have multiple specialty then it might be multi tag"): every area of the specialty
       // journals they published in, all years, each with its count (build_data.py: people[i][4]); nothing for someone
       // with no specialty-journal article
-      const tags = betaOn && BETA ? betaTags(person) : (DATA.people[person][4] || []).map(([g, n]) => '<span class="c-specialty" title="' + esc(areaTitle(person, g, n)) + '">' +
-        esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></span>').join('');
+      const tags = betaOn && BETA ? betaTags(person) : (DATA.people[person][4] || []).map(([g, n]) => areaTag(g, n,
+        areaTitle(person, g, n) + '. Opens ' + DATA.groups[g] + ' on the Subject areas page, with these journals.',
+        areaHref(g, personAreaJournals(person, g), DATA.people[person][0] + ', all years'))).join('');
       html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
@@ -756,7 +793,7 @@
       ' (' + state.from + '–' + state.to + ') count in this ranking' +
       (papers.length > f.papers.length ? '; the others are outside the selected journals' + (skipped ? ' or skipped as short pieces (' + skipped + ')' : '') : '') +
       '.' + (DATA.people[person][3] ? ' <a href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener">Faculty page</a>' : '') + '</p>';
-    detailRow.firstElementChild.innerHTML = trendBox({ person: person, school: s }) + worksOn(person, forBars) + authorBars(forBars) + note;
+    detailRow.firstElementChild.innerHTML = trendBox({ person: person, school: s }) + worksOn(person, forBars) + authorBars(forBars, { who: DATA.people[person][0] }) + note;
     drawPending(detailRow);
   }
 
@@ -809,7 +846,10 @@
     const all = DATA.people[person][4] || [];
     // (audit) the tags (all years) above the chosen years' tree, so the two cannot read as a contradiction
     const b = betaOn && BETA ? (BETA.people[person] || []) : [];
-    const tagLine = (all.length ? '<p class="works-tag">All years: ' + all.map(([g, n]) => '<b>' + esc(DATA.groups[g]) + '</b> ' + n).join(' · ') + '</p>' : '') +
+    const areaLink = (g, js, whose) => '<a class="area-link" href="' + esc(areaHref(g, js, whose)) + '" title="' + esc('Opens ' + DATA.groups[g] +
+      ' on the Subject areas page, with these journals') + '">' + esc(DATA.groups[g]) + '</a>';
+    const tagLine = (all.length ? '<p class="works-tag">All years: ' + all.map(([g, n]) => '<b>' + areaLink(g, personAreaJournals(person, g), DATA.people[person][0] + ', all years') +
+      '</b> ' + n).join(' · ') + '</p>' : '') +
       (betaOn && BETA ? '<p class="works-beta"><span class="beta-badge">Beta</span> From their titles in any journal, the title model would say: ' +
         (b.length ? b.map(([g, n]) => esc(DATA.groups[g]) + ' ' + n).join(' · ') : 'nothing it is sure of') + ' (' + esc(betaNote()) + ').</p>' : '');
     if (!areas.length) {
@@ -817,7 +857,8 @@
         ' has no specialty-journal articles in ' + state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') +
         (all.length ? '' : ', and none in any year, so no area is shown') + '.</p></div>';
     }
-    const tree = areas.map(([g, a]) => '<li><b>' + esc(DATA.groups[g] || 'Other') + '</b> <span class="text-muted">' + a.n + '</span><ul>' +
+    const tree = areas.map(([g, a]) => '<li><b>' + (DATA.groups[g] ? areaLink(g, a.fields.flatMap(([, , js]) => js).sort((x, y) => y[1] - x[1]),
+      DATA.people[person][0] + ', ' + state.from + '–' + state.to) : 'Other') + '</b> <span class="text-muted">' + a.n + '</span><ul>' +
       a.fields.sort((x, y) => y[1] - x[1] || DATA.subjects[x[0]].localeCompare(DATA.subjects[y[0]])).map(([f, n, js]) => '<li>' + esc(DATA.subjects[f]) +
         ' <span class="text-muted">' + n + '</span> · ' + js.map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') + '</li>').join('') +
       '</ul></li>').join('');
@@ -831,22 +872,29 @@
   function catShort(c) { return c === 0 ? 'flagship' : c === -1 ? 'other general' : shortName(DATA.groups[c - 1]); }
 
   // horizontal bars, most to least; empty categories are left out
-  function authorBars(papers) {
-    const n = new Map(), adj = new Map();
+  // opts (a school's bars): title, weight(p) = the share of the article's authors on its faculty, who = the school
+  function authorBars(papers, opts) {
+    const o = opts || {};
+    const n = new Map(), adj = new Map(), byCat = new Map();
     papers.forEach((p) => {
       journalCats[DATA.papers.journal[p]].forEach((c) => {
         n.set(c, (n.get(c) || 0) + 1);
-        adj.set(c, (adj.get(c) || 0) + 1 / DATA.papers.authors[p]);
+        adj.set(c, (adj.get(c) || 0) + (o.weight ? o.weight(p) : 1 / DATA.papers.authors[p]));
+        if (c > 0) { if (!byCat.has(c)) byCat.set(c, []); byCat.get(c).push(p); }
       });
     });
     const cats = [...n.keys()].sort((a, b) => n.get(b) - n.get(a) || a - b);   // most to least
     if (!cats.length) return '';
     const max = Math.max(...n.values());
-    return '<div class="bars" role="img" aria-label="Where they publish, ' + state.from + '–' + state.to + '">' +
-      '<div class="bars-title">Where they publish, ' + state.from + '–' + state.to + '</div>' +
+    const title = (o.title || 'Where they publish') + ', ' + state.from + '–' + state.to;
+    return '<div class="bars" aria-label="' + esc(title) + '">' +
+      '<div class="bars-title">' + esc(title) + '</div>' +
       cats.map((c) => {
         const tip = catLabel(c) + ': ' + n.get(c) + ' article' + (n.get(c) === 1 ? '' : 's') + ' (adjusted for co-authors: ' + one(adj.get(c)) + ')';
-        return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + esc(catLabel(c)) + '</span>' +
+        const label = c > 0 && o.who
+          ? '<a class="area-link" href="' + esc(areaHref(c - 1, journalsOf(byCat.get(c)), o.who + ', ' + state.from + '–' + state.to)) + '">' + esc(catLabel(c)) + '</a>'
+          : esc(catLabel(c));
+        return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + label + '</span>' +
           '<span class="bar-track"><span class="bar ' + (c === 0 ? 'bg-general' : c === -1 ? 'bg-other' : 'bg-specialty') + '" style="width:' + (100 * n.get(c) / max).toFixed(1) + '%"></span></span>' +
           '<span class="bar-value">' + n.get(c) + '</span></div>';
       }).join('') + '</div>';
