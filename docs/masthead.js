@@ -47,10 +47,8 @@
   // motion: a still asterisk, only its opacity pulses.
   const crunch = (function () {
     const SIZE = 56, R = 19, ARMS = 8, R0 = 2.2, CYCLE = 1.8, HOP = 0.45, INK = '11,11,11';
-    const QUIPS = ['Crunching numbers', 'Counting footnotes', 'Splitting co-author credit', 'Taking geometric means',
-      'Sorting the law reviews', 'Weighing the specialty journals', 'Tallying the faculty', 'Shepardizing the math',
-      'Consulting the W&L tables', 'Carrying the one'];
-    let veil, canvas, ctx, label, raf = 0, shownAt = 0, depth = 0, hideTimer = 0, quipTimer = 0, quip = 0;
+    const QUIPS = ['Crunching numbers'];   // (the caller's own label stays up: plain description, announced once)
+    let veil, canvas, ctx, label, raf = 0, shownAt = 0, depth = 0, hideTimer = 0;
     let t0 = 0, dpr = 0;
     const still = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const TAU = Math.PI * 2, STEP = TAU / ARMS;
@@ -145,9 +143,6 @@
       document.body.setAttribute('aria-busy', 'true');
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(frame);
-      quip = Math.floor(Math.random() * QUIPS.length);
-      clearInterval(quipTimer);
-      quipTimer = setInterval(() => { quip = (quip + 1) % QUIPS.length; label.textContent = QUIPS[quip] + '…'; }, 1600);
     }
 
     // hidden once every show() has its hide(), and not before it has been seen for a moment (no flicker)
@@ -160,7 +155,6 @@
         if (depth) return;
         veil.classList.remove('on');
         document.body.removeAttribute('aria-busy');
-        clearInterval(quipTimer);
         setTimeout(() => { if (!veil.classList.contains('on')) cancelAnimationFrame(raf); }, 300);
       }, wait);
     }
@@ -269,7 +263,7 @@
     gallery.setAttribute('role', 'dialog');
     gallery.setAttribute('aria-modal', 'true');
     gallery.setAttribute('aria-labelledby', 'mastGalleryTitle');
-    gallery.innerHTML = '<div class="mast-panel"><div class="mast-top"><div><h2 id="mastGalleryTitle">Pick a masthead</h2>' +
+    gallery.innerHTML = '<div class="mast-panel"><div class="mast-top"><div><h2 id="mastGalleryTitle">Mastheads</h2>' +
       '<p>"See it" shows a masthead on this page. A voted favorite stays on this browser; without one, a new masthead comes each visit.</p></div>' +
       '<button type="button" class="mast-x" aria-label="Close">&times;</button></div><div class="mast-grid"></div>' +
       '<div class="mast-bottom"><button type="button" class="mast-shuffle">A new masthead each visit</button></div></div>';
@@ -281,6 +275,7 @@
       const wrap = document.createElement('div');
       wrap.className = 'lsr-mast-wrap mast-preview';
       wrap.setAttribute('data-mast', n);
+      wrap.setAttribute('aria-hidden', 'true');   // a picture of the masthead, not a second page header
       if (head) {
         const c = head.cloneNode(true);
         c.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
@@ -293,8 +288,8 @@
       }
       const bar = document.createElement('div');
       bar.className = 'mast-bar';
-      bar.innerHTML = '<span class="mast-no">No. ' + n + ' · ' + FAMILY(n) + '</span>' +
-        '<button type="button" class="mast-see">See it</button><button type="button" class="mast-vote">Vote for this one</button>';
+      bar.innerHTML = '<span class="mast-no" id="mastNo' + n + '">No. ' + n + ' · ' + FAMILY(n) + '</span>' +
+        '<button type="button" class="mast-see" aria-describedby="mastNo' + n + '">See it</button><button type="button" class="mast-vote" aria-describedby="mastNo' + n + '">Vote for this one</button>';
       card.appendChild(wrap);
       card.appendChild(bar);
       grid.appendChild(card);
@@ -337,6 +332,7 @@
     if (!gallery) buildGallery();
     markCards();
     gallery.classList.add('on');
+    [...document.body.children].forEach((el) => { if (el !== gallery) el.inert = true; });   // modal: focus stays in the dialog
     document.documentElement.classList.add('mast-open');
     reactSync();
     pixelSync();
@@ -349,6 +345,7 @@
     document.documentElement.classList.remove('mast-open');
     reactSync();
     pixelSync();
+    [...document.body.children].forEach((el) => { el.inert = false; });
     if (opener) opener.focus();
   }
 

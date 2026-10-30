@@ -257,7 +257,7 @@
   function key(c, items, extra) {
     c.legend.setAttribute('aria-label', 'Key: tap a slice to pick it out');
     items.forEach(([i, tail]) => {
-      const b = el('button', { type: 'button', class: 'eq-key', 'aria-pressed': 'false', 'data-slice': String(i) });
+      const b = el('button', { type: 'button', class: 'eq-key', 'aria-pressed': String(focus === i), 'data-slice': String(i) });
       const sw = el('i');
       sw.style.background = SLICES[i].color;
       const [main, more] = sliceParts(i);
@@ -342,10 +342,12 @@
       'an article counts once for each school with an author on it, not split among co-authors' + (R.noHome ? ', and not for the school that publishes the review' : '') + '. Tap a slice in the key to pick it out.');
     key(c, SLICES.map((sl, i) => [i, ' · Gini ' + gini(giniOf(R.slices[i]))]), [['Equal counts', 'dash']]);
     // the ten schools, named
-    const top = R.US.slice().sort((a, b) => h.counts[b] - h.counts[a] || S[a][0].localeCompare(S[b][0]));
+    const top = R.US.filter((s) => h.counts[s] > 0).sort((a, b) => h.counts[b] - h.counts[a] || S[a][0].localeCompare(S[b][0]));
     const ten = top.slice(0, 10).map((s) => instLabel(S[s][0]));
+    const list = (a) => (a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a.join(''));
     const one = R.slices[0];
-    c.foot.textContent = 'The ten with the most top-14-review articles: ' + ten.slice(0, 9).join(', ') + ' and ' + ten[9] + (h.tenthTied ? ' (tied for tenth)' : '') + '. ' +
+    c.foot.textContent = (top.length >= 10 ? 'The ten with the most top-14-review articles: ' + list(ten) + (h.tenthTied ? ' (tied for tenth)' : '') + '. '
+      : top.length ? 'Schools with top-14-review articles: ' + list(ten) + '. ' : '') +
       sliceSubject(0).charAt(0).toUpperCase() + sliceSubject(0).slice(1) + ' had ' + num(one.articles) + ' articles by U.S. law faculty in these years, from ' + one.any + ' of the ' + n + ' schools.';
     const T = details(c, 'The numbers');
     table(T.tb, ['Slice (reviews)', 'Articles', 'School counts', 'Schools with articles', 'Top 10 schools', 'Bottom ' + half, 'Gini'],

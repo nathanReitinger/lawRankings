@@ -168,8 +168,10 @@
     bold(eff(k, m.est) + ' percentage points');
     say(' (before the switch: ' + val(k, m.treated_before) + '; 95% interval ' + ci(k, m.lo, m.hi) + ' points). ');
     say('p-values: randomization test (the same switch years given to comparison reviews) ' + fmtP(m.p_perm) + '; clustered by review ' + fmtP(m.p) + '. ');
-    if (old.length) say('Not in the before-and-after comparison: ' + listSay(old.map((j) => jshort(j.name))) + ', anonymous with no known start (earliest records: ' +
-      listSay(old.map((j) => j.adopted)) + '); the last chart includes them.');
+    const und = A.journals.filter((j) => j.role === 'undated');
+    if (old.length || und.length) say('Not in the before-and-after comparison: ' +
+      (old.length ? listSay(old.map((j) => jshort(j.name))) + ', anonymous with no known start (earliest records: ' + listSay(old.map((j) => j.adopted)) + '; the last chart includes them)' : '') +
+      (und.length ? (old.length ? '; ' : '') + listSay(und.map((j) => jshort(j.name))) + ', anonymous with no date found' : '') + '.');
   }
 
   // ---------------------------------------------------------------- 1. three numbers
@@ -247,7 +249,7 @@
     const T = details(c.fig, 'The numbers, by year since the switch');
     const words = () => {
       const k = outcome, ev = E();
-      c.h.textContent = SHORT[k] + ' by year since the switch: switching reviews minus comparison reviews (' + (isShare(k) ? 'percentage points' : 'places') + ', 95% intervals)';
+      c.h.textContent = 'Difference in ' + SHORT[k].toLowerCase() + ' by year since the switch';
       c.p.textContent = 'Dots: the difference between the switching and comparison reviews in ' + SHORT[k].toLowerCase() + (isShare(k) ? ' (percentage points)' : ' (places)') +
         ' in each year counted from the switch, relative to the year before the switch (set to 0), with 95% intervals. Years ' + A.bin + ' or more before or after are pooled at the ends. Year 0, the switch year, mostly holds articles chosen before the policy. ' +
         'The difference-in-differences design assumes the two groups would have moved in parallel without the switch; the years left of 0 are the years before it.';
@@ -306,7 +308,7 @@
       c.p.textContent = 'Per volume year: ' + SAY[k] + (k === 'rank' ? ' (each article the mean over its authors; lower is a higher-ranked school)' : '') +
         ', for the ' + sw.length + ' switching reviews pooled (each article once) and the ' + num(A.counts.comparison) + ' comparison reviews pooled. Shaded: the switch years of the ' + sw.length + ' (' + y0 + '–' + y1 + '). ' +
         'The difference-in-differences estimate is the change in the gap between the two lines after the switches. Volume year ' + A.last + ' is partial.';
-      table(T.tb, ['Year', 'Switching', 'Articles', 'Comparison', 'Articles'],
+      table(T.tb, ['Year', 'Switching', 'Switching articles', 'Comparison', 'Comparison articles'],
         t.years.map((y, i) => { const a = t.switched[i], b = t.comparison[i]; return [String(y), a ? val(k, a[0]) : '–', a ? num(a[1]) : '0', b ? val(k, b[0]) : '–', b ? num(b[1]) : '0']; }));
       const P = A.per_journal[k];
       table(R.tb, ['Review (switch)', 'Before', 'After', 'Comparison before → after', 'Difference'],
@@ -352,7 +354,7 @@
     const rows = () => [Object.assign({ key: 'main', label: 'The main estimate (above)' }, A.main[outcome])].concat(A.robust[outcome]);
     const words = () => {
       const k = outcome, R = rows();
-      c.h.textContent = 'Other specifications' + (k === 't14' ? '' : ' (' + SHORT[k].toLowerCase() + ')') + ': comparison groups, sets of switching reviews, weights and windows';
+      c.h.textContent = 'Other specifications' + (k === 't14' ? '' : ' (' + SHORT[k].toLowerCase() + ')');
       c.p.textContent = 'The same comparison with other specifications. The stacked difference-in-differences runs each switch year as its own experiment against reviews that do not switch within six years, so reviews that have already switched are not used as comparisons. ' +
         'The other rows change the comparison reviews, which switching reviews count, the weighting, or the years, or leave out one switching review at a time. Reviews: the number of switching and comparison reviews in each row.';
       table(T.tb, ['Specification', 'Change (95% interval)', 'p, clustered', 'p, random\u00ADization', 'Reviews'],
@@ -388,7 +390,7 @@
   function figList() {
     const c = card('anList', 'Flagship law reviews and their stated anonymous-review policies',
       'Flagship reviews with a policy entry: the policy found and its source (the review’s own pages, current or archived, its editors’ accounts, or published studies), or that it was not checked. A year is counted as a switch only when the review announced it, its editors reported it, or archived pages show the policy absent and then present; ' +
-      'an “earliest” year is the first record of the policy, which may be older. Flagship reviews not listed here count as comparison reviews.');
+      'an “earliest” year is the first record of the policy, which may be older. Confidence: how firmly the source supports the policy and its year (high, medium, low); a switch year is used only at high or medium confidence. Flagship reviews not listed here count as comparison reviews.');
     c.legend.remove(); c.box.remove(); c.foot.remove();
     const groups = [
       ['switched', 'Switched in a dated year: switching reviews', 0],
@@ -397,7 +399,7 @@
       ['undated', 'Anonymous, undated: not in the comparison', 0],
       ['named', 'On record as asking for names or CVs: comparison reviews', 1],
       ['no statement', 'No anonymity statement found: comparison reviews', 1],
-      ['unknown', 'Article policy not found: comparison reviews', 1],
+      ['unknown', 'Article policy not known: comparison reviews', 1],
     ];
     const wrap = [el('div', { class: 'an-list' }), el('div', { class: 'an-list' })];
     let ul = null;
@@ -440,12 +442,9 @@
     const H = A.home, rv = H.reviews.filter((r) => r.ratio != null).slice().sort((a, b) => a.ratio - b.ratio || jname(a.j).localeCompare(jname(b.j)));
     if (!rv.length) return;
     const anon = rv.filter((r) => r.role === 'before');
-    const named = rv.filter((r) => r.role === 'named' || r.role === 'no statement');
-    const med = (xs) => { const s = xs.map((r) => r.ratio).sort((a, b) => a - b), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null; };
-    const mn = med(named);
-    const c = card('anHome', 'Home edge of top-14 law reviews (own-faculty share against the other top-14 reviews), by stated anonymous-review policy',
+    const c = card('anHome', 'Own-faculty ratio of top-14 law reviews, by stated anonymous-review policy',
       (anon.length ? listSay(anon.map((r) => jshort(jname(r.j)))) + ': anonymous review with no known start (earliest records: ' + listSay(anon.map((r) => jshort(jname(r.j)) + ' ' + r.adopted)) + '), so not in the before-and-after comparison. ' : '') +
-      'For each review of a top-14 school (' + rv.length + ' reviews, ties kept), the home edge, ' + H.window[0] + '–' + H.window[1] +
+      'For each review of a top-14 school (' + rv.length + ' reviews, ties kept), the own-faculty ratio, ' + H.window[0] + '–' + H.window[1] +
       ': the share of its faculty-authored articles with an author on its own faculty, divided by that faculty’s share of the other top-14 reviews’ articles (1 = the same share in both). ' +
       'The ratio counts published articles; submissions and reading practices (such as a guaranteed read for a review’s own faculty) are not in the data.');
     const lg = {}, swYears = [];
@@ -454,31 +453,29 @@
     c.legend.appendChild(swatch('95% interval', css('--ink-2', '#52514e'), 'line'));
     const fmtR = (x) => (x == null ? '–' : x.toFixed(1) + '×');
     const lo = Math.min.apply(null, rv.map((r) => r.own)), hi = Math.max.apply(null, rv.map((r) => r.own));
-    c.foot.textContent = (anon.length ? 'Median home edge: ' + fmtR(med(anon)) + ' for the ' + anon.length + ' anonymous reviews with no known start (' + listSay(anon.map((r) => jshort(jname(r.j)) + ' ' + fmtR(r.ratio))) + '), ' +
-      fmtR(mn) + ' for the ' + named.length + ' on record as naming authors or with no anonymity statement. ' : '') +
-      'Articles by a review’s own faculty, ' + H.window[0] + '–' + H.window[1] + ': ' + num(lo) + ' to ' + num(hi) + ' per review.';
+    c.foot.textContent = 'Articles by a review’s own faculty, ' + H.window[0] + '–' + H.window[1] + ': ' + num(lo) + ' to ' + num(hi) + ' per review.';
     const T = details(c.fig, 'The numbers');
-    table(T.tb, ['Review', 'Policy', 'Own faculty', 'Elsewhere', 'Home edge'],
+    table(T.tb, ['Review', 'Policy', 'Own faculty', 'Elsewhere', 'Ratio'],
       rv.slice().reverse().map((r) => [jname(r.j), ROLE[r.role] ? (r.role === 'switched' || r.role === 'too recent' ? 'Switched ' + r.adopted : ROLE[r.role].label) : r.role,
         [(100 * r.share).toFixed(1) + '%', num(r.own) + ' of ' + num(r.articles)], [(100 * r.elsewhere_share).toFixed(1) + '%', num(r.elsewhere) + ' of ' + num(r.elsewhere_articles)],
         [fmtR(r.ratio), r.ratio_lo != null ? r.ratio_lo.toFixed(1) + '–' + r.ratio_hi.toFixed(1) : '']]), 'an-home');
-    T.tb.insertBefore(el('p', { class: 'an-note' }, 'Own faculty: the review’s faculty-authored articles with an author on its own school’s faculty. Elsewhere: that faculty’s articles in the other top-14 reviews, as a share of those reviews’ faculty-authored articles. Home edge: the first share over the second, with a 95% interval.'), T.tb.firstChild);
+    T.tb.insertBefore(el('p', { class: 'an-note' }, 'Own faculty: the review’s faculty-authored articles with an author on its own school’s faculty. Elsewhere: that faculty’s articles in the other top-14 reviews, as a share of those reviews’ faculty-authored articles. Ratio: the first share over the second, with a 95% interval.'), T.tb.firstChild);
     if (!has('bar') || !has('errorbar')) { noChart(c, T.d); return; }
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
       makeChart(c.box, {
         chart: { type: 'bar', height: 40 + rv.length * (narrow ? 24 : 26), marginLeft: narrow ? 104 : 270 },
-        accessibility: { description: 'Bars: each top-14 review’s home edge (its own faculty’s share of its articles over that faculty’s share of the other top-14 reviews), with 95% intervals, colored by anonymous-review policy. The table below lists the numbers.' },
+        accessibility: { description: 'Bars: each top-14 review’s own-faculty ratio (its own faculty’s share of its articles over that faculty’s share of the other top-14 reviews), with 95% intervals, colored by anonymous-review policy. The table below lists the numbers.' },
         xAxis: { categories: rv.map((r) => (narrow ? jshort(jname(r.j)) : jname(r.j))), labels: { style: { fontSize: narrow ? '11px' : '12px', color: css('--ink-2', '#52514e') }, step: 1 }, tickLength: 0, lineWidth: 0 },
-        yAxis: { min: 0, title: { text: narrow ? null : 'Home edge (1 = none)' }, labels: { format: '{value}×' }, plotLines: [{ value: 1, color: css('--ink-2', '#52514e'), width: 1, dashStyle: 'Dash', zIndex: 3 }] },
+        yAxis: { min: 0, title: { text: narrow ? null : 'Own-faculty ratio (1 = same share)' }, labels: { format: '{value}×' }, plotLines: [{ value: 1, color: css('--ink-2', '#52514e'), width: 1, dashStyle: 'Dash', zIndex: 3 }] },
         tooltip: { formatter() {
           const r = rv[this.point.index];
-          return '<b>' + esc(jname(r.j)) + '</b><br>Home edge <b>' + fmtR(r.ratio) + '</b>' + (r.ratio_lo != null ? ' (95% ' + r.ratio_lo.toFixed(1) + '–' + r.ratio_hi.toFixed(1) + ')' : '') +
+          return '<b>' + esc(jname(r.j)) + '</b><br>Ratio <b>' + fmtR(r.ratio) + '</b>' + (r.ratio_lo != null ? ' (95% ' + r.ratio_lo.toFixed(1) + '–' + r.ratio_hi.toFixed(1) + ')' : '') +
             '<br>Own faculty: ' + num(r.own) + ' of ' + num(r.articles) + ' articles (' + (100 * r.share).toFixed(1) + '%)<br>In the other top-14 reviews: ' + num(r.elsewhere) + ' of ' + num(r.elsewhere_articles) + ' (' + (100 * r.elsewhere_share).toFixed(1) + '%)';
         } },
         plotOptions: { bar: { borderWidth: 0, borderRadius: 2, pointPadding: 0.12, groupPadding: 0.06 } },
         series: [
-          { type: 'bar', name: 'Home edge', data: rv.map((r) => ({ y: r.ratio, color: (ROLE[r.role] || ROLE.unknown).color })) },
+          { type: 'bar', name: 'Own-faculty ratio', data: rv.map((r) => ({ y: r.ratio, color: (ROLE[r.role] || ROLE.unknown).color })) },
           { type: 'errorbar', name: '95% interval', data: rv.map((r) => (r.ratio_lo != null ? [r.ratio_lo, r.ratio_hi] : null)), color: css('--ink-2', '#52514e'), whiskerLength: narrow ? 5 : 7, stemWidth: 1, whiskerWidth: 1, enableMouseTracking: false, states: { inactive: { opacity: 1 } } },
         ],
       }, W);

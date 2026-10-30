@@ -43,7 +43,7 @@
   const FROM = (() => {
     try {
       const q = new URLSearchParams(location.search);
-      const j = (q.get('j') || '').split(',').map((x) => x.split(':').map(Number)).filter(([a]) => Number.isInteger(a) && a >= 0);
+      const j = (q.get('j') || '').split(',').filter((x) => /^\d+(:\d+)?$/.test(x)).map((x) => x.split(':').map(Number));
       return j.length ? { who: (q.get('w') || '').slice(0, 160), j: new Map(j.map(([a, k]) => [a, Number.isFinite(k) ? k : 0])), area: -2 } : null;
     } catch (e) { return null; }
   })();
@@ -108,9 +108,10 @@
       const d = el('details', { class: 'tx-srcs' });
       d.appendChild(el('summary', null, 'Matches ' + a.s.length + ' node' + (a.s.length === 1 ? '' : 's') + ' in outside schemes (law faculties, libraries, research classifications)'));
       const ul = el('ul');
-      a.s.forEach(([title, url]) => {
+      a.s.forEach(([title, url, ok]) => {
         const li = el('li');
         li.appendChild(url ? el('a', { href: url, target: '_blank', rel: 'noopener' }, title) : el('span', null, title));
+        if (ok === 0) li.appendChild(el('span', { class: 'tx-unv' }, 'unverified'));
         ul.appendChild(li);
       });
       d.appendChild(ul);
@@ -167,7 +168,7 @@
     d.appendChild(s);
     const body = el('div', { class: 'tx-body' });
     if (f.d) body.appendChild(el('p', { class: 'tx-desc' }, f.d));
-    if (f.w) body.appendChild(el('p', { class: 'text-muted tx-cite' }, 'In their own words: ' + f.w));
+    if (f.w) body.appendChild(el('p', { class: 'text-muted tx-cite' }, 'Scope words, names and W&L subjects: ' + f.w));
     const js = el('div', { class: 'tx-journals' });
     js.appendChild(el('p', { class: 'tx-label' }, 'Its journals'));
     const ul = el('ul');
@@ -193,7 +194,7 @@
     const box = $('txGroups');
     groupBox.clear();
     const wrap = el('div', { class: 'tx-tree' });
-    wrap.appendChild(el('p', { class: 'tx-label' }, (a.k.length === 1 ? 'Its one group: open it' : 'Its ' + a.k.length + ' groups: open one') + ' for its definition, its journals\' own words and its journals'));
+    wrap.appendChild(el('p', { class: 'tx-label' }, (a.k.length === 1 ? 'Its one group: open it' : 'Its ' + a.k.length + ' groups: open one') + ' for its definition, the words behind it and its journals'));
     a.k.forEach((f) => wrap.appendChild(groupDetails(f)));
     box.replaceChildren(wrap);
   }
@@ -413,6 +414,7 @@
   function renderAll() {
     const groups = T.areas.reduce((n, a) => n + a.k.length, 0), journals = T.areas.reduce((n, a) => n + a.k.reduce((m, f) => m + f.j.length, 0), 0);
     const tc = T.counts || {};
+    const fb = $('txFrom'); if (fb) { fb.hidden = true; fb.replaceChildren(); }
     $('txName').textContent = 'Higher-level groups';
     $('txDesc').textContent = 'The higher-level groups and their groups in one tree. ' + (touchy() ? 'Tap' : 'Click') + ' a group (+) to show its journals, or a higher-level group to fold it; ' +
       (touchy() ? 'tap a journal twice' : 'click a journal') + ' for its row in the table below.';
@@ -423,7 +425,7 @@
     const box = $('txGroups');
     groupBox.clear();
     const wrap = el('div', { class: 'tx-tree' });
-    wrap.appendChild(el('p', { class: 'tx-label' }, 'Higher-level groups: open one for its groups, and a group for its definition, its journals\' own words and its journals'));
+    wrap.appendChild(el('p', { class: 'tx-label' }, 'Higher-level groups: open one for its groups, and a group for its definition, the words behind it and its journals'));
     T.areas.forEach((a) => {
       const d = el('details', { class: 'tx-node tx-l0' });
       const s = el('summary');
@@ -492,11 +494,11 @@
       if (!cnt) td3.appendChild(el('div', { class: 'text-muted' }, 'not used for author buckets'));
       const td4 = el('td', { 'data-h': 'Placed by' });
       td4.appendChild(el('div', null, ruleText(basis)));
-      if (words) td4.appendChild(el('div', { class: 'tx-words' }, '“' + clip(words.replace(/^["“\s]+|["”\s]+$/g, ''), 180) + '”'));
+      if (words) td4.appendChild(el('div', { class: 'tx-words' }, clip(words.trim(), 180)));
       if (quote || url) {
         const d = el('div', { class: 'text-muted tx-cite' });
         d.append('Scope statement' + (how ? ' (' + how + ')' : '') + ': ');
-        if (url) d.appendChild(el('a', { href: url, target: '_blank', rel: 'noopener', title: quote }, quote ? clip(quote.replace(/^"+|"+$/g, ''), 120) : url));
+        if (url) d.appendChild(el('a', { href: url, target: '_blank', rel: 'noopener', title: quote }, quote ? clip(quote.length > 1 && quote[0] === '"' && quote[quote.length - 1] === '"' ? quote.slice(1, -1) : quote, 120) : url));
         else d.append(clip(quote, 120));
         td4.appendChild(d);
       }
@@ -568,7 +570,7 @@
     $('footer').innerHTML = window.LSR.siteFooter(meta);
     $('snapshot').textContent = 'data of ' + fmtDate(tree.generated);
     document.querySelectorAll('.snap').forEach((s) => { s.textContent = fmtDate(tree.generated); });
-    const want = decodeURIComponent((location.hash || '').slice(1));
+    const want = (() => { const h = (location.hash || '').slice(1); try { return decodeURIComponent(h); } catch (e) { return h; } })();
     const isAll = fold(want) === 'all';   // taxonomy.html#all opens the All view
     const at = T.areas.findIndex((a) => fold(a.n) === fold(want));
     if (isAll) current = ALL; else if (at >= 0) current = at;

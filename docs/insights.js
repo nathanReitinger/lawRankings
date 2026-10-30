@@ -40,9 +40,10 @@
     { label: '15–25', short: '15–25', lo: 15, hi: 25 },
     { label: '26–50', short: '26–50', lo: 26, hi: 50 },
     { label: '51–100', short: '51–100', lo: 51, hi: 100 },
-    { label: '101 & below, unranked', short: '101+', lo: 101, hi: Infinity },
+    { label: '101 & below, unranked', short: '101+', prose: '101 and below, or unranked', lo: 101, hi: Infinity },
   ];
   const bandOf = (r) => (r == null || r <= 0 ? 4 : BANDS.findIndex((b) => r >= b.lo && r <= b.hi));
+  const bandProse = (k) => BANDS[k].prose || BANDS[k].label.toLowerCase();
   const SRC_LABEL = { usnews: 'U.S. News', peer: 'TaxProf peer' };
   // (2026-10-26, the owner: "add analysis on title character length over time. break it out per law review rank and
   // school rank") the groups' colors, here and in every figure that colors by group: the reference categorical order
@@ -368,7 +369,7 @@
     }
     lede.appendChild(el('b', null, jname));
     lede.append(', ' + yrs(st.from, st.to) + ': ' + num(R.articles) + ' article' + (R.articles === 1 ? '' : 's') + ' by current faculty at ' +
-      num(R.list.length) + ' institution' + (R.list.length === 1 ? '' : 's') + ' (institutions on the faculty lists, courts and non-US schools included).');
+      num(R.list.length) + ' institution' + (R.list.length === 1 ? '' : 's') + ' (institutions on the faculty lists, courts and non-U.S. schools included).');
     if (R.list.length > 5) {
       lede.append(' Share with an author from the five institutions with the most articles (' + top5.map((o) => shortName(DATA.schools[o.s][0], 22)).join(', ') + '): ');
       lede.appendChild(el('b', null, pct(top5papers.size / R.articles)));
@@ -627,29 +628,29 @@
       const p = this.point, c = p.isNode ? (p.options.custom || {}) : null;
       if (!p.isNode) {
         const a = p.fromNode, z = p.toNode;
-        return tipHTML({ value: num(p.weight) + ' article' + (p.weight === 1 ? '' : 's'), title: a.name + ' → ' + z.name,
-          lines: [pct(p.weight / (a.sum || 1)) + ' of ' + (a.options.custom.kind === 'school' ? 'the school\'s' : 'its schools\'') + ' flagship-review articles',
-            pct(p.weight / (z.sum || 1)) + ' of the articles by U.S. law faculty in ' + (z.options.custom.kind === 'review' ? 'the review' : 'those reviews')] });
+        return tipHTML({ value: num(p.weight) + ' author credit' + (p.weight === 1 ? '' : 's'), title: a.name + ' → ' + z.name,
+          lines: [pct(p.weight / (a.sum || 1)) + ' of ' + (a.options.custom.kind === 'school' ? 'the school\'s' : 'its schools\'') + ' flagship-review author credits',
+            pct(p.weight / (z.sum || 1)) + ' of the U.S. law faculty author credits in ' + (z.options.custom.kind === 'review' ? 'the review' : 'those reviews')] });
       }
       if (c.kind === 'school') return tipHTML({ title: DATA.schools[c.s][0], lines: [rankLabel(c.s)], rows: schoolRows(c.s), note: 'Tap or click to let go of it' });
       if (c.kind === 'review') return tipHTML({ title: DATA.journals[c.j][0], lines: [journalRankLine(c.j)], rows: journalRows(c.j), note: 'Tap or click to let go of it' });
       if (c.kind === 'sband') {
         const t = rowShare(c.b);
-        return tipHTML({ title: 'Schools ranked ' + BANDS[c.b].label.toLowerCase(), rows: [['Flagship-review articles', num(t)],
+        return tipHTML({ title: 'Schools ranked ' + bandProse(c.b), rows: [['Flagship-review author credits', num(t)],
           ['In reviews of their own group', pct(W1.M[c.b][c.b] / (t || 1))], ['In top-14 reviews', pct(W1.M[c.b][0] / (t || 1))]],
           note: band === c.b && !single ? null : 'Tap or click to pick this group' });
       }
       const n = W1.colPapers[c.c];
-      return tipHTML({ title: 'Flagship reviews of schools ranked ' + BANDS[c.c].label.toLowerCase(), rows: [['Articles by U.S. law faculty', num(n)],
+      return tipHTML({ title: 'Flagship reviews of schools ranked ' + bandProse(c.c), rows: [['Author credits', num(p.sum)], ['Articles by U.S. law faculty', num(n)],
         ['With a top-14 author', pct(W1.D[0][c.c] / (n || 1))]] });
     };
     draw('network', {
       chart: { height: wide ? 460 : 420, marginLeft: wide ? 176 : 4, marginRight: wide ? 196 : 4, marginTop: 8, marginBottom: 8 },
-      accessibility: { description: 'Flows of flagship-review articles, ' + yrs(st.from, st.to) + ', from groups of law schools by ' + SRC_LABEL[st.src] +
+      accessibility: { description: 'Flows of flagship-review author credits, ' + yrs(st.from, st.to) + ', from groups of law schools by ' + SRC_LABEL[st.src] +
         ' rank to the groups of flagship law reviews by their school\'s rank. The table "Each group of schools’ articles, by group of journals" has the shares.' },
       tooltip: { followTouchMove: false, formatter: tip },
       series: [{
-        type: 'sankey', name: 'Flagship-review articles', keys: ['from', 'to', 'weight'], data: links, nodes: nodes,
+        type: 'sankey', name: 'Flagship-review author credits', keys: ['from', 'to', 'weight'], data: links, nodes: nodes,
         nodeWidth: nodeW, nodePadding: wide ? 14 : 12, minLinkWidth: 1, borderRadius: 2, curveFactor: 0.42, linkOpacity: 0.42,
         cursor: 'pointer', turboThreshold: 0,
         states: { hover: { linkOpacity: 0.85 }, inactive: { linkOpacity: 0.12, opacity: 0.5 } },
@@ -727,7 +728,7 @@
       const p = el('div');
       p.appendChild(el('b', null, DATA.schools[st.school][0]));
       if (!v || !v.n) { p.append(' (' + rankLabel(st.school) + '): 0 flagship-review articles, ' + yl + '.'); d.appendChild(p); return; }
-      p.append(' (' + rankLabel(st.school) + '): ' + num(v.n) + ' flagship-review articles, ' + yl + '. In reviews of schools ranked ' + bandShares(v.cols, v.n) + '.' + (v.median ? ' Median review rank ' + v.median + '.' : ''));
+      p.append(' (' + rankLabel(st.school) + '): ' + num(v.n) + ' flagship-review article' + (v.n === 1 ? '' : 's') + ', ' + yl + '. In reviews of schools ranked ' + bandShares(v.cols, v.n) + '.' + (v.median ? ' Median review rank ' + v.median + '.' : ''));
       d.appendChild(p);
       d.appendChild(el('div', { style: 'margin-top:6px' }, 'Most often in:'));
       d.appendChild(list(Array.from(v.journals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6), (ji) => DATA.journals[ji][0]));
@@ -738,7 +739,7 @@
       const p = el('div');
       p.appendChild(el('b', null, DATA.journals[st.journal][0]));
       if (!v) { p.append(': 0 articles by U.S. law faculty, ' + yl + '.'); d.appendChild(p); return; }
-      p.append(': ' + num(v.papers.n) + ' articles by U.S. law faculty, ' + yl + '. With an author from schools ranked ' + bandShares(v.papers.bands, v.papers.n) +
+      p.append(': ' + num(v.papers.n) + ' article' + (v.papers.n === 1 ? '' : 's') + ' by U.S. law faculty, ' + yl + '. With an author from schools ranked ' + bandShares(v.papers.bands, v.papers.n) +
         ' (an article with authors from two groups counts in both).');
       d.appendChild(p);
       d.appendChild(el('div', { style: 'margin-top:6px' }, 'Most frequent schools:'));
@@ -749,8 +750,8 @@
     const cols = st.band >= 0 ? W1.D[st.band].slice(0, 5) : W1.colPapers.slice(0, 5);
     const total = sum(cols);
     const p = el('div');
-    p.appendChild(el('b', null, st.band >= 0 ? 'Faculty at schools ranked ' + BANDS[st.band].label.toLowerCase() : 'U.S. law faculty'));
-    p.append(': ' + num(total) + ' flagship-review articles, ' + yl + '. In reviews of schools ranked ' + bandShares(cols, total) + '.');
+    p.appendChild(el('b', null, st.band >= 0 ? 'Faculty at schools ranked ' + bandProse(st.band) : 'U.S. law faculty'));
+    p.append(': ' + num(total) + ' flagship-review article' + (total === 1 ? '' : 's') + ', ' + yl + '. In reviews of schools ranked ' + bandShares(cols, total) + '.');
     d.appendChild(p);
     d.appendChild(el('div', { class: 'text-muted', style: 'margin-top:4px;font-size:13px' }, 'Tap a group on the left to pick it, a flow for its numbers; pick a school or a law review above to follow its own flows.'));
   }
@@ -778,7 +779,7 @@
   // a group of schools picked with the chips (or a tap on the flows)
   function setBand(k) {
     st.band = k;
-    $('netChips').querySelectorAll('.ins-chip').forEach((x) => x.setAttribute('aria-checked', String(+x.dataset.k === k)));
+    $('netChips').querySelectorAll('.ins-chip').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.k === k)));
     setSelection(null, null);
   }
 
@@ -860,8 +861,8 @@
       tooltip: { followTouchMove: false, formatter() {
         const p = this.point, r = p.y, c = p.x, lh = MATRIX_HEADS[c].toLowerCase();
         return tipHTML({ value: pct(p.value, 1), lines: [byRow
-          ? 'of articles by faculty at schools ranked ' + BANDS[r].label.toLowerCase() + ' appeared in ' + lh + (c < 5 ? ' flagship reviews' : '')
-          : 'of the school credits in ' + (c < 5 ? BANDS[c].label.toLowerCase() + ' flagship reviews' : lh) + ' went to schools ranked ' + BANDS[r].label.toLowerCase()],
+          ? 'of articles by faculty at schools ranked ' + bandProse(r) + ' appeared in ' + (c < 5 ? 'flagship reviews of schools ranked ' + bandProse(c) : lh)
+          : 'of the school credits in ' + (c < 5 ? 'flagship reviews of schools ranked ' + bandProse(c) : lh) + ' went to schools ranked ' + bandProse(r)],
           note: num(p.custom.n) + ' of ' + num(byRow ? rowSum[r] : colSum[c]) + (byRow ? ' articles' : ' credits') });
       } },
       series: [{ type: 'heatmap', name: $('matrixTitle').textContent, data: data, pointPadding: 1, borderRadius: 4, borderWidth: 0,
@@ -1061,6 +1062,7 @@
     const wide = W >= 700;
     const H = wide ? 380 : 300;
     const [y0, end] = coYears(1950);
+    $('trendTable').closest('details').hidden = y0 > end;
     if (y0 > end) { noteIn('trend', coNone(1950)); $('trendLegend').replaceChildren(); $('trendTable').replaceChildren(); return; }
     const span = end - y0;
     const yrRows = INS.years.map((y, i) => [y, i]).filter(([y]) => y >= y0 && y <= end);
@@ -1096,7 +1098,7 @@
         events: { render() { endLabels(this, series.map((s, i) => ({ i: i, text: (wide ? KIND_LABEL[s.k].replace(' law reviews', '') + ' ' : '') +
           (s.pts.length ? fmt(s.pts[s.pts.length - 1].v) : '') }))); } } },
       accessibility: { description: $('trendTitle').textContent + ', by year, flagship law reviews and specialty journals. The table below the chart lists the years.' },
-      xAxis: { min: span ? y0 : y0 - 1, max: span ? end : end + 1, tickLength: 4, labels: { formatter() { return String(this.value); } },
+      xAxis: { min: span ? y0 : y0 - 1, max: span ? end : end + 1, tickPositions: span ? undefined : [y0], tickLength: 4, labels: { formatter() { return String(this.value); } },
         tickInterval: span > 50 ? (wide ? 10 : 20) : span > 24 ? (wide ? 5 : 10) : span > 10 ? (wide ? 2 : 5) : (wide ? 1 : 2),
         crosshair: { color: alpha(INK2, 0.5), width: 1 } },
       yAxis: { min: st.measure === 'mean' ? 1 : 0, softMax: st.measure === 'mean' ? Math.max(1.1, vmax) : vmax, tickAmount: 6, gridLineWidth: 1,
@@ -1171,6 +1173,7 @@
     const wide = W >= 700;
     const H = wide ? 420 : 340;
     const [y0, end] = coYears(1980);
+    $('spreadTable').closest('details').hidden = y0 > end;
     if (y0 > end) { noteIn('spread', coNone(1980)); $('spreadLegend').replaceChildren(); $('spreadTable').replaceChildren(); return; }
     const periods = range(y0, end + 1, 5).map((a) => ({ a: a, b: a + 4 >= end - 1 ? end : a + 4 }))
       .filter((p, i, all) => !(i > 0 && all[i - 1].b === end));
@@ -1331,7 +1334,7 @@
     uses('tiUses', [ya > yb ? yrs(bar.from, bar.to) + ' chosen; title lengths are counted from ' + T.years[0] + ' on'
       : yrs(ya, yb) + (edge && bar.all ? ' (' + lastY + ' in part; tiles and summary: ' + wl(T.windows[0]) + ' and ' + wl(T.windows[1]) + ')'
         : inWin ? '' : ' (tiles and summary: ' + (one ? ya : ya + ' and ' + yb) + (edge ? '; ' + lastY + ' in part, pooled with the year before)' : ', each pooled with the years either side)')),
-      ya <= yb && !bar.all && bar.to > yb ? yrs(yb + 1, bar.to) + ' left out as partial' : null,
+      ya <= yb && !bar.all && bar.to > yb ? yrs(yb + 1, bar.to) + ' (partial) only in the pooled ' + yb + ' point' : null,
       'research articles (short pieces left out) and U.S. News overall rank, whatever the options above', 'own-journal option not used here']);
     const t = $('tiTiles');
     t.replaceChildren();
@@ -1426,7 +1429,7 @@
       chart: { type: 'line', height: H, marginRight: wide ? 120 : 84,
         events: { render() { endLabels(this, series.map((s, i) => ({ i: i, text: s.pts.length ? tiShort(s.b) + ' ' + fmt(s.pts[s.pts.length - 1].v) : '' }))); } } },
       accessibility: { description: $('tiTitle').textContent + ', by year, by ' + (by === 'review' ? 'the law review\'s rank' : 'the author\'s school\'s rank') + '. The table below the chart lists the years.' },
-      xAxis: { min: span ? ya : ya - 1, max: span ? yb : yb + 1, tickLength: 4, labels: { formatter() { return String(this.value); } },
+      xAxis: { min: span ? ya : ya - 1, max: span ? yb : yb + 1, tickPositions: span ? undefined : [ya], tickLength: 4, labels: { formatter() { return String(this.value); } },
         tickInterval: span > 24 ? (wide ? 5 : 10) : span > 10 ? (wide ? 2 : 5) : (wide ? 1 : 2),
         crosshair: { color: alpha(INK2, 0.5), width: 1 } },
       yAxis: mi === 3 ? { min: 0, softMax: Math.max(0.1, max(all) || 1), tickAmount: 6, gridLineWidth: 1, labels: { formatter() { return fmt(this.value); } } }
@@ -1748,7 +1751,7 @@
   function twUses() {
     const W = INS && INS.title_words;
     if (!W || !$('twUses')) return;
-    uses('twUses', [yrs(W.since, W.last) + (W.full && W.last > W.full ? ' (' + W.last + ' in part)' : ''), 'research articles (short pieces left out)',
+    uses('twUses', [yrs(W.windows && W.windows.length ? W.windows[0][0] : W.since, W.full || W.last), 'research articles (short pieces left out)',
       'tiers by U.S. News overall rank: fixed here, so the years and options above do not change it']);
   }
   function whereUses() {
@@ -1806,7 +1809,7 @@
 
     const chips = $('netChips');
     [['Groups together', -1]].concat(BANDS.map((b, k) => [b.label === 'Top 14' ? 'Top 14' : b.label.replace('101 & below, unranked', '101+ & unranked'), k])).forEach(([label, k]) => {
-      const c = el('button', { type: 'button', class: 'ins-chip', role: 'radio', 'aria-checked': String(k === st.band), 'data-k': String(k) }, label);
+      const c = el('button', { type: 'button', class: 'ins-chip', 'aria-pressed': String(k === st.band), 'data-k': String(k) }, label);
       c.addEventListener('click', () => setBand(k));
       chips.appendChild(c);
     });

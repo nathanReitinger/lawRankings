@@ -86,7 +86,7 @@
 .ins-chip, .ins-seg button { min-height: 32px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; background: var(--surface);
   font-family: var(--sans); font-size: 13px; color: var(--ink-2); cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
 .ins-chip:hover, .ins-seg button:hover { border-color: var(--ink-2); color: var(--ink); }
-.ins-chip[aria-checked="true"], .ins-seg button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.ins-chip[aria-pressed="true"], .ins-seg button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
 .ins-chip:focus-visible, .ins-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ins-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 

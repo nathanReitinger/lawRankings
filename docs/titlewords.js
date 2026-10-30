@@ -152,9 +152,10 @@
   function lede() {
     const box = $('twLede');
     if (!box) return;
-    box.textContent = 'Words, two-word phrases and title forms of the research-article titles of section 3, ' + T.since + '–' + T.last +
-      (T.last > T.full ? ' (the charts end with ' + T.full + ')' : '') + ', in five tiers: by the U.S. News rank of the school whose main law review published the title (' + num(T.review.titles) +
-      ' titles), or by the rank of the school of a current faculty member credited with it (' + num(T.school.titles) +
+    const nW = (v) => num(v.form.all.reduce((s, r) => s + (r ? r[0] : 0), 0));
+    box.textContent = 'Words, two-word phrases and title forms of the research-article titles of section 3, ' + T.windows[0][0] + '–' + T.full +
+      ', in five tiers: by the U.S. News rank of the school whose main law review published the title (' + nW(T.review) +
+      ' titles), or by the rank of the school of a current faculty member credited with it (' + nW(T.school) +
       ' titles, in the journals collected here). Metadata from HeinOnline; counts of words across titles, with individual titles not shown.';
   }
 
@@ -209,7 +210,7 @@
 
   function figDistinct() {
     const r = T.recent;
-    const c = card('twDistinct', 'Words and phrases with the highest and lowest z-scores, each tier against the other four, ' + span(r),
+    const c = card('twDistinct', 'Words and phrases, each tier against the others, ' + span(r),
       'Weighted log-odds ratio with an informative Dirichlet prior (Monroe, Colaresi and Quinn 2008), as a z-score, for each word and two-word phrase: the titles of the tier picked below against the titles of the other four tiers, ' +
       span(r) + '. Bars to the right: the ' + T.top + ' highest z-scores (a higher share of the tier’s titles than of the other tiers’); to the left: the ' + T.top +
       ' lowest. Included: words and phrases in at least ' + T.min_titles + ' titles of the two groups together and ' + T.min_group + ' titles of the side they are listed for, in at least ' + T.min_journals + ' journals of that side' +
@@ -234,7 +235,7 @@
 
   function figChange() {
     const r = T.recent, e = T.earlier;
-    const c = card('twChange', 'Words and phrases with the highest and lowest z-scores, ' + span(r) + ' against ' + span(e),
+    const c = card('twChange', 'Words and phrases, ' + span(r) + ' against ' + span(e),
       'The same weighted log-odds ratio (z-score), for the titles of one tier (or of the five together) in ' + span(r) + ' against the same tier’s titles in ' + span(e) +
       '. Bars to the right: the ' + T.top + ' highest z-scores (a higher share of titles in ' + span(r) + '); to the left: the ' + T.top + ' lowest (a higher share in ' + span(e) +
       '). Same minimum counts as above.');
@@ -383,7 +384,7 @@
             chart: { type: 'bar', height: H, spacingRight: 10 },
             accessibility: { description: ax.description, point: { valueDecimals: 2, valueSuffix: '%' } },
             xAxis: { categories: T.frames, tickLength: 0, labels: { step: 1, style: { color: css('--ink-2', '#52514e'), fontSize: narrow ? '11.5px' : '12.5px', width: narrow ? Math.round(W * 0.38) + 'px' : '200px' } } },
-            yAxis: { min: 0, tickPixelInterval: narrow ? 72 : 110, accessibility: { rangeDescription: ax.range }, title: { text: 'share of titles' }, labels: { formatter() { return this.value + '%'; } } },
+            yAxis: { min: 0, tickPixelInterval: narrow ? 72 : 110, accessibility: { rangeDescription: ax.range }, title: { text: 'share of titles' }, labels: { style: { textOverflow: 'none' }, formatter() { return this.value + '%'; } } },
             tooltip: { formatter() { const p = this.point; return '<b>' + esc(T.frames[p.index]) + '</b><br/>' + esc(this.series.name) + ': ' + num(p.k) + ' of ' + num(p.n) + ' titles (' + (p.y).toFixed(2) + '%)'; } },
             plotOptions: { bar: { borderWidth: 0, pointPadding: 0.04, groupPadding: 0.12, borderRadius: 2 } },
             series: [mk(0, span(e), C_OTHER), mk(1, span(r), col)],

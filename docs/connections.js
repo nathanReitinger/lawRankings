@@ -279,7 +279,9 @@
     // share is 75% or more; pairs tied at that share are all named, most articles first
     const solos = top.filter((o) => o.n >= 10 && o.byN / o.n >= 0.75).sort((x, y) => y.byN / y.n - x.byN / x.n);
     const solo = solos.filter((o) => solos[0] && o.byN * solos[0].n === solos[0].byN * o.n);
-    c.foot.textContent = 'Pair with the most articles: ' + S[first.a][0] + ' and ' + S[first.b][0] + ', ' + num(first.n) + ' article' + (first.n === 1 ? '' : 's') + '.' +
+    const lead = top.filter((o) => o.n === first.n);
+    c.foot.textContent = (lead.length === 1 ? 'Pair with the most articles: ' + S[first.a][0] + ' and ' + S[first.b][0] + ', ' + num(first.n) + ' article' + (first.n === 1 ? '' : 's') + '.'
+      : 'Most articles for one pair of schools: ' + num(first.n) + ' (' + lead.length + ' pairs).') +
       (solo.length ? ' Largest share by one pair of authors (pairs on the wheel with 10 or more articles): ' +
         solo.map((o) => name(o.a) + '–' + name(o.b) + ' (' + o.by.join(' and ') + ', ' + num(o.byN) + ' of ' + num(o.n) + ')').join('; ') + '.' : '');
     table(c.tb, ['Schools', 'Articles together', 'Most by'], top.map((o) => [S[o.a][0] + ' & ' + S[o.b][0], num(o.n), o.by ? o.by.join(' & ') + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '']));
@@ -290,9 +292,11 @@
       const dark = css('--seq-3', '#104281'), blue = css('--flagship', '#2a78d6'), ink2 = css('--ink-2', '#52514e');
       // the schools' names run out from the ring (a name along a small arc would be cut short); the wheel leaves
       // room for the longest
-      const fs = narrow ? 11 : 12.5, room = Math.max(...nodes.map((s) => name(s).length)) * fs * 0.56 + 14;
-      const H = Math.round(Math.min(640, Math.max(320, narrow ? W : W * 0.62)));
+      const lab = (s) => instLabel(S[s][0], narrow ? 14 : 18);
+      const fs = narrow ? 11 : 12.5, room = Math.max(...nodes.map((s) => lab(s).length)) * fs * 0.56 + 14;
+      let H = Math.round(Math.min(640, Math.max(320, narrow ? W : W * 0.62)));
       const diam = Math.max(140, Math.min(W, H - 16) - 2 * room);
+      H = Math.max(H, Math.ceil(diam + 2 * room + 16));
       makeChart(c.box, {
         chart: { height: H, events: { render() {
           const ch = this, s = ch.series[0];
@@ -317,12 +321,12 @@
             return '<b>' + esc(S[s][0]) + '</b><br>' + num(R.crossOf[s]) + ' article' + (R.crossOf[s] === 1 ? '' : 's') + ' with a co-author at another U.S. law school<br>' + num(wheelN[s]) + ' with the schools it is joined to on the wheel';
           }
           const o = pt.custom || {};
-          return '<b>' + esc(name(o.a)) + ' & ' + esc(name(o.b)) + '</b><br>' + num(o.n) + ' article' + (o.n === 1 ? '' : 's') + ' together, ' + yrs(R.from, R.to) +
+          return '<b>' + esc(S[o.a][0]) + ' & ' + esc(S[o.b][0]) + '</b><br>' + num(o.n) + ' article' + (o.n === 1 ? '' : 's') + ' together, ' + yrs(R.from, R.to) +
             (o.by ? '<br>Most by ' + esc(o.by.join(' & ')) + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '');
         } },
         series: [{
           type: 'dependencywheel', name: 'Articles together', keys: ['from', 'to', 'weight'],
-          nodes: nodes.map((s) => ({ id: 's' + s, name: name(s), color: dark, custom: { s } })),
+          nodes: nodes.map((s) => ({ id: 's' + s, name: lab(s), color: dark, custom: { s } })),
           data: top.map((o) => ({ from: 's' + o.a, to: 's' + o.b, weight: o.n, color: blue, custom: o })),
           size: diam, center: ['50%', '50%'], nodeWidth: narrow ? 7 : 9, nodePadding: 3, borderWidth: 0, linkOpacity: 0.32, curveFactor: 0.55,
           states: { hover: { linkOpacity: 0.85 }, inactive: { linkOpacity: 0.08, opacity: 0.3 } },
@@ -635,11 +639,16 @@
   const barOf = () => (window.LSR_INS && LSR_INS.bar ? LSR_INS.bar : null);
   // the line under the heading: the years and options these figures use; the subject-area shift's years only when
   // that figure is drawn (F: the figures computed)
+  const GONE = [['pairs', 'pairs of schools'], ['home', 'own review'], ['tiers', 'subject areas by group of schools'], ['teams', 'co-written articles by subject area'],
+    ['shift', 'subject-area shift'], ['few', 'most prolific authors']];
+  // the figures left out for too few articles (none named when no figure is drawn: the section then says so itself)
+  const gone = (F) => (F && Object.keys(F).some((k) => F[k]) ? GONE.filter(([k]) => !F[k] && !(k === 'home' && R.noHome) && !(k === 'teams' && !R.hasAuthors)).map(([, t]) => t) : []);
   function usesLine(F) {
     const b = barOf();
     if (!b || !R) return;
     b.uses('cnUses', [b.yearsText(R.from, R.to) + (F && F.shift && (R.eFrom < R.from || R.eTo > R.to || R.lFrom > R.from) ? ' (the subject-area shift: ' + yrs(R.eFrom, R.eTo) + ' and ' + yrs(R.lFrom, R.lTo) + ')' : ''),
-      b.shortText(), 'groups by ' + R.srcName, R.noHome ? 'a school’s own journals left out (so the own-review chart is not drawn)' : null]);
+      b.shortText(), 'groups by ' + R.srcName, R.noHome ? 'a school’s own journals left out (so the own-review chart is not drawn)' : null,
+      gone(F).length ? 'not drawn for too few articles in these years: ' + gone(F).join('; ') : null]);
   }
   function build() {
     if (drawn) return;

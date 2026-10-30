@@ -582,19 +582,19 @@ html.mast-open { overflow: hidden; }
 .mast-top p { margin: 0; font-size: 13.5px; color: #555; }
 .mast-x { border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: #666; padding: 0 4px; }
 .mast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 14px; }
-.mast-card { border: 1px solid #e3e1dc; border-radius: 8px; overflow: hidden; background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.mast-card { display: flex; flex-direction: column; border: 1px solid #e3e1dc; border-radius: 8px; overflow: hidden; background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
 .mast-card:hover { border-color: #b9b5ad; }
 .mast-card.is-now { border-color: #1c5cab; box-shadow: 0 0 0 2px rgba(28, 92, 171, 0.25); }
 .mast-card.is-fav { border-color: #b08d57; box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.3); }
 .mast-preview { padding: 14px 12px 10px; pointer-events: none; }
-.mast-bar { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-top: 1px solid #efede8; background: #fafaf8; font-size: 12.5px; }
+.mast-bar { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 7px 10px; border-top: 1px solid #efede8; background: #fafaf8; font-size: 12.5px; }
 .mast-no { color: #777; margin-right: auto; }
-.mast-bar button { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 3px 10px; font: inherit; cursor: pointer; color: #333; }
+.mast-bar button { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 3px 10px; font: inherit; cursor: pointer; color: #333; white-space: nowrap; }
 .mast-bar button:hover { border-color: #888; }
 .mast-vote[aria-pressed="true"] { background: #b08d57; border-color: #b08d57; color: #fff; }
 .mast-bottom { margin-top: 14px; text-align: right; }
 .mast-shuffle { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; }
-@media (max-width: 520px) { .mast-grid { grid-template-columns: 1fr; } .mast-panel { padding: 14px 12px; } }
+@media (max-width: 520px) { .mast-grid { grid-template-columns: 1fr; } .mast-panel { padding: 14px 12px; } .mast-bar { gap: 6px; } .mast-bar button { padding: 3px 8px; } }
 
 /* BETA: categories from a title model (off by default; the switch in Options) */
 .c-beta { color: #6a4fb3; font-style: italic; }

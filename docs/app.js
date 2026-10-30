@@ -261,11 +261,14 @@
 
   ////////////////////////////////////////////// filter panel
 
+  // (review) the arrows that open a tier's, a higher-level group's or a group's list are buttons, so a keyboard or
+  // screen reader reaches them; the inline style takes away the browser's button look (.hovertip gives the rest)
+  const TOGGLE_STYLE = ' style="border:0;background:none;padding:0;font-family:inherit;line-height:inherit"';
   function buildPanel() {
     const gen = $('generalBody');
     BANDS.forEach((b) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td><span class="hovertip" data-band-toggle="' + b.id + '" title="Show/hide journals">&#9658;</span> <label for="band' + b.id + '" id="bandLabel' + b.id + '">' + esc(bandLabel(b)) + '</label>' +
+      tr.innerHTML = '<td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-band-toggle="' + b.id + '" title="Show/hide journals" aria-label="Show or hide the journals" aria-expanded="false" aria-controls="bandList' + b.id + '">&#9658;</button> <label for="band' + b.id + '" id="bandLabel' + b.id + '">' + esc(bandLabel(b)) + '</label>' +
         '<div class="sub-list" id="bandList' + b.id + '" hidden></div></td>' +
         '<td class="chk"><input type="checkbox" id="band' + b.id + '" data-band="' + b.id + '"></td>';
       gen.appendChild(tr);
@@ -277,9 +280,9 @@
     DATA.groups.forEach((g, gi) => {
       const subs = groupSubjects[g] || [];
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td><span class="hovertip" data-group-toggle="' + gi + '" title="Show/hide groups">&#9658;</span> <label for="grp' + gi + '">' + esc(g) + '</label>' +
+      tr.innerHTML = '<td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-group-toggle="' + gi + '" title="Show/hide groups" aria-label="Show or hide the groups" aria-expanded="false" aria-controls="grpList' + gi + '">&#9658;</button> <label for="grp' + gi + '">' + esc(g) + '</label>' +
         '<div class="sub-list" id="grpList' + gi + '" hidden><p>groups (open a group for its journals)</p><table><tbody>' +
-        subs.map((s, si) => '<tr><td><span class="hovertip" data-field-toggle="' + gi + '_' + si + '" title="Show/hide journals">&#9658;</span> ' +
+        subs.map((s, si) => '<tr><td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-field-toggle="' + gi + '_' + si + '" title="Show/hide journals" aria-label="Show or hide the journals" aria-expanded="false" aria-controls="fieldList' + gi + '_' + si + '">&#9658;</button> ' +
           '<label for="sub' + gi + '_' + si + '">' + esc(s) + '</label> <small class="text-muted">(' + fieldJournalIds(s).length + ')</small>' +
           '<div class="sub-list" id="fieldList' + gi + '_' + si + '" data-field="' + esc(s) + '" hidden></div></td>' +
           '<td class="chk"><input type="checkbox" id="sub' + gi + '_' + si + '" data-group="' + esc(g) + '" data-subject="' + esc(s) + '"></td></tr>').join('') +
@@ -359,6 +362,7 @@
     if (show && fill) list.innerHTML = fill();
     list.hidden = !show;
     arrow.innerHTML = show ? '&#9660;' : '&#9658;';
+    arrow.setAttribute('aria-expanded', String(show));
   }
 
   const KIND = { online: 'online edition', secondary: 'second journal', non_school: 'not a school\'s journal', foreign: 'outside the US', unmapped: 'school not identified yet' };
@@ -423,6 +427,7 @@
     $('rankSourceName').textContent = sourceName();
     $('hostTier').value = state.host;
     $('hostRankName').textContent = state.src === 'peer' ? 'TaxProf peer' : 'U.S. News';
+    $('introRankName').innerHTML = state.src === 'peer' ? 'TaxProf peer rank' : '<i>U.S. News</i> rank';
     BANDS.forEach((b) => { const l = $('bandLabel' + b.id); if (l) l.textContent = bandLabel(b); });
     $('skipMinor').checked = state.minor;
     $('perProf').checked = state.perProf;
@@ -610,7 +615,7 @@
     const share = schoolPapers(s);
     return '<div class="school-summary">' + trendBox({ school: s }) +
       '<p class="detail-note trend-desc">Counted articles per year by its current faculty in the selected journals, each split between its co-authors.' +
-      (state.from > trendStart() ? ' The shaded band marks the selected years.' : '') +
+      (state.from > trendStart() && state.from <= trendEnd() ? ' The shaded band marks the selected years.' : '') +
       (trendEnd() < state.to ? ' The lines end at ' + trendEnd() + ', the last full year.' : '') + '</p>' +
       authorBars([...share.keys()], { title: 'Where its faculty publish', weight: (p) => share.get(p), who: DATA.schools[s][0] }) + '</div>';
   }
@@ -627,7 +632,7 @@
   // (2026-10-29, the owner: "Cut the prediction trend line at the year prior. Don't hardcode that value because what if
   // it is 2027") the chart ends at the last full year: the year before the visitor's current year (or the window's last
   // year, when that is earlier); the current year's volumes are still coming out
-  function trendEnd() { return Math.max(state.from, Math.min(state.to, new Date().getFullYear() - 1)); }
+  function trendEnd() { return Math.max(META.years.min, Math.min(state.to, new Date().getFullYear() - 1)); }
   // (2026-10-29, the owner: "draw a line of best fit. Use mse error or whatever you think is best but make an informed
   // decision about it and don't just pick one") a Theil-Sen line: the slope is the median of the slopes between each
   // pair of years, the line passes through the median of (count - slope * year). Picked by a test on the site's own
@@ -645,7 +650,7 @@
     const slope = med(sl);
     return { slope: slope, at0: med(ys.map((y, i) => y - slope * i)) };
   }
-  function trendStart() { return Math.max(META.years.min, Math.min(state.from, trendEnd() - 19)); }
+  function trendStart() { return Math.max(META.years.min, Math.min(state.from, state.to - 19)); }
   function trendBox(who) {
     const id = 'trend' + (++trendSeq);
     return '<div class="trend-chart" id="' + id + '" data-trend="' + esc(JSON.stringify(who)) + '"><p class="detail-note">Loading the chart…</p></div>';
@@ -745,8 +750,9 @@
           style: { fontSize: '10.5px', color: '#777' } } : undefined,
         accessibility: { description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + y0 + '–' + y1 + '.' },
         xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: '#666' } },
-          plotBands: state.from > y0 ? [{ from: state.from - y0, to: y1 - y0, color: 'rgba(55,126,184,0.07)',
-            label: { text: 'selected years', style: { fontSize: '10px', color: '#777' }, y: 12 } }] : [] },
+          // (review) the band covers whole years (half a category each side); its label only when the band has room for it
+          plotBands: state.from > y0 && state.from <= y1 ? [{ from: state.from - y0 - 0.5, to: y1 - y0 + 0.5, color: 'rgba(55,126,184,0.07)',
+            label: (y1 - state.from + 1) * box.clientWidth / years.length >= 80 ? { text: 'selected years', style: { fontSize: '10px', color: '#777' }, y: 12 } : undefined }] : [] },
         yAxis: { title: { text: null }, min: 0, allowDecimals: true, gridLineColor: '#eee', labels: { style: { fontSize: '10px', color: '#666' } } },
         legend: { enabled: series.length > 1, itemStyle: { fontSize: '11px', fontWeight: '400', color: '#333' }, margin: 4, padding: 2 },
         // (review) only the lines with articles that year, so the tooltip stays short

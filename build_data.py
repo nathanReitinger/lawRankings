@@ -27,6 +27,7 @@ import unicodedata
 from collections import Counter, defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import urlparse, parse_qs, unquote, quote
 
 import sys
@@ -468,7 +469,7 @@ def hein_profile_link(hein_name):
 # web page at all ("www.x.de" with no scheme, a CV as a PDF). Wrappers and fragments are cleaned; the rest is
 # rejected, and those people go to missing_homepages.csv, where faculty_links.py looks for their pages.
 LINK_WRAPPERS = {'linkprotect.cudasvc.com': 'a', 'safelinks.protection.outlook.com': 'url', 'www.google.com': 'url'}
-PROXY_HOST = re.compile(r'(^|\.)idm\.oclc\.org$|(^|\.)ezproxy\.|\.pantheonsite\.io$')
+PROXY_HOST = re.compile(r'(^|\.)idm\.oclc\.org$|(^|\.)ezproxy\.|(^|\.)proxy\d*\.|\.pantheonsite\.io$')
 NOT_A_PAGE = re.compile(r'\.(pdf|docx?|rtf|pptx?|xlsx?|jpe?g|png|gif)$', re.I)
 # (naming audit, 2026-10-25) never a homepage: HeinOnline (the owner: "Drop hein links throughout") and a search
 # engine's pages (its link wrapper is unwrapped first)
@@ -522,6 +523,14 @@ def clean_homepage(site):
         return '', 'rejected: two addresses run together'
     if not re.fullmatch(r'[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z][a-z0-9-]+', host) or re.search(r'\s', site):
         return '', 'rejected: not a valid address'
+    # (2026-10-30, release audit) a library proxy that writes the page's host with dashes (UVA's
+    # www-law-virginia-edu.proxy01.its.virginia.edu) is unwrapped to the page itself
+    m = re.fullmatch(r'([a-z0-9-]+)\.proxy\d*\.its\.virginia\.edu', host)
+    if m:
+        host = m.group(1).replace('-', '.')
+        site = u._replace(netloc=host).geturl()
+        u = urlparse(site)
+        done.append('library proxy unwrapped')
     if PROXY_HOST.search(host):
         return '', 'rejected: library proxy or staging host'
     if NOT_A_HOMEPAGE.search(host):
@@ -867,7 +876,7 @@ def load_rankings():
             df = pd.concat([df, old], ignore_index=True)
     df['score'] = pd.to_numeric(df['score'], errors='coerce')   # "NR" -> NaN
     df['WandL_rank'] = pd.to_numeric(df['WandL_rank'], errors='coerce')
-    return year, df, datetime.fromtimestamp(os.path.getmtime(found[year]))
+    return year, df, datetime.fromtimestamp(os.path.getmtime(found[year]), tz=ZoneInfo('America/Chicago'))   # (release audit) one zone, so the date does not move with the build machine's
 
 
 def load_usnews():
@@ -1714,6 +1723,24 @@ def default_ranking(data, years=10, top=30):
 
 TAXONOMY_RESEARCH = os.path.join(HERE, 'research', 'taxonomy')    # the subject-area research (taxonomy.json, sources.csv)
 
+# (2026-10-30, release audit) a scope statement's source in the page's words, and the statement and deciding words
+# without the research's working notes (where and when a statement was read, what a search result added)
+SCOPE_FROM = {'fetched page': 'web page', 'search snippet': 'search result', 'encyclopedia description': 'encyclopedia entry'}
+
+
+def plain_scope(s):
+    s = str(s or '')
+    wrap = len(s) > 1 and s[0] == '"' and s[-1] == '"'     # most statements are stored inside one outer pair of quotes
+    if wrap:
+        s = s[1:-1]
+    s = re.sub(r'\s*\[fetched \d{4}-\d{2}-\d{2}\]', '', s)
+    s = re.sub(r'^("?)Fetched:\s*', r'\1', s)
+    s = re.sub(r'^("?)Fetched page mentions\s*', r'\1Covers ', s)
+    s = re.sub(r';\s*fetched page says only\s*', '; ', s)
+    s = re.sub(r'^("?)snippet topics ', r'\1topics ', s)
+    s = re.sub(r'[;,.]?\s*\(?(search )?sni(ppet\b|p?…).*$', '', s, flags=re.I).strip()
+    return '"' + s + '"' if wrap and s else s
+
 
 def subject_tree():
     """docs/data/taxonomy.json for the Subject areas page (the owner, 2026-10-23: "say how we got those buckets. cite
@@ -1726,6 +1753,14 @@ def subject_tree():
         return None
     t = json.load(open(path, encoding='utf-8'))
     clean = lambda x: str(x or '')
+    # (2026-10-30, release audit) a source's title without the research's working note on where it was read, and
+    # without the research's cross-listing (each journal sits in one group now)
+    public = lambda x: (clean(x).replace(' (local rankings_2025.csv; the W&L site itself was not fetched)', '')
+                        .replace(', cross-listed here)', ')'))
+    # an outside scheme's node cited for a category: [title, url], plus 0 when the source is unverified (the page draws
+    # its own "unverified" mark in place of the title's "[unverified]")
+    unv = re.compile(r'\s*\[unverified\]\s*$')
+    cite = lambda x: [unv.sub('', public(x.get('title'))), x.get('url', '')] + ([0] if unv.search(clean(x.get('title'))) else [])
     def as_list(v):
         if isinstance(v, str):
             try:
@@ -1738,7 +1773,7 @@ def subject_tree():
         c = as_list(n.get('counts')) or {}
         out = {'n': clean(n.get('name')), 'd': clean(n.get('description')),
                'c': [c.get('faculty_papers'), c.get('faculty_papers_2016_on'), c.get('faculty')],
-               's': [[clean(x.get('title')), x.get('url', '')] for x in as_list(n.get('sources')) if isinstance(x, dict)]}
+               's': [cite(x) for x in as_list(n.get('sources')) if isinstance(x, dict)]}
         also = as_list(n.get('also_listed_under'))
         if also:
             out['x'] = [clean(a) for a in also]
@@ -1758,7 +1793,9 @@ def subject_tree():
             supports = re.sub(r'(^|; )Approaches > ', r'\1Interdisciplinary Methods > ', supports)
             supports = re.sub(r'(^|; )journal_map: ', r'\1Placement of ', supports)
             supports = re.sub(r'^root$', 'The scheme as a whole (its top-level divisions)', supports)
-            sources.append([clean(r.title), r.url, supports, r.verified == 'yes'])
+            # the page marks an unverified source itself, so the title's own "[unverified]" is dropped here
+            title = re.sub(r'\s*\[unverified\]\s*$', '', public(r.title))
+            sources.append([title, r.url, supports, r.verified == 'yes'])
     return {'name': clean(t.get('name')), 'description': clean(t.get('description')), 'version': t.get('version'),
             'generated': t.get('generated'), 'counts': t.get('counts'),
             'areas': [node(a) for a in t.get('children', [])], 'approaches': [node(a) for a in t.get('approaches', [])],
@@ -1819,11 +1856,18 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
                                                          'agriculture and animals, and federal Indian law.',
             'Science, Technology & IP': 'Innovation, information and the sciences: intellectual property, technology law and policy '
                                         '(internet, AI, telecommunications, cybersecurity), privacy and data protection, science '
-                                        'and biotechnology, and arts, entertainment and sports. Biotechnology is cross-listed in '
-                                        'Health Law & Bioethics.',
+                                        'and biotechnology, and arts, entertainment and sports.',
             'Health Law & Bioethics': 'Health and medicine: health care law and policy, public health and drug regulation, bioethics, '
-                                      'reproduction, and disability, mental health and aging. Biotechnology & genetics is '
-                                      'cross-listed here from Science, Technology & IP.',
+                                      'reproduction, and disability, mental health and aging.',
+            # (2026-10-30, release audit) the research's cross-listings and its "approach axis" are not the current tree:
+            # each journal sits in one group, and the methods are the higher-level group Interdisciplinary Methods
+            'International & Comparative Law': 'Law beyond and across the nation-state: public international law, human rights, '
+                                               'international criminal law and armed conflict, national security and foreign '
+                                               'relations, international economic law, and comparative and foreign law.',
+            'Legal Theory, Humanities & Society': 'Law as an object of theory and culture: jurisprudence and philosophy of law, law '
+                                                  'and the humanities, and law and social change. Journals defined by a method '
+                                                  '(economics, psychology, empirical and socio-legal research, history) are in '
+                                                  'Interdisciplinary Methods.',
             'Civil Rights, Equality & Family': 'Equality, membership and the family: race and the law, gender and sexuality, '
                                                'civil-rights and antidiscrimination law, immigration and citizenship, family law, '
                                                'poverty and inequality, and education law.'}.items():
@@ -1832,7 +1876,18 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
     # the groups' own definitions (and the scope words behind them) win over the older research fields' descriptions
     if os.path.exists(GROUPS_FILE):
         for r in pd.read_csv(GROUPS_FILE, dtype=str).fillna('').itertuples():
-            about[r.group] = {'d': r.definition, 'w': r.why, 's': about.get(r.group, {}).get('s', [])}
+            about[r.group] = {'d': r.definition.replace('higher group', 'higher-level group'), 'w': r.why,
+                              's': about.get(r.group, {}).get('s', [])}
+        # (2026-10-30, release audit) the page lists groups alphabetically, so "the two/four groups above" (the design's
+        # order) names the groups instead
+        for n, old, new in (
+                ('Animal law', 'after the two groups above, only 2 journals are left',
+                 'after American Indian law and Environmental, energy & natural resources law, 2 journals are left'),
+                ('Education law', 'after the four groups above, only 2 journals are left',
+                 'after Civil rights & social justice, Family law, Gender, sexuality & feminist legal studies and Race, '
+                 'ethnicity & the law, 2 journals are left')):
+            if n in about:
+                about[n]['d'] = about[n]['d'].replace(old, new)
     papers_in, people_in = defaultdict(set), defaultdict(set)
     bucket = defaultdict(lambda: defaultdict(int))     # area id -> person -> articles in its journals (as people[i][4])
     area_of_journal = {ji: journals[ji][4][0][0] for ji in field_of}
@@ -1857,7 +1912,11 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         for f in sorted((f for f in in_field if journals[in_field[f][0]][4][0][0] == g), key=lambda f: subjects[f]):
             jis = sorted(in_field[f], key=lambda ji: (-score(ji), journals[ji][0]))
             info = about.get(subjects[f], {})
-            fields.append({'n': subjects[f], 'd': info.get('d', ''), 'w': info.get('w', ''), 's': info.get('s', []), 'c': count(jis),
+            # (2026-10-30, the owner: "doesn't say claims like 'every' or 'all'") a scope-words note true of each of the
+            # group's journals says how many ("W&L 'Taxation' (5 of 5)"), not "for all" or "in every name"
+            w = re.sub(r"'([^']+)' in every name", rf"'\1' in the names of the {len(jis)}", info.get('w', ''))
+            w = re.sub(r' for all(?: \w+)?(?=;|$)', f' ({len(jis)} of {len(jis)})', w)
+            fields.append({'n': subjects[f], 'd': info.get('d', ''), 'w': w, 's': info.get('s', []), 'c': count(jis),
                            'j': [[ji] + count([ji]) + [1 if ji in field_of else 0] for ji in jis]})
             counted += jis
         if not fields:
@@ -1897,8 +1956,8 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
                 if journals[ji][0] not in deciding:
                     print(f'  !! {journals[ji][0]}: its deciding words are a note on the placers; the page shows them as they are')
                 words = deciding.get(journals[ji][0], words)
-            placed[ji] = [r.get('basis', ''), words, r.get('scope_statement', ''), r.get('scope_url', ''),
-                          r.get('scope_source', ''), r.get('wl_subjects', '')]
+            placed[ji] = [r.get('basis', ''), plain_scope(words), plain_scope(r.get('scope_statement', '')), r.get('scope_url', ''),
+                          SCOPE_FROM.get(r.get('scope_source', ''), ''), r.get('wl_subjects', '')]
         else:
             placed[ji] = ['by its W&L subject (not yet placed by its scope statement)', '', '', '', '', '']
     # each journal's name, publishing school (and its U.S. News rank) or publisher, and W&L score
@@ -2450,7 +2509,7 @@ def anonymous_review_analysis(data, last_year):
     switching within ANON_BIN years of it, so no already-switched review is a control), the switch year counted as
     after, other comparison groups, other sets of switchers, each switcher left out in turn, unweighted, and a longer
     panel. Also, for the anonymous reviews with no known start (no before-and-after test is possible), the
-    home-faculty premium of every top-14 review over the default ten-year window, a description only.'''
+    own-faculty ratio of each top-14 review over the default ten-year window, a description only.'''
     if not os.path.exists(ANON_FILE):
         print('  !! anonymous review: ' + ANON_FILE + ' is missing; insights.json has no anon section')
         return None
@@ -2521,7 +2580,7 @@ def anonymous_review_analysis(data, last_year):
             return [nan_none(v) for v in x]
         return None if isinstance(x, float) and x != x else x
 
-    # ---- the context: every top-14 review's home-faculty premium over the default ten years (a description only)
+    # ---- the context: each top-14 review's own-faculty ratio over the default ten years (a description only)
     w0, w1 = last_year - 9, last_year
     top = sorted((ji for ji in flag if 1 <= rank_of[ji] <= 14), key=lambda ji: (rank_of[ji], J[ji][0]))
     win = art[(art['year'] >= w0) & (art['year'] <= w1) & art['j'].isin(top)]
