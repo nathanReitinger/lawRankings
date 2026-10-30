@@ -270,9 +270,9 @@
     gallery.setAttribute('aria-modal', 'true');
     gallery.setAttribute('aria-labelledby', 'mastGalleryTitle');
     gallery.innerHTML = '<div class="mast-panel"><div class="mast-top"><div><h2 id="mastGalleryTitle">Pick a masthead</h2>' +
-      '<p>Click one to see it on the page. <b>Vote for your favorite</b> and it stays for you on this browser; or let a new one come each visit.</p></div>' +
+      '<p>"See it" shows a masthead on this page. A voted favorite stays on this browser; without one, a new masthead comes each visit.</p></div>' +
       '<button type="button" class="mast-x" aria-label="Close">&times;</button></div><div class="mast-grid"></div>' +
-      '<div class="mast-bottom"><button type="button" class="mast-shuffle">Surprise me again: a new one each visit</button></div></div>';
+      '<div class="mast-bottom"><button type="button" class="mast-shuffle">A new masthead each visit</button></div></div>';
     const grid = gallery.querySelector('.mast-grid');
     for (let n = 1; n <= N; n++) {
       const card = document.createElement('div');
@@ -358,7 +358,7 @@
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'mast-pick';
-    b.title = 'See every masthead and vote for your favorite';
+    b.title = 'The ' + ((window.LSR_MAST || {}).n || 26) + ' mastheads, with a vote for a favorite';
     b.textContent = 'change logo';
     b.addEventListener('click', () => openGallery(b));
     const stamp = line.querySelector('.lsr-stamp');
