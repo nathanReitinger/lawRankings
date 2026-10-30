@@ -1739,7 +1739,23 @@ def plain_scope(s):
     s = re.sub(r';\s*fetched page says only\s*', '; ', s)
     s = re.sub(r'^("?)snippet topics ', r'\1topics ', s)
     s = re.sub(r'[;,.]?\s*\(?(search )?sni(ppet\b|p?…).*$', '', s, flags=re.I).strip()
+    # (2026-10-30, release audit) the Yale Journal on Regulation Bulletin's record: the placer's note that the parent
+    # journal's scope applies is not the journal's own words
+    s = s.replace('; "the parent\'s scope applies"', '')
+    s = re.sub(r";\s*the Bulletin page has no scope statement of its own, so the parent's scope applies…?$", '', s)
     return '"' + s + '"' if wrap and s else s
+
+
+def anon_basis(s):
+    """(2026-10-30, release audit) a policy source as the anonymous-review list shows it, without the research's
+    working notes on how it was found (search method, the date a page was checked)"""
+    s = str(s or '').replace(' (page-fetch budget)', '')
+    s = re.sub(r' \(checked (\d{4}-\d{2}-\d{2})\)', r' (\1)', s)
+    s = s.replace('current page per web search', 'current page')
+    s = re.sub(r'(\d{4}) web search found ', r'current page (\1): ', s)
+    s = re.sub(r'^web search of (.+?), (\d{4}-\d{2}-\d{2})', r'\1 (\2)', s)
+    s = re.sub(r'^web search, (\d{4}-\d{2}-\d{2})', r'submission pages (\1)', s)
+    return s
 
 
 def subject_tree():
@@ -1753,6 +1769,8 @@ def subject_tree():
         return None
     t = json.load(open(path, encoding='utf-8'))
     clean = lambda x: str(x or '')
+    # (2026-10-30, release audit) a WordPress REST search returns JSON; the same search as a page
+    link = lambda u: clean(u).replace('https://leiterreports.com/wp-json/wp/v2/posts?search=', 'https://leiterreports.com/?s=')
     # (2026-10-30, release audit) a source's title without the research's working note on where it was read, and
     # without the research's cross-listing (each journal sits in one group now)
     public = lambda x: (clean(x).replace(' (local rankings_2025.csv; the W&L site itself was not fetched)', '')
@@ -1760,7 +1778,7 @@ def subject_tree():
     # an outside scheme's node cited for a category: [title, url], plus 0 when the source is unverified (the page draws
     # its own "unverified" mark in place of the title's "[unverified]")
     unv = re.compile(r'\s*\[unverified\]\s*$')
-    cite = lambda x: [unv.sub('', public(x.get('title'))), x.get('url', '')] + ([0] if unv.search(clean(x.get('title'))) else [])
+    cite = lambda x: [unv.sub('', public(x.get('title'))), link(x.get('url', ''))] + ([0] if unv.search(clean(x.get('title'))) else [])
     def as_list(v):
         if isinstance(v, str):
             try:
@@ -1793,9 +1811,14 @@ def subject_tree():
             supports = re.sub(r'(^|; )Approaches > ', r'\1Interdisciplinary Methods > ', supports)
             supports = re.sub(r'(^|; )journal_map: ', r'\1Placement of ', supports)
             supports = re.sub(r'^root$', 'The scheme as a whole (its top-level divisions)', supports)
+            # (2026-10-30, release audit) "rationale:" is the research file's column token; the clustering note in
+            # the page's words
+            supports = re.sub(r'^rationale:\s*', '', supports)
+            supports = supports.replace('stability thresholds used by the earlier co-publication lens',
+                                        'bootstrap stability thresholds for the clusters of fields by shared authors')
             # the page marks an unverified source itself, so the title's own "[unverified]" is dropped here
             title = re.sub(r'\s*\[unverified\]\s*$', '', public(r.title))
-            sources.append([title, r.url, supports, r.verified == 'yes'])
+            sources.append([title, link(r.url), supports, r.verified == 'yes'])
     return {'name': clean(t.get('name')), 'description': clean(t.get('description')), 'version': t.get('version'),
             'generated': t.get('generated'), 'counts': t.get('counts'),
             'areas': [node(a) for a in t.get('children', [])], 'approaches': [node(a) for a in t.get('approaches', [])],
@@ -1888,10 +1911,21 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
                  'ethnicity & the law, 2 journals are left')):
             if n in about:
                 about[n]['d'] = about[n]['d'].replace(old, new)
+        # (2026-10-30, release audit) the Bulletin's own description, not the placer's note on it
+        if 'Administrative law & regulation' in about:
+            about['Administrative law & regulation']['w'] = about['Administrative law & regulation']['w'].replace(
+                "its Bulletin's record says 'the parent's scope applies'",
+                "its Bulletin 'Online companion of the Yale Journal on Regulation'")
     papers_in, people_in = defaultdict(set), defaultdict(set)
     bucket = defaultdict(lambda: defaultdict(int))     # area id -> person -> articles in its journals (as people[i][4])
     area_of_journal = {ji: journals[ji][4][0][0] for ji in field_of}
+    # (2026-10-30, release audit) people whose only affiliation is a court or other judicial body (justices and judges,
+    # some long dead) are not current faculty: their articles stay out of the counts and the author buckets
+    bench = {pi for pi, p in enumerate(people) if p[1] and all(re.search(r'Court|Judicial', schools[sc][0]) and
+             not re.search(r'Universit|Faculty of Law', schools[sc][0]) for sc in p[1])}
     for pk, person_i in zip(credit_paper, credit_person):
+        if person_i in bench:
+            continue
         papers_in[paper_journal[pk]].add(pk)
         people_in[paper_journal[pk]].add(person_i)
         g = area_of_journal.get(paper_journal[pk])
@@ -2697,7 +2731,8 @@ def anonymous_review_analysis(data, last_year):
         w = 'n_rank' if key == 'rank' else 'n'
         res, d = fit(base, key, 'D', w)
         s = summary(res, d, key, w)
-        # the smallest true change this test would catch four times in five (two-sided 5%): 2.8 standard errors
+        # the smallest true change this test would catch four times in five (two-sided 5%): 2.8 times the larger of the
+        # clustered standard error and the placebo spread
         s['mde'] = round(2.8 * max(s['se'], s.get('placebo_sd', 0)), 5)
         tb = d[d['j'].isin(treated) & (d['e'] < 1)]
         s['treated_before'] = round(float(np.average(tb[key], weights=tb[w])), 5)
@@ -2794,7 +2829,7 @@ def anonymous_review_analysis(data, last_year):
     status = {ji: ('too recent' if ji in too_recent else role[ji]) for ji in row_of}
     out['journals'] = [{'j': ji, 'name': J[ji][0], 'school_rank': J[ji][2], 'role': status[ji], 'policy': row_of[ji]['policy'],
                         'adopted': int(row_of[ji]['adopted']) if row_of[ji]['adopted'] else None, 'confidence': row_of[ji]['confidence'],
-                        'basis': row_of[ji]['adopted_basis'].replace(' (page-fetch budget)', ''), 'url': row_of[ji]['evidence_url']}     # (the quotes and notes stay in the list)
+                        'basis': anon_basis(row_of[ji]['adopted_basis']), 'url': row_of[ji]['evidence_url']}     # (the quotes stay in the list)
                        for ji in sorted(row_of, key=lambda j: (order[status[j]], adopt.get(j, 0), rank_of[j] or 999, J[j][0]))]
     out['counts'] = {'treated': len(treated), 'too_recent': len(too_recent), 'left_out': sorted(J[j][0] for j in left_out),
                      'comparison': int(cmp_rows['j'].nunique()),

@@ -139,15 +139,19 @@
     head.append(', ' + num(total) + ' article' + (total === 1 ? '' : 's') + ' in ' + a.n + ', by journal and group:');
     box.appendChild(head);
     const ul = el('ul', { class: 'tx-from-list' });
+    // the arrows are hidden from screen readers, which read the words beside them instead
+    const SR = 'position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap';
     FROM.j.forEach((k, ji) => {
       const [g, up] = where.get(ji) || ['', ''];
       const li = el('li');
       const b = el('button', { type: 'button', class: 'tx-catlink tx-jname', title: 'Its row in the table below' }, jname(ji) || 'Journal ' + ji);
       b.addEventListener('click', () => showRow(ji));
       li.appendChild(b);
-      li.appendChild(el('span', { class: 'tx-arrow', 'aria-label': 'in the group' }, ' → '));
+      li.appendChild(el('span', { class: 'tx-arrow', 'aria-hidden': 'true' }, ' → '));
+      li.appendChild(el('span', { style: SR }, ' in the group '));
       li.appendChild(el('span', null, g || 'no group'));
-      li.appendChild(el('span', { class: 'tx-arrow', 'aria-label': 'in the higher-level group' }, ' → '));
+      li.appendChild(el('span', { class: 'tx-arrow', 'aria-hidden': 'true' }, ' → '));
+      li.appendChild(el('span', { style: SR }, ' in the higher-level group '));
       li.appendChild(el('b', null, up || 'no higher-level group'));
       li.appendChild(el('span', { class: 'tx-counts' }, ' · ' + num(k) + ' article' + (k === 1 ? '' : 's')));
       ul.appendChild(li);
@@ -305,13 +309,18 @@
           formatter() {
             const c = this.point.custom || {};
             if (c.kind === 'category') return '';
-            if (c.kind === 'field') return clip(this.point.name, narrow ? 16 : 40);
+            if (c.kind === 'field') return clip(this.point.name, narrow ? 20 : 40);
             return clip(this.point.name, narrow ? 24 : 52);
           } },
         levels: [
-          { level: 1, dataLabels: { enabled: true, align: 'left', x: -6, y: -16, verticalAlign: 'bottom', formatter() { return clip(a.n, narrow ? 18 : 40); },
+          { level: 1, dataLabels: { enabled: true, align: 'left', x: -6, y: -16, verticalAlign: 'bottom', backgroundColor: 'rgba(255,255,255,0.92)', padding: 0,
+            formatter() { return clip(a.n, narrow ? 18 : 40); },
             style: { fontSize: '13px', fontWeight: '700', color: INK, textOutline: '3px #ffffff' } } },
-          { level: 2, dataLabels: { style: { fontWeight: '600', color: INK } } },
+          // (2026-10-30, release audit) a group's label sits on a white ground so the links leaving its node do not
+          // strike through it; on a phone it is centered above its node, inside its own column
+          { level: 2, dataLabels: narrow
+            ? { align: 'center', verticalAlign: 'bottom', x: 0, y: -10, backgroundColor: 'rgba(255,255,255,0.92)', padding: 0, style: { fontWeight: '600', color: INK } }
+            : { backgroundColor: 'rgba(255,255,255,0.92)', padding: 0, x: 14, style: { fontWeight: '600', color: INK } } },
         ],
       },
     });
@@ -498,8 +507,9 @@
       if (quote || url) {
         const d = el('div', { class: 'text-muted tx-cite' });
         d.append('Scope statement' + (how ? ' (' + how + ')' : '') + ': ');
-        if (url) d.appendChild(el('a', { href: url, target: '_blank', rel: 'noopener', title: quote }, quote ? clip(quote.length > 1 && quote[0] === '"' && quote[quote.length - 1] === '"' ? quote.slice(1, -1) : quote, 120) : url));
-        else d.append(clip(quote, 120));
+        const shown = quote.length > 1 && quote[0] === '"' && quote[quote.length - 1] === '"' ? quote.slice(1, -1) : quote;
+        if (url) d.appendChild(el('a', { href: url, target: '_blank', rel: 'noopener', title: shown }, shown ? clip(shown, 120) : url));
+        else d.append(clip(shown, 120));
         td4.appendChild(d);
       }
       if (wl) td4.appendChild(el('div', { class: 'text-muted tx-cite' }, 'W&L subject: ' + wl));
@@ -574,7 +584,11 @@
     const isAll = fold(want) === 'all';   // taxonomy.html#all opens the All view
     const at = T.areas.findIndex((a) => fold(a.n) === fold(want));
     if (isAll) current = ALL; else if (at >= 0) current = at;
-    if (FROM && at >= 0) FROM.area = at;
+    if (FROM && at >= 0) {   // only this higher-level group's journals; a link with none of them opens the plain view
+      const inArea = new Set(T.areas[at].k.flatMap((f) => f.j.map(([ji]) => ji)));
+      [...FROM.j.keys()].forEach((ji) => { if (!inArea.has(ji)) FROM.j.delete(ji); });
+      if (FROM.j.size) FROM.area = at;
+    }
     $('loading').remove();
     document.querySelectorAll('.ins-section').forEach((s) => { s.hidden = false; });
     if (typeof Highcharts !== 'undefined') allowFolding();

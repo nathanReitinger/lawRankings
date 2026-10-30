@@ -125,7 +125,7 @@
   }
   // a row of buttons (one pressed); onPick(value)
   function seg(parent, label, items, cur, onPick) {
-    const g = el('div', { class: 'ins-seg tw-seg', role: 'radiogroup', 'aria-label': label });
+    const g = el('div', { class: 'ins-seg tw-seg', role: 'group', 'aria-label': label });
     items.forEach(([v, text]) => {
       const b = el('button', { type: 'button', 'aria-pressed': String(v === cur) }, text);
       b.addEventListener('click', () => {
@@ -157,6 +157,8 @@
       ', in five tiers: by the U.S. News rank of the school whose main law review published the title (' + nW(T.review) +
       ' titles), or by the rank of the school of a current faculty member credited with it (' + nW(T.school) +
       ' titles, in the journals collected here). Metadata from HeinOnline; counts of words across titles, with individual titles not shown.';
+    const my = $('mWordsYears');                // the method note's years (insights.html), when it has the span
+    if (my) my.textContent = T.windows[0][0] + '–' + T.full;
   }
 
   // the tiers' grouping, for every card below
@@ -217,7 +219,7 @@
       (T.max_journal_share != null ? ' with no more than ' + Math.round(100 * T.max_journal_share) + '% of those titles in one journal' : '') +
       (T.nest != null ? '; a word is not listed beside a two-word phrase with it that is in ' + Math.round(100 * T.nest) + '% or more of the word’s titles on that side' : '') + '.');
     const tierLab = (b) => (b === 'Top 14' ? 'Top 14' : short(b));
-    seg(c.ctl, 'Tier', tierItems(false), st.dTier, (v) => { st.dTier = v; draw(); });
+    seg(c.ctl, 'Tier for words against the other tiers', tierItems(false), st.dTier, (v) => { st.dTier = v; draw(); });
     const t = details(c.fig, 'The numbers');
     const draw = () => {
       const R = V().distinct[st.dTier];
@@ -239,7 +241,7 @@
       'The same weighted log-odds ratio (z-score), for the titles of one tier (or of the five together) in ' + span(r) + ' against the same tier’s titles in ' + span(e) +
       '. Bars to the right: the ' + T.top + ' highest z-scores (a higher share of titles in ' + span(r) + '); to the left: the ' + T.top + ' lowest (a higher share in ' + span(e) +
       '). Same minimum counts as above.');
-    seg(c.ctl, 'Tier', tierItems(true), st.cTier, (v) => { st.cTier = v; draw(); });
+    seg(c.ctl, 'Tier for words, ' + span(r) + ' against ' + span(e), tierItems(true), st.cTier, (v) => { st.cTier = v; draw(); });
     const t = details(c.fig, 'The numbers');
     const draw = () => {
       const R = V().change[st.cTier];
@@ -361,7 +363,7 @@
     const r = T.recent, e = T.earlier;
     const c = card('twFrames', 'Title openings (' + T.frames.length + ' listed phrases), ' + span(e) + ' and ' + span(r),
       'Share of titles opening with each listed phrase (after any opening quotation mark), for the tier picked below, in ' + span(e) + ' and ' + span(r) + '.');
-    seg(c.ctl, 'Tier', tierItems(true), st.oTier, (v) => { st.oTier = v; draw(); });
+    seg(c.ctl, 'Tier for title openings', tierItems(true), st.oTier, (v) => { st.oTier = v; draw(); });
     const t = details(c.fig, 'The numbers');
     const draw = () => {
       const F = V().frames[st.oTier];

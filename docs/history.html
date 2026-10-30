@@ -64,7 +64,7 @@
           (ch ? ' (' + signed(ch.papers) + ' article' + (Math.abs(ch.papers) === 1 ? '' : 's') + ', ' + signed(ch.faculty_with_papers) + ' faculty since the previous version)' : '') + '</li>' +
         '</ul>' +
         (ch ? (ch.view_changed ? '<p class="text-muted">View in this version: ' + esc(ch.view_changed) + '; its top 30 is not compared with the previous version.</p>'
-               : ch.moved.length ? '<details><summary>Changes in the top 30 (' + ch.moved.length + ' schools)</summary><ul>' + moved + '</ul></details>'
+               : ch.moved.length ? '<details><summary>Changes in the top 30 (' + ch.moved.length + (ch.moved.length === 1 ? ' school' : ' schools') + ')</summary><ul>' + moved + '</ul></details>'
                                  : '<p class="text-muted">Top 30: same schools and places as the previous version.</p>') : '') +
         '<details><summary>Top 30 in this version</summary><table><thead><tr><th>#</th><th>School</th><th>Count</th><th>Faculty</th></tr></thead><tbody>' +
         e.top.map(([s, score, n], i) => '<tr><td>' + (i + 1) + '</td><td>' + esc(s) + '</td><td>' + Number(score).toFixed(1) + '</td><td>' + n + '</td></tr>').join('') +

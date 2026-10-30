@@ -268,7 +268,7 @@
     const gen = $('generalBody');
     BANDS.forEach((b) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-band-toggle="' + b.id + '" title="Show/hide journals" aria-label="Show or hide the journals" aria-expanded="false" aria-controls="bandList' + b.id + '">&#9658;</button> <label for="band' + b.id + '" id="bandLabel' + b.id + '">' + esc(bandLabel(b)) + '</label>' +
+      tr.innerHTML = '<td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-band-toggle="' + b.id + '" id="bandTog' + b.id + '" title="Show/hide journals" aria-label="Journals in" aria-labelledby="bandTog' + b.id + ' bandLabel' + b.id + '" aria-expanded="false" aria-controls="bandList' + b.id + '">&#9658;</button> <label for="band' + b.id + '" id="bandLabel' + b.id + '">' + esc(bandLabel(b)) + '</label>' +
         '<div class="sub-list" id="bandList' + b.id + '" hidden></div></td>' +
         '<td class="chk"><input type="checkbox" id="band' + b.id + '" data-band="' + b.id + '"></td>';
       gen.appendChild(tr);
@@ -280,10 +280,10 @@
     DATA.groups.forEach((g, gi) => {
       const subs = groupSubjects[g] || [];
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-group-toggle="' + gi + '" title="Show/hide groups" aria-label="Show or hide the groups" aria-expanded="false" aria-controls="grpList' + gi + '">&#9658;</button> <label for="grp' + gi + '">' + esc(g) + '</label>' +
+      tr.innerHTML = '<td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-group-toggle="' + gi + '" id="grpTog' + gi + '" title="Show/hide groups" aria-label="Groups in" aria-labelledby="grpTog' + gi + ' grpLabel' + gi + '" aria-expanded="false" aria-controls="grpList' + gi + '">&#9658;</button> <label for="grp' + gi + '" id="grpLabel' + gi + '">' + esc(g) + '</label>' +
         '<div class="sub-list" id="grpList' + gi + '" hidden><p>groups (open a group for its journals)</p><table><tbody>' +
-        subs.map((s, si) => '<tr><td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-field-toggle="' + gi + '_' + si + '" title="Show/hide journals" aria-label="Show or hide the journals" aria-expanded="false" aria-controls="fieldList' + gi + '_' + si + '">&#9658;</button> ' +
-          '<label for="sub' + gi + '_' + si + '">' + esc(s) + '</label> <small class="text-muted">(' + fieldJournalIds(s).length + ')</small>' +
+        subs.map((s, si) => '<tr><td><button type="button" class="hovertip list-toggle"' + TOGGLE_STYLE + ' data-field-toggle="' + gi + '_' + si + '" id="subTog' + gi + '_' + si + '" title="Show/hide journals" aria-label="Journals in" aria-labelledby="subTog' + gi + '_' + si + ' subLabel' + gi + '_' + si + '" aria-expanded="false" aria-controls="fieldList' + gi + '_' + si + '">&#9658;</button> ' +
+          '<label for="sub' + gi + '_' + si + '" id="subLabel' + gi + '_' + si + '">' + esc(s) + '</label> <small class="text-muted">(' + fieldJournalIds(s).length + ')</small>' +
           '<div class="sub-list" id="fieldList' + gi + '_' + si + '" data-field="' + esc(s) + '" hidden></div></td>' +
           '<td class="chk"><input type="checkbox" id="sub' + gi + '_' + si + '" data-group="' + esc(g) + '" data-subject="' + esc(s) + '"></td></tr>').join('') +
         '</tbody></table></div></td>' +
@@ -447,6 +447,7 @@
   function setSel(el, which) {
     el.classList.remove('selection-none', 'selection-partial', 'selection-all');
     el.classList.add('selection-' + which);
+    el.setAttribute('aria-pressed', which === 'none' ? 'false' : which === 'all' ? 'true' : 'mixed');
   }
 
   ////////////////////////////////////////////// ranking table
@@ -744,7 +745,7 @@
       // (review) the legend gets its own room (a row per line on a phone, two to a row wider), so the plot keeps its height
       const legendRows = series.length > 1 ? (box.clientWidth < 500 ? series.length : Math.ceil(series.length / 2)) : 0;
       trendCharts.add(H.chart(box, {
-        chart: { type: 'line', height: 190 + 18 * legendRows, spacing: [6, 4, 4, 0], backgroundColor: 'transparent' },
+        chart: { type: 'line', height: 190 + 18 * legendRows, spacing: [6, 12, 4, 0], backgroundColor: 'transparent' },
         title: { text: 'Counted articles per year, ' + y0 + '–' + y1, align: 'left', style: { fontSize: '12px', fontWeight: '600', color: '#333' } },
         subtitle: y1 < state.to ? { text: (y1 + 1 === state.to ? state.to : (y1 + 1) + '–' + state.to) + ' left out: volumes still coming out', align: 'left',
           style: { fontSize: '10.5px', color: '#777' } } : undefined,
@@ -837,9 +838,13 @@
     const papers = (personPapers.get(person) || []).filter((p) => P.year[p] >= state.from && P.year[p] <= state.to);
     const skipped = state.minor ? papers.filter((p) => P.minor[p]).length : 0;
     const forBars = papers.filter((p) => !(state.minor && P.minor[p]));   // bars respect "skip short pieces"
+    // articles in the selected journals that "Leave out a school's own journals" drops for this school (as compute() does)
+    const own = state.noHome && DATA.journal_school ? forBars.filter((p) => current.jAreas[P.journal[p]].length && DATA.journal_school[P.journal[p]].includes(s)).length : 0;
+    const why = [papers.length - f.papers.length - skipped - own > 0 ? 'outside the selected journals' : '',
+      skipped ? 'skipped as short pieces (' + skipped + ')' : '', own ? 'in the school\'s own journals (' + own + ')' : ''].filter(Boolean);
     const note = '<p class="detail-note">' + f.papers.length + ' of ' + papers.length + ' article' + (papers.length === 1 ? '' : 's') +
       ' (' + state.from + '–' + state.to + ') count in this ranking' +
-      (papers.length > f.papers.length ? '; the others are outside the selected journals' + (skipped ? ' or skipped as short pieces (' + skipped + ')' : '') : '') +
+      (why.length ? '; the others are ' + why.slice(0, -1).join(', ') + (why.length > 1 ? ' or ' : '') + why[why.length - 1] : '') +
       '.' + (DATA.people[person][3] ? ' <a href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener">Faculty page</a>' : '') + '</p>';
     detailRow.firstElementChild.innerHTML = trendBox({ person: person, school: s }) + worksOn(person, forBars) + authorBars(forBars, { who: DATA.people[person][0] }) + note;
     drawPending(detailRow);

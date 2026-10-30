@@ -569,7 +569,7 @@ a.area-link:hover { text-decoration-color: currentColor; }
 .lsr-right { display: inline-flex; align-items: baseline; gap: 0.9em; }
 .mast-pick { align-self: center; padding: 0; border: 0; background: none; cursor: pointer;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-weight: 400; font-size: max(9.5px, 0.62em); letter-spacing: 0.04em;
-  text-transform: none; color: #9b978f; text-decoration: underline; text-decoration-color: rgba(155, 151, 143, 0.45); text-underline-offset: 2px; }
+  text-transform: none; color: #77736c; text-decoration: underline; text-decoration-color: rgba(119, 115, 108, 0.45); text-underline-offset: 2px; }
 .mast-pick:hover, .mast-pick:focus-visible { color: #4a4740; text-decoration-color: currentColor; }
 html.mast-open { overflow: hidden; }
 .mast-gallery { position: fixed; inset: 0; z-index: 1100; display: none; align-items: flex-start; justify-content: center; padding: 4vh 16px;

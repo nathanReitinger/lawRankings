@@ -225,7 +225,8 @@
   // logo and then we'll keep that one for them. and allow a click-button to change logo with a pop-up of all logos to
   // view"). A small "change logo" button by the build hash opens every masthead, drawn live in its own face; a click
   // previews one on the page, "Vote for this one" keeps it for this visitor (localStorage lsr.mastPin, which the
-  // <head> script reads before anything is drawn), and "Surprise me" goes back to a new one each visit. The votes stay
+  // <head> script reads before anything is drawn; a second press clears it), and "A new masthead each visit" goes back
+  // to a new one each visit. The votes stay
   // in each visitor's browser: a static site has nowhere to count them.
   const FAMILY = (n) => (n <= 10 ? 'Classic' : n <= 15 ? 'Type' : n <= 20 ? 'Light' : n <= 25 ? 'Ink' : 'Interactive');
   const PIN = 'lsr.mastPin';
@@ -304,12 +305,12 @@
       if (!card) return;
       const n = +card.dataset.n;
       if (e.target.closest('.mast-vote')) {
-        try { localStorage.setItem(PIN, String(n)); } catch (err) { /* private mode: it applies for this page only */ }
+        try { if (pinned() === n) localStorage.removeItem(PIN); else localStorage.setItem(PIN, String(n)); } catch (err) { /* private mode: it applies for this page only */ }
         applyMast(n); markCards(); return;
       }
       applyMast(n); markCards();
     });
-    gallery.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeGallery(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && gallery && gallery.classList.contains('on')) closeGallery(); });
     document.body.appendChild(gallery);
   }
 

@@ -80,7 +80,7 @@
       xAxis: { lineColor: axis, tickColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
       yAxis: { lineColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
       plotOptions: { series: { animation: false, states: { inactive: { opacity: 0.35 } } } },
-      accessibility: { enabled: true },
+      accessibility: { enabled: true, point: { valueDecimals: 1 } },
     };
   }
   function makeChart(box, opts, W) {
@@ -216,7 +216,7 @@
       'given to ' + num(A.draws) + ' random sets of comparison reviews of top-' + A.placebo_top + ' schools (from ' + m.placebo_pool + '), counting how often the placebo change is as large' +
       // (review, 2026-10-29) it tests "no switching review changed at all", so one review that changed a lot can carry it
       (m.se > m.placebo_sd ? '; this test does not allow for the switching reviews changing by different amounts (clustered standard error ' + (100 * m.se).toFixed(1) + ' points; placebo spread ' + (100 * m.placebo_sd).toFixed(1) + ' points)' : '') + '. ' +
-      'Detectable: the smallest true change the test would catch four times in five (2.8 standard errors): ' + A.outcomes.map((o) => SHORT[o.key].toLowerCase() + ' ±' + (scale(o.key) * A.main[o.key].mde).toFixed(1) + unitWord(o.key)).join(', ') +
+      'Detectable: the smallest true change the test would catch four times in five (2.8 times the larger of the clustered standard error and the placebo spread): ' + A.outcomes.map((o) => SHORT[o.key].toLowerCase() + ' ±' + (scale(o.key) * A.main[o.key].mde).toFixed(1) + unitWord(o.key)).join(', ') +
       '. Mean school rank: a higher number means authors from lower-ranked schools.';
   }
 
@@ -224,7 +224,7 @@
   function picker() {
     const row = el('div', { class: 'ins-row an-pick' });
     const lab = el('span', { class: 'an-pick-l' }, 'Measure for the charts below:');
-    const seg = el('div', { class: 'ins-seg', role: 'radiogroup', 'aria-label': 'Measure for the charts below' });
+    const seg = el('div', { class: 'ins-seg', role: 'group', 'aria-label': 'Measure for the charts below' });
     A.outcomes.forEach((o) => {
       const b = el('button', { type: 'button', 'data-k': o.key, 'aria-pressed': String(o.key === outcome) }, SHORT[o.key] + (o.primary ? ' (main)' : ''));
       b.addEventListener('click', () => {
@@ -271,7 +271,10 @@
         marker: e === -1 ? { fillColor: '#ffffff', lineColor: C_CMP, lineWidth: 1.5 } : undefined }));
       makeChart(c.box, {
         chart: { height: narrow ? 300 : 360 },
-        accessibility: { description: 'Event study: the difference between switching and comparison reviews in ' + SHORT[k].toLowerCase() + ', by year since the switch, with 95% intervals. The table below lists the numbers.' },
+        accessibility: { description: 'Event study: the difference between switching and comparison reviews in ' + SHORT[k].toLowerCase() + ', by year since the switch, with 95% intervals. The table below lists the numbers.',
+          // the pooled ends read as ≤−6 and ≥6, as on the axis
+          point: { descriptionFormatter(p) { const f = (v) => (v < 0 ? MINUS : '') + Math.abs(v).toFixed(1);
+            return lab(p.x) + (Math.abs(p.x) === 1 ? ' year' : ' years') + ' since the switch, ' + (p.low != null ? f(p.low) + ' to ' + f(p.high) : f(p.y)) + '. ' + p.series.name + '.'; } } },
         xAxis: { min: -A.bin - 0.5, max: A.bin + 0.5, tickPositions: ev.e, labels: { formatter() { return lab(this.value); }, autoRotation: false, padding: 0,
           style: { fontSize: narrow ? '10px' : '11.5px', textOverflow: 'none', whiteSpace: 'nowrap' } },
           title: { text: narrow ? 'Years since the switch' : 'Years since the switch (volume year minus switch year)' },
@@ -387,6 +390,20 @@
   }
 
   // ---------------------------------------------------------------- 6. the reviews and their policies
+  // (review, 2026-10-30) each evidence link says what it is; the basis text gets American quotation marks and
+  // en dashes in ranges for display
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+  const srcLabel = (u) => {
+    const m = /web\.archive\.org\/web\/(\d{4})(\d{2})/.exec(u);
+    if (m) return 'Archived page, Internet Archive, ' + MON[+m[2] - 1] + ' ' + m[1];
+    if (/jolt\.law\.harvard\.edu/.test(u)) return 'Thomson, Harvard Journal of Law & Technology (PDF)';
+    if (/Conklin\.pdf$/i.test(u)) return 'Conklin, University of Illinois Law Review (PDF)';
+    if (/scholasticahq\.com/.test(u)) return 'Scholastica blog post';
+    try { return 'Review’s page (' + new URL(u).hostname.replace(/^www\./, '') + ')'; } catch (e) { return 'Review’s page'; }
+  };
+  const MONS = 'Jan|Feb|Mar|Apr|May|June|July|Aug|Sept|Oct|Nov|Dec';
+  const typo = (t) => t.replace(/(\w)'(\w)/g, '$1’$2').replace(/(^|[\s(])'/g, '$1“').replace(/'/g, '”')
+    .replace(/\b(\d{4})-(\d{4})\b/g, '$1–$2').replace(new RegExp('\\b(' + MONS + ')-(' + MONS + ')\\b', 'g'), '$1–$2');
   function figList() {
     const c = card('anList', 'Flagship law reviews and their stated anonymous-review policies',
       'Flagship reviews with a policy entry: the policy found and its source (the review’s own pages, current or archived, its editors’ accounts, or published studies), or that it was not checked. A year is counted as a switch only when the review announced it, its editors reported it, or archived pages show the policy absent and then present; ' +
@@ -419,9 +436,10 @@
         if (j.confidence) bits.push(j.confidence + ' confidence');
         head.appendChild(el('span', { class: 'an-meta' }, ' · ' + bits.join(' · ')));
         li.appendChild(head);
-        const basis = el('p', { class: 'an-basis' }, j.basis.charAt(0).toUpperCase() + j.basis.slice(1) + '. ');
+        const bt = typo(j.basis);
+        const basis = el('p', { class: 'an-basis' }, bt.charAt(0).toUpperCase() + bt.slice(1) + '. ');
         if (/^https?:\/\//.test(j.url)) {
-          const a = el('a', { href: j.url, rel: 'noopener', target: '_blank' }, 'Source');
+          const a = el('a', { href: j.url, rel: 'noopener', target: '_blank' }, srcLabel(j.url));
           basis.appendChild(a);
         }
         li.appendChild(basis);

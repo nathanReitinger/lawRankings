@@ -499,7 +499,7 @@
     figs.push({ box: left, draw: () => {
       const W = left.clientWidth, narrow = W < 560;
       makeChart(left, {
-        chart: { type: 'line', height: narrow ? 330 : 420, marginRight: narrow ? 14 : 18, events: { render() { nameCurves(this, narrow); } } },     // (room for the last label, 100%)
+        chart: { type: 'line', height: narrow ? 330 : 420, marginRight: narrow ? 16 : 18, events: { render() { nameCurves(this, narrow); } } },     // (room for the last label, 100%)
         accessibility: { description: 'Lorenz curves: for each slice of flagship law reviews, the share of its articles (up) held by the share of the ' + n + ' U.S. law schools with the fewest (across). The tables below the chart list the numbers.' },
         xAxis: { min: 0, max: 100, tickInterval: narrow ? 25 : 10, title: { text: narrow ? 'Schools, fewest articles first' : 'U.S. law schools, fewest articles first' }, labels: { format: '{value}%' },
           gridLineWidth: 1, crosshair: { color: rule, width: 1 } },
@@ -508,7 +508,7 @@
           const pts = (this.points || [this]).filter((p) => p.series && p.series.options.custom && p.series.options.custom.slice != null);
           if (!pts.length) return false;
           const k = Math.round(pts[0].x * n / 100);
-          const head = k === 0 ? '0 schools' : k === n ? 'The ' + n + ' schools' : 'The ' + k + ' schools (' + pct(k / n) + ') with the fewest articles';
+          const head = k === 0 ? '0 schools' : k === n ? 'The ' + n + ' schools' : k === 1 ? 'The school (' + pct(1 / n) + ') with the fewest articles' : 'The ' + k + ' schools (' + pct(k / n) + ') with the fewest articles';
           return '<b>' + head + '</b><br>' + pts.map((p) => '<span style="color:' + p.series.color + '">●</span> ' + esc(p.series.name) + ': <b>' + pct1(p.y / 100) + '</b>').join('<br>') +
             '<br><span style="color:#898781">of each slice’s articles (each sorts the schools by its own count)</span>';
         } },
@@ -614,7 +614,7 @@
       'Gini coefficient across schools (0: equal counts; 1: one school with the articles): ');
     bold(gini(giniOf(all))); say(' for the flagship reviews in total, ');
     bold(gini(giniOf(h))); say(' for the top 14 and ');
-    bold(gini(giniOf(top))); say(' for the top 3' + (thin(top) ? ' (' + fewText(top) + ')' : '') + '. Share of the top-14 reviews’ articles at the ten schools with the most: ');
+    bold(gini(giniOf(top))); say(' for the top 3' + (thin(top) ? ' (' + fewText(top) + ')' : '') + '. Share of the top-14 reviews’ articles credited to the ten schools with the most (one count for each school with an author on an article): ');
     bold(pct(h.top10)); say('; schools with no top-14 article: ' + h.none + '.');
   }
 

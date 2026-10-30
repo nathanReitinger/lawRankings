@@ -31,6 +31,7 @@
     { label: '101 & below, unranked', short: '101+', lo: 101, hi: Infinity },
   ];
   const bandOf = (r) => (r == null || r <= 0 ? 4 : BANDS.findIndex((b) => r >= b.lo && r <= b.hi));
+  const bandProse = (k) => (k === 4 ? '101 and below, or unranked' : BANDS[k].label.toLowerCase());   // (in a sentence: 'Schools ranked top 14')
   const INST_SHORT = { 'New York University': 'NYU', 'University of California, Los Angeles': 'UCLA', 'University of California, Berkeley': 'Berkeley',
     'Southern Illinois University Carbondale': 'Southern Illinois', 'Mitchell Hamline School of Law': 'Mitchell Hamline', 'New York Law School': 'NY Law School',
     'University of Pennsylvania': 'Penn', 'University of Texas at Austin': 'Texas', 'University of Southern California': 'USC',
@@ -389,7 +390,7 @@
         yAxis: { min: 0, softMax: 50, tickInterval: narrow ? 20 : 10, title: { text: narrow ? null : 'In its own review' }, labels: { format: '{value}%' } },
         tooltip: { formatter() {
           const pt = this.point || this, o = pt.custom || {};
-          if (o.k != null) return '<b>Schools ranked ' + esc(BANDS[o.k].label) + '</b><br>' + pct1(o.share) + ' of their flagship-review articles in their own review<br>' + num(o.home) + ' of ' + num(o.tot) + ', ' + num(o.n) + ' school' + (o.n === 1 ? '' : 's') + ' pooled';
+          if (o.k != null) return '<b>Schools ranked ' + esc(bandProse(o.k)) + '</b><br>' + pct1(o.share) + ' of their flagship-review articles in their own review<br>' + num(o.home) + ' of ' + num(o.tot) + ', ' + num(o.n) + ' school' + (o.n === 1 ? '' : 's') + ' pooled';
           return '<b>' + esc(S[o.s][0]) + '</b><br>' + R.srcShort + ' ' + esc(S[o.s][R.rankCol] || 'unranked') + '<br>' + pct1(o.share) + ' in its own review (' + num(o.home) + ' of ' + num(o.tot) + ')<br><span style="color:#898781">' + esc(ownName(o.s)) + '</span>';
         } },
         series: [
@@ -451,7 +452,7 @@
           title: { text: 'Share compared with the total', style: { color: css('--ink-2', '#52514e'), fontSize: '12px', fontWeight: '400' } } },
         tooltip: { formatter() {
           const pt = this.point || this, o = pt.custom || {};
-          return '<b>' + esc(G[o.a]) + '</b><br>Schools ranked ' + esc(BANDS[o.k].label) + ': ' + pct1(share(o.k, o.a)) + ' of their specialty-journal articles (' + num(R.tier[o.k][o.a]) + ')<br>Total: ' + pct1(shareAll(o.a));
+          return '<b>' + esc(G[o.a]) + '</b><br>Schools ranked ' + esc(bandProse(o.k)) + ': ' + pct1(share(o.k, o.a)) + ' of their specialty-journal articles (' + num(R.tier[o.k][o.a]) + ')<br>Total: ' + pct1(shareAll(o.a));
         } },
         series: [{ name: 'Share of specialty-journal articles', data, borderWidth: 2, borderColor: '#ffffff', borderRadius: 3, colsize: 1, rowsize: 1,
           dataLabels: { enabled: true, formatter() { const o = (this.point || this).custom; return pct(share(o.k, o.a)); },
@@ -599,7 +600,7 @@
           // prolific overall)
           const lines = pts.filter((p) => (p.series || {}).name !== 'Equal shares').map((p) => 'The ' + num(k) + ' with the most ' +
             (p.series.name === 'Journals collected here' ? 'articles in the journals collected here' : 'top-14-review articles') + ' wrote <b>' + pct(p.y / 100) + '</b> of them');
-          return '<b>' + num(k) + ' people (' + pct1(k / N) + ' of those who published)</b><br>' + lines.join('<br>');
+          return '<b>' + num(k) + (k === 1 ? ' person (' : ' people (') + pct1(k / N) + ' of those who published)</b><br>' + lines.join('<br>');
         } },
         plotOptions: { series: { marker: { enabled: false }, states: { hover: { lineWidthPlus: 0 } } } },
         series: [

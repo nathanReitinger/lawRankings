@@ -623,7 +623,6 @@
         name: x ? shortName(DATA.journals[selJ][0], wide ? 26 : 12) : wide ? MATRIX_HEADS[c] : BANDS[c].short,
         dataLabels: Object.assign({}, lab(!wide, 1), { style: { color: x ? INK : INK2 } }), custom: x ? { kind: 'review', j: selJ } : { kind: 'rband', c: c } };
     }));
-    const rowShare = (b) => sum(W1.M[b].slice(0, 5));
     const tip = function () {
       const p = this.point, c = p.isNode ? (p.options.custom || {}) : null;
       if (!p.isNode) {
@@ -635,14 +634,16 @@
       if (c.kind === 'school') return tipHTML({ title: DATA.schools[c.s][0], lines: [rankLabel(c.s)], rows: schoolRows(c.s), note: 'Tap or click to let go of it' });
       if (c.kind === 'review') return tipHTML({ title: DATA.journals[c.j][0], lines: [journalRankLine(c.j)], rows: journalRows(c.j), note: 'Tap or click to let go of it' });
       if (c.kind === 'sband') {
-        const t = rowShare(c.b);
-        return tipHTML({ title: 'Schools ranked ' + bandProse(c.b), rows: [['Flagship-review author credits', num(t)],
-          ['In reviews of their own group', pct(W1.M[c.b][c.b] / (t || 1))], ['In top-14 reviews', pct(W1.M[c.b][0] / (t || 1))]],
+        const so = sel != null && selB === c.b ? W1.school.get(sel) : null;   // the picked school is a node of its own
+        const m = W1.M[c.b].map((v, k) => v - (so ? so.cols[k] : 0)), t = sum(m.slice(0, 5));
+        return tipHTML({ title: 'Schools ranked ' + bandProse(c.b) + (so ? ' (without ' + DATA.schools[sel][0] + ')' : ''), rows: [['Flagship-review author credits', num(t)],
+          ['In reviews of their own group', pct(m[c.b] / (t || 1))], ['In top-14 reviews', pct(m[0] / (t || 1))]],
           note: band === c.b && !single ? null : 'Tap or click to pick this group' });
       }
-      const n = W1.colPapers[c.c];
-      return tipHTML({ title: 'Flagship reviews of schools ranked ' + bandProse(c.c), rows: [['Author credits', num(p.sum)], ['Articles by U.S. law faculty', num(n)],
-        ['With a top-14 author', pct(W1.D[0][c.c] / (n || 1))]] });
+      const jo = selJ != null && selC === c.c ? W1.journal.get(selJ) : null, jp = jo ? jo.papers : null;   // the picked review is a node of its own
+      const n = W1.colPapers[c.c] - (jp ? jp.n : 0), top = W1.D[0][c.c] - (jp ? jp.bands[0] : 0);
+      return tipHTML({ title: 'Flagship reviews of schools ranked ' + bandProse(c.c) + (jp ? ' (without ' + DATA.journals[selJ][0] + ')' : ''), rows: [['Author credits', num(p.sum)], ['Articles by U.S. law faculty', num(n)],
+        ['With a top-14 author', pct(top / (n || 1))]] });
     };
     draw('network', {
       chart: { height: wide ? 460 : 420, marginLeft: wide ? 176 : 4, marginRight: wide ? 196 : 4, marginTop: 8, marginBottom: 8 },
@@ -795,7 +796,7 @@
     const M = byRow ? W1.D : W1.M;
     const rowSum = M.map((r) => sum(r));
     const colSum = [0, 1, 2, 3, 4, 5, 6].map((c) => sum(M, (r) => r[c]));
-    const share = (r, c) => (byRow ? M[r][c] / (rowSum[r] || 1) : M[r][c] / (colSum[c] || 1));
+    const share = (r, c) => { const d = byRow ? rowSum[r] : colSum[c]; return d ? M[r][c] / d : null; };   // an empty row (or column): no share
     const narrow = $('figMatrix').clientWidth < 560;
     const heads = narrow ? BANDS.map((b) => b.short).concat(['Online', 'Spec.'])
       : MATRIX_HEADS.slice(0, 5).map(esc).concat(['Online &amp; other<br>general', 'Specialty<br>journals']);
@@ -839,8 +840,8 @@
     M.forEach((row, r) => row.forEach((v, c) => { if (c < 5) mx = Math.max(mx, share(r, c)); else mxOther = Math.max(mxOther, share(r, c)); }));
     const data = [];
     M.forEach((row, r) => row.forEach((v, c) => {
-      const s = share(r, c), bg = c < 5 ? ramp(RAMP, s / (mx || 1)) : ramp(GRAYS, s / (mxOther || 1)), diag = r === c && c < 5;
-      data.push({ x: c, y: r, value: s, color: bg, custom: { n: v }, borderColor: diag ? INK : undefined, borderWidth: diag ? 1.5 : undefined,
+      const s = share(r, c), bg = s == null ? GRAYS[0] : c < 5 ? ramp(RAMP, s / (mx || 1)) : ramp(GRAYS, s / (mxOther || 1)), diag = r === c && c < 5;
+      data.push({ x: c, y: r, value: s == null ? 0 : s, color: bg, custom: { n: v, s: s }, borderColor: diag ? INK : undefined, borderWidth: diag ? 1.5 : undefined,
         dataLabels: { style: { color: lightness(bg) < 0.55 ? '#ffffff' : INK } } });
     }));
     const rowH = narrow ? 40 : 46, top = narrow ? 52 : 58, bottom = byRow ? 6 : 26;
@@ -859,15 +860,15 @@
         .concat(byRow ? [{ linkedTo: 0, opposite: true, reversed: true, categories: rowSum.map(num), gridLineWidth: 0, title: { text: null },
           labels: { align: 'left', x: 6, style: { color: MUTED, fontSize: narrow ? '10.5px' : '12px' } } }] : []),
       tooltip: { followTouchMove: false, formatter() {
-        const p = this.point, r = p.y, c = p.x, lh = MATRIX_HEADS[c].toLowerCase();
-        return tipHTML({ value: pct(p.value, 1), lines: [byRow
+        const p = this.point, r = p.y, c = p.x, lh = c === 5 ? 'online editions and other general journals' : 'specialty journals';
+        return tipHTML({ value: pct(p.custom.s, 1), lines: [byRow
           ? 'of articles by faculty at schools ranked ' + bandProse(r) + ' appeared in ' + (c < 5 ? 'flagship reviews of schools ranked ' + bandProse(c) : lh)
-          : 'of the school credits in ' + (c < 5 ? 'flagship reviews of schools ranked ' + bandProse(c) : lh) + ' went to schools ranked ' + bandProse(r)],
+          : 'of the author credits in ' + (c < 5 ? 'flagship reviews of schools ranked ' + bandProse(c) : lh) + ' went to schools ranked ' + bandProse(r)],
           note: num(p.custom.n) + ' of ' + num(byRow ? rowSum[r] : colSum[c]) + (byRow ? ' articles' : ' credits') });
       } },
       series: [{ type: 'heatmap', name: $('matrixTitle').textContent, data: data, pointPadding: 1, borderRadius: 4, borderWidth: 0,
         states: { hover: { brightness: -0.06 } },
-        dataLabels: { enabled: true, formatter() { return pct(this.point.value); },
+        dataLabels: { enabled: true, formatter() { return pct(this.point.custom.s); },
           style: { fontSize: narrow ? '12px' : '13.5px', fontWeight: '600', textOutline: 'none' } } }],
     });
   }
@@ -1101,7 +1102,7 @@
       xAxis: { min: span ? y0 : y0 - 1, max: span ? end : end + 1, tickPositions: span ? undefined : [y0], tickLength: 4, labels: { formatter() { return String(this.value); } },
         tickInterval: span > 50 ? (wide ? 10 : 20) : span > 24 ? (wide ? 5 : 10) : span > 10 ? (wide ? 2 : 5) : (wide ? 1 : 2),
         crosshair: { color: alpha(INK2, 0.5), width: 1 } },
-      yAxis: { min: st.measure === 'mean' ? 1 : 0, softMax: st.measure === 'mean' ? Math.max(1.1, vmax) : vmax, tickAmount: 6, gridLineWidth: 1,
+      yAxis: { min: st.measure === 'mean' ? 1 : 0, softMax: st.measure === 'mean' ? Math.max(1.1, vmax) : vmax, tickAmount: st.measure === 'mean' ? undefined : 6, gridLineWidth: 1,
         labels: { formatter() { return fmt(this.value); } } },
       tooltip: { shared: true, followTouchMove: false, formatter() {
         return tipHTML({ title: String(this.x), rows: this.points.map((p) => [p.series.name, fmt(p.y) + ' of ' + num(p.point.custom.n), p.series.color]) });
