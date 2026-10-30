@@ -21,6 +21,6 @@
   .cn-card .ins-table th, .cn-card .ins-table td { padding: 3px 4px; }
   /* the subject-area table has seven columns: a size smaller and tighter, so it fits a phone without breaking a word
      or a number (break-word above breaks only a token wider than its whole column) */
-  #cnTiers .ins-table table { font-size: 11px; }
-  #cnTiers .ins-table th, #cnTiers .ins-table td { padding: 3px 2px; }
+  #cnTiers .ins-table table { font-size: 10.5px; }
+  #cnTiers .ins-table th, #cnTiers .ins-table td { padding: 3px 1px; }
 }

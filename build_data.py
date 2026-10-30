@@ -27,6 +27,7 @@ import unicodedata
 from collections import Counter, defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from urllib.parse import urlparse, parse_qs, unquote, quote
 
 import sys
@@ -468,7 +469,7 @@ def hein_profile_link(hein_name):
 # web page at all ("www.x.de" with no scheme, a CV as a PDF). Wrappers and fragments are cleaned; the rest is
 # rejected, and those people go to missing_homepages.csv, where faculty_links.py looks for their pages.
 LINK_WRAPPERS = {'linkprotect.cudasvc.com': 'a', 'safelinks.protection.outlook.com': 'url', 'www.google.com': 'url'}
-PROXY_HOST = re.compile(r'(^|\.)idm\.oclc\.org$|(^|\.)ezproxy\.|\.pantheonsite\.io$')
+PROXY_HOST = re.compile(r'(^|\.)idm\.oclc\.org$|(^|\.)ezproxy\.|(^|\.)proxy\d*\.|\.pantheonsite\.io$')
 NOT_A_PAGE = re.compile(r'\.(pdf|docx?|rtf|pptx?|xlsx?|jpe?g|png|gif)$', re.I)
 # (naming audit, 2026-10-25) never a homepage: HeinOnline (the owner: "Drop hein links throughout") and a search
 # engine's pages (its link wrapper is unwrapped first)
@@ -522,6 +523,14 @@ def clean_homepage(site):
         return '', 'rejected: two addresses run together'
     if not re.fullmatch(r'[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z][a-z0-9-]+', host) or re.search(r'\s', site):
         return '', 'rejected: not a valid address'
+    # (2026-10-30, release audit) a library proxy that writes the page's host with dashes (UVA's
+    # www-law-virginia-edu.proxy01.its.virginia.edu) is unwrapped to the page itself
+    m = re.fullmatch(r'([a-z0-9-]+)\.proxy\d*\.its\.virginia\.edu', host)
+    if m:
+        host = m.group(1).replace('-', '.')
+        site = u._replace(netloc=host).geturl()
+        u = urlparse(site)
+        done.append('library proxy unwrapped')
     if PROXY_HOST.search(host):
         return '', 'rejected: library proxy or staging host'
     if NOT_A_HOMEPAGE.search(host):
@@ -867,7 +876,7 @@ def load_rankings():
             df = pd.concat([df, old], ignore_index=True)
     df['score'] = pd.to_numeric(df['score'], errors='coerce')   # "NR" -> NaN
     df['WandL_rank'] = pd.to_numeric(df['WandL_rank'], errors='coerce')
-    return year, df, datetime.fromtimestamp(os.path.getmtime(found[year]))
+    return year, df, datetime.fromtimestamp(os.path.getmtime(found[year]), tz=ZoneInfo('America/Chicago'))   # (release audit) one zone, so the date does not move with the build machine's
 
 
 def load_usnews():
@@ -1714,6 +1723,40 @@ def default_ranking(data, years=10, top=30):
 
 TAXONOMY_RESEARCH = os.path.join(HERE, 'research', 'taxonomy')    # the subject-area research (taxonomy.json, sources.csv)
 
+# (2026-10-30, release audit) a scope statement's source in the page's words, and the statement and deciding words
+# without the research's working notes (where and when a statement was read, what a search result added)
+SCOPE_FROM = {'fetched page': 'web page', 'search snippet': 'search result', 'encyclopedia description': 'encyclopedia entry'}
+
+
+def plain_scope(s):
+    s = str(s or '')
+    wrap = len(s) > 1 and s[0] == '"' and s[-1] == '"'     # most statements are stored inside one outer pair of quotes
+    if wrap:
+        s = s[1:-1]
+    s = re.sub(r'\s*\[fetched \d{4}-\d{2}-\d{2}\]', '', s)
+    s = re.sub(r'^("?)Fetched:\s*', r'\1', s)
+    s = re.sub(r'^("?)Fetched page mentions\s*', r'\1Covers ', s)
+    s = re.sub(r';\s*fetched page says only\s*', '; ', s)
+    s = re.sub(r'^("?)snippet topics ', r'\1topics ', s)
+    s = re.sub(r'[;,.]?\s*\(?(search )?sni(ppet\b|p?…).*$', '', s, flags=re.I).strip()
+    # (2026-10-30, release audit) the Yale Journal on Regulation Bulletin's record: the placer's note that the parent
+    # journal's scope applies is not the journal's own words
+    s = s.replace('; "the parent\'s scope applies"', '')
+    s = re.sub(r";\s*the Bulletin page has no scope statement of its own, so the parent's scope applies…?$", '', s)
+    return '"' + s + '"' if wrap and s else s
+
+
+def anon_basis(s):
+    """(2026-10-30, release audit) a policy source as the anonymous-review list shows it, without the research's
+    working notes on how it was found (search method, the date a page was checked)"""
+    s = str(s or '').replace(' (page-fetch budget)', '')
+    s = re.sub(r' \(checked (\d{4}-\d{2}-\d{2})\)', r' (\1)', s)
+    s = s.replace('current page per web search', 'current page')
+    s = re.sub(r'(\d{4}) web search found ', r'current page (\1): ', s)
+    s = re.sub(r'^web search of (.+?), (\d{4}-\d{2}-\d{2})', r'\1 (\2)', s)
+    s = re.sub(r'^web search, (\d{4}-\d{2}-\d{2})', r'submission pages (\1)', s)
+    return s
+
 
 def subject_tree():
     """docs/data/taxonomy.json for the Subject areas page (the owner, 2026-10-23: "say how we got those buckets. cite
@@ -1726,6 +1769,16 @@ def subject_tree():
         return None
     t = json.load(open(path, encoding='utf-8'))
     clean = lambda x: str(x or '')
+    # (2026-10-30, release audit) a WordPress REST search returns JSON; the same search as a page
+    link = lambda u: clean(u).replace('https://leiterreports.com/wp-json/wp/v2/posts?search=', 'https://leiterreports.com/?s=')
+    # (2026-10-30, release audit) a source's title without the research's working note on where it was read, and
+    # without the research's cross-listing (each journal sits in one group now)
+    public = lambda x: (clean(x).replace(' (local rankings_2025.csv; the W&L site itself was not fetched)', '')
+                        .replace(', cross-listed here)', ')'))
+    # an outside scheme's node cited for a category: [title, url], plus 0 when the source is unverified (the page draws
+    # its own "unverified" mark in place of the title's "[unverified]")
+    unv = re.compile(r'\s*\[unverified\]\s*$')
+    cite = lambda x: [unv.sub('', public(x.get('title'))), link(x.get('url', ''))] + ([0] if unv.search(clean(x.get('title'))) else [])
     def as_list(v):
         if isinstance(v, str):
             try:
@@ -1738,7 +1791,7 @@ def subject_tree():
         c = as_list(n.get('counts')) or {}
         out = {'n': clean(n.get('name')), 'd': clean(n.get('description')),
                'c': [c.get('faculty_papers'), c.get('faculty_papers_2016_on'), c.get('faculty')],
-               's': [[clean(x.get('title')), x.get('url', '')] for x in as_list(n.get('sources')) if isinstance(x, dict)]}
+               's': [cite(x) for x in as_list(n.get('sources')) if isinstance(x, dict)]}
         also = as_list(n.get('also_listed_under'))
         if also:
             out['x'] = [clean(a) for a in also]
@@ -1758,7 +1811,14 @@ def subject_tree():
             supports = re.sub(r'(^|; )Approaches > ', r'\1Interdisciplinary Methods > ', supports)
             supports = re.sub(r'(^|; )journal_map: ', r'\1Placement of ', supports)
             supports = re.sub(r'^root$', 'The scheme as a whole (its top-level divisions)', supports)
-            sources.append([clean(r.title), r.url, supports, r.verified == 'yes'])
+            # (2026-10-30, release audit) "rationale:" is the research file's column token; the clustering note in
+            # the page's words
+            supports = re.sub(r'^rationale:\s*', '', supports)
+            supports = supports.replace('stability thresholds used by the earlier co-publication lens',
+                                        'bootstrap stability thresholds for the clusters of fields by shared authors')
+            # the page marks an unverified source itself, so the title's own "[unverified]" is dropped here
+            title = re.sub(r'\s*\[unverified\]\s*$', '', public(r.title))
+            sources.append([title, link(r.url), supports, r.verified == 'yes'])
     return {'name': clean(t.get('name')), 'description': clean(t.get('description')), 'version': t.get('version'),
             'generated': t.get('generated'), 'counts': t.get('counts'),
             'areas': [node(a) for a in t.get('children', [])], 'approaches': [node(a) for a in t.get('approaches', [])],
@@ -1788,7 +1848,7 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         research = {'areas': [], 'approaches': [], 'sources': [], 'name': '', 'description': ''}
     about = {'General & Policy Journals': {'d': 'Journals whose own scope statement covers law, or law and public policy, generally, '
                                                  'with no subject focus. Their papers count in the rankings when this group is chosen; '
-                                                 'they give no one an area.'},
+                                                 'they do not place their authors in a subject area.'},
              'No subject focus': {'d': 'Placed here because the journal describes its scope as law or policy generally.'}}
     # (2026-10-28, audit R47: its card had no description and no outside schemes) the method journals' higher-level
     # group, with the outside schemes the research's approaches match (each once); critical legal theory is the one
@@ -1806,14 +1866,66 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         about.setdefault(top['n'], top)
         for k in top.get('k', []):
             about.setdefault(k['n'], k)
+    # (2026-10-30, the owner: "doesn't say the finding, just description") six areas' research descriptions end with
+    # what the research found about who co-publishes with whom; the page says only what each area covers (its outside
+    # schemes are kept)
+    for n, d in {
+            'Criminal Law & Justice': 'Crime and its control: substantive criminal law, criminal procedure from policing to '
+                                      'post-conviction review, sentencing and punishment, and evidence, juries and trials.',
+            'Tax, Trusts & Estates': 'Taxation and the transfer of wealth: income and business tax, tax policy and administration, '
+                                     'wealth-transfer tax and exempt organizations, and trusts and estates.',
+            'Property, Environment & Natural Resources': 'Land and the natural world: property and real estate, environmental and '
+                                                         'climate law, natural resources and public lands, energy, food, '
+                                                         'agriculture and animals, and federal Indian law.',
+            'Science, Technology & IP': 'Innovation, information and the sciences: intellectual property, technology law and policy '
+                                        '(internet, AI, telecommunications, cybersecurity), privacy and data protection, science '
+                                        'and biotechnology, and arts, entertainment and sports.',
+            'Health Law & Bioethics': 'Health and medicine: health care law and policy, public health and drug regulation, bioethics, '
+                                      'reproduction, and disability, mental health and aging.',
+            # (2026-10-30, release audit) the research's cross-listings and its "approach axis" are not the current tree:
+            # each journal sits in one group, and the methods are the higher-level group Interdisciplinary Methods
+            'International & Comparative Law': 'Law beyond and across the nation-state: public international law, human rights, '
+                                               'international criminal law and armed conflict, national security and foreign '
+                                               'relations, international economic law, and comparative and foreign law.',
+            'Legal Theory, Humanities & Society': 'Law as an object of theory and culture: jurisprudence and philosophy of law, law '
+                                                  'and the humanities, and law and social change. Journals defined by a method '
+                                                  '(economics, psychology, empirical and socio-legal research, history) are in '
+                                                  'Interdisciplinary Methods.',
+            'Civil Rights, Equality & Family': 'Equality, membership and the family: race and the law, gender and sexuality, '
+                                               'civil-rights and antidiscrimination law, immigration and citizenship, family law, '
+                                               'poverty and inequality, and education law.'}.items():
+        if n in about:
+            about[n] = dict(about[n], d=d)
     # the groups' own definitions (and the scope words behind them) win over the older research fields' descriptions
     if os.path.exists(GROUPS_FILE):
         for r in pd.read_csv(GROUPS_FILE, dtype=str).fillna('').itertuples():
-            about[r.group] = {'d': r.definition, 'w': r.why, 's': about.get(r.group, {}).get('s', [])}
+            about[r.group] = {'d': r.definition.replace('higher group', 'higher-level group'), 'w': r.why,
+                              's': about.get(r.group, {}).get('s', [])}
+        # (2026-10-30, release audit) the page lists groups alphabetically, so "the two/four groups above" (the design's
+        # order) names the groups instead
+        for n, old, new in (
+                ('Animal law', 'after the two groups above, only 2 journals are left',
+                 'after American Indian law and Environmental, energy & natural resources law, 2 journals are left'),
+                ('Education law', 'after the four groups above, only 2 journals are left',
+                 'after Civil rights & social justice, Family law, Gender, sexuality & feminist legal studies and Race, '
+                 'ethnicity & the law, 2 journals are left')):
+            if n in about:
+                about[n]['d'] = about[n]['d'].replace(old, new)
+        # (2026-10-30, release audit) the Bulletin's own description, not the placer's note on it
+        if 'Administrative law & regulation' in about:
+            about['Administrative law & regulation']['w'] = about['Administrative law & regulation']['w'].replace(
+                "its Bulletin's record says 'the parent's scope applies'",
+                "its Bulletin 'Online companion of the Yale Journal on Regulation'")
     papers_in, people_in = defaultdict(set), defaultdict(set)
     bucket = defaultdict(lambda: defaultdict(int))     # area id -> person -> articles in its journals (as people[i][4])
     area_of_journal = {ji: journals[ji][4][0][0] for ji in field_of}
+    # (2026-10-30, release audit) people whose only affiliation is a court or other judicial body (justices and judges,
+    # some long dead) are not current faculty: their articles stay out of the counts and the author buckets
+    bench = {pi for pi, p in enumerate(people) if p[1] and all(re.search(r'Court|Judicial', schools[sc][0]) and
+             not re.search(r'Universit|Faculty of Law', schools[sc][0]) for sc in p[1])}
     for pk, person_i in zip(credit_paper, credit_person):
+        if person_i in bench:
+            continue
         papers_in[paper_journal[pk]].add(pk)
         people_in[paper_journal[pk]].add(person_i)
         g = area_of_journal.get(paper_journal[pk])
@@ -1834,7 +1946,11 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         for f in sorted((f for f in in_field if journals[in_field[f][0]][4][0][0] == g), key=lambda f: subjects[f]):
             jis = sorted(in_field[f], key=lambda ji: (-score(ji), journals[ji][0]))
             info = about.get(subjects[f], {})
-            fields.append({'n': subjects[f], 'd': info.get('d', ''), 'w': info.get('w', ''), 's': info.get('s', []), 'c': count(jis),
+            # (2026-10-30, the owner: "doesn't say claims like 'every' or 'all'") a scope-words note true of each of the
+            # group's journals says how many ("W&L 'Taxation' (5 of 5)"), not "for all" or "in every name"
+            w = re.sub(r"'([^']+)' in every name", rf"'\1' in the names of the {len(jis)}", info.get('w', ''))
+            w = re.sub(r' for all(?: \w+)?(?=;|$)', f' ({len(jis)} of {len(jis)})', w)
+            fields.append({'n': subjects[f], 'd': info.get('d', ''), 'w': w, 's': info.get('s', []), 'c': count(jis),
                            'j': [[ji] + count([ji]) + [1 if ji in field_of else 0] for ji in jis]})
             counted += jis
         if not fields:
@@ -1852,11 +1968,30 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
     placed = {}
     tax = pd.read_csv(TAXONOMY_FILE, dtype=str).fillna('') if os.path.exists(TAXONOMY_FILE) else pd.DataFrame()
     rows = {r['journal']: r for r in tax.to_dict('records')} if len(tax) else {}
+    # (2026-10-30, the owner: "it should be a website that just reports information and says what that information is")
+    # six journals' deciding words in TAXONOMY_FILE are the judge's note on the two placers ("Agree with placer B. ...");
+    # the page shows the name, scope and W&L words the placement rests on instead
+    deciding = {
+        'Tax Lawyer': 'name "Tax Lawyer"; "the ABA Tax Section\'s flagship journal"',
+        'Minnesota Journal of Law, Science & Technology': 'name "Law, Science & Technology"; "bioethics, and law and science"; '
+                                                          'W&L "Science, Technology and Computing Law"',
+        'Santa Clara High Technology Law Journal': 'name "High Technology Law Journal"; "all aspects of intellectual property and '
+                                                   'high tech law"; W&L "Science, Technology and Computing Law"',
+        'Connecticut Public Interest Law Journal': '"public interest issues and especially those confronting underrepresented '
+                                                   'individuals"; W&L "Civil Rights and Social Justice" first',
+        'Journal of Legal Studies': '"uses social science methodologies to shed light on legal institutions or actors"; '
+                                    'W&L "Social Sciences and Law"',
+        'Harvard BlackLetter Law Journal': 'name "BlackLetter Law Journal" (no scope or W&L subject on file)'}
     for ji in counted:
         r = rows.get(journals[ji][0])
         if r:
-            placed[ji] = [r.get('basis', ''), r.get('deciding_words', ''), r.get('scope_statement', ''), r.get('scope_url', ''),
-                          r.get('scope_source', ''), r.get('wl_subjects', '')]
+            words = r.get('deciding_words', '')
+            if re.match(r'(I )?agree with placer', words, re.I):
+                if journals[ji][0] not in deciding:
+                    print(f'  !! {journals[ji][0]}: its deciding words are a note on the placers; the page shows them as they are')
+                words = deciding.get(journals[ji][0], words)
+            placed[ji] = [r.get('basis', ''), plain_scope(words), plain_scope(r.get('scope_statement', '')), r.get('scope_url', ''),
+                          SCOPE_FROM.get(r.get('scope_source', ''), ''), r.get('wl_subjects', '')]
         else:
             placed[ji] = ['by its W&L subject (not yet placed by its scope statement)', '', '', '', '', '']
     # each journal's name, publishing school (and its U.S. News rank) or publisher, and W&L score
@@ -2085,7 +2220,280 @@ def title_lengths(papers, is_short, journals, paper_keys, credit_paper, credit_p
     return out
 
 
-ANON_FILE = os.path.join(SOURCE_DIR, 'anonymous_review_policies.csv')   # the reviews' own anonymous-review statements, dated
+TW_RECENT = 10          # insights: words in titles, the latest ten complete years ...
+TW_GAP = 20             # ... and the ten years this many years before them, for the comparison between the two
+TW_MIN = 25             # a word or two-word phrase is compared when this many titles of the two groups together have it
+TW_MIN_GROUP = 10       # and is listed for a group when this many of that group's titles have it
+TW_TOP = 10             # words listed each way
+TW_MIN_JOURNALS = 3     # and is listed for a group when that group's titles with it are in at least this many journals
+TW_MAX_JOURNAL = 0.5    # and no more than this share of them are in one journal (one review's recurring heading or survey,
+                        # "Childress", "Tenth Circuit", or its state's name, "Indiana", "Montana", is not listed)
+TW_NEST = 0.8           # a word is not listed beside a listed-side two-word phrase with it that is in this share or more of
+                        # the word's titles ("york" beside "new york"): the phrase's titles are a subset of the word's
+TW_MARKS_SINCE = 2020   # HeinOnline's metadata keeps question marks and double quotation marks in titles from about this
+                        # volume year on (under 1% of main-law-review titles a year before, 5-9% from 2020): the page charts
+                        # those two only for the five-year windows starting after it
+# the standard English stopword list (NLTK's, 179 words) and words that name a piece's genre or its place in an issue
+TW_STOP = frozenset('''i me my myself we our ours ourselves you you're you've you'll you'd your yours yourself yourselves he
+    him his himself she she's her hers herself it it's its itself they them their theirs themselves what which who whom this
+    that that'll these those am is are was were be been being have has had having do does did doing a an the and but if or
+    because as until while of at by for with about against between into through during before after above below to from up
+    down in out on off over under again further then once here there when where why how all any both each few more most
+    other some such no nor not only own same so than too very s t can will just don don't should should've now d ll m o re
+    ve y ain aren aren't couldn couldn't didn didn't doesn doesn't hadn hadn't hasn hasn't haven haven't isn isn't ma mightn
+    mightn't mustn mustn't needn needn't shan shan't shouldn shouldn't wasn wasn't weren weren't won won't wouldn
+    wouldn't'''.split())
+TW_GENRE = frozenset('''law legal essay essays article articles note notes comment comments introduction foreword
+    afterword symposium symposia response reply lecture lectures remarks keynote address panel panels transcript
+    transcripts colloquium roundtable survey surveys developments reviews commentary commentaries tribute memoriam
+    distinguished section edition correspondence memorial ii iii iv'''.split())
+# the stock openings counted (a title's first words, after any opening quotation mark), each with its pattern
+TW_FRAMES = [('Toward / Towards', r'towards?'), ('Rethinking', r'rethinking'), ('Reconsidering', r'reconsidering'),
+             ('Revisiting', r'revisiting'), ('Reimagining', r'reimagining'), ('Beyond', r'beyond'), ('Against', r'against'),
+             ('In Defense of', r'in defen[cs]e of'), ('In Praise of', r'in praise of'), ('The / A Case for', r'(?:the|a) case for'),
+             ('The / A Case Against', r'(?:the|a) case against'), ('A Theory of', r'a theory of'), ('The Myth(s) of', r'the myths? of'),
+             ('The Future of', r'the future of'), ('The End of', r'the end of'), ('The Death of', r'the death of'),
+             ('The Rise (and Fall) of', r'the rise (?:and fall )?of')]
+TW_FRAME = [re.compile(r'^[\W_]*' + p + r'\b', re.I) for _, p in TW_FRAMES]
+# first-person words: we, us, our, ours, ourselves, me, my, myself (not "US" in capitals), and "I" except as a numeral
+# ("Part I", "Article I", "World War I", "Panel I:")
+TW_FIRST_WORDS = ['I', 'me', 'my', 'myself', 'we', 'us', 'our', 'ours', 'ourselves']
+TW_FIRST = re.compile(r"\b(?:[Mm]e|[Mm]y|[Mm]yself|[Ww]e|[Uu]s|[Oo]urs?|[Oo]urselves)\b")
+TW_I = re.compile(r"(?<![\w.'-])I(?:'(?:m|ve|d|ll)\b|(?![\w.'-]|\s*[:,;)]|\s*$))")
+TW_NUMBERED = frozenset('''part subpart panel section article title volume vol topic protocol war session division chapter
+    subchapter phase book class type schedule round stage category tier no number appendix annex rule pillar basel track level
+    unit act plenary lecture conference workshop'''.split())
+TW_QUOTE = re.compile(r'''"|''|(?:^|[\s(])'[^']{2,}'(?=[\s,.:;?!)]|$)''')     # double quotes, or a phrase in single quotes
+TW_WORD = re.compile(r'\S*[A-Za-z0-9]\S*')                                    # a word: anything between spaces with a letter or digit
+TW_TOKEN = re.compile(r"[a-z0-9]+(?:['-][a-z0-9]+)*")                         # hyphenated words stay one word
+TW_BREAK = re.compile(r"[^a-z0-9\s'-]+|\s-+\s|--+|(?<!\w)-|-(?!\w)")          # other punctuation ends a phrase
+# a few fixed families of terms, followed over time (a title counts when it has any of the family's words or phrases)
+TW_FAMILIES = [
+    ('constitution', 'Constitution', 'constitution, constitutional, constitutionalism, constitutionality, unconstitutional, amendment, amendments'),
+    ('courts', 'Courts and judges', 'court, courts, supreme court, judicial, judiciary, judge, judges, justices'),
+    ('criminal', 'Crime and policing', 'criminal, crime, crimes, punishment, prison, prisons, incarceration, police, policing, sentencing, prosecutor, prosecutors, prosecution'),
+    ('business', 'Business and finance', 'corporate, corporation, corporations, securities, shareholder, shareholders, firm, firms, business, businesses, bankruptcy, antitrust, financial, finance, banking, banks'),
+    ('economics', 'Economics and markets', 'economic, economics, economy, market, markets, efficiency, efficient, incentive, incentives, cost, costs, price, prices, pricing'),
+    ('technology', 'Technology and data', 'technology, technologies, technological, digital, internet, online, cyber, cyberspace, data, algorithm, algorithms, algorithmic, artificial intelligence, ai, software, computer, computers, platform, platforms, robot, robots, automation, automated, blockchain'),
+    ('empirical', 'Empirical study', 'empirical, empirically, experiment, experiments, experimental, statistical, statistics, quantitative, measuring, measurement'),
+    ('identity', 'Race, gender and sexuality', 'race, racial, racism, racist, gender, women, woman, sex, sexual, sexuality, feminist, feminism, lgbt, lgbtq, gay, lesbian, transgender, intersectionality'),
+    ('environment', 'Environment and climate', 'environment, environmental, climate, pollution, energy, emissions, carbon, sustainability, sustainable'),
+    ('international', 'International and comparative', 'international, global, globalization, transnational, foreign, comparative, treaty, treaties'),
+    ('theory', 'Theory and philosophy', 'theory, theories, theoretical, philosophy, philosophical, jurisprudence, normative, moral, morality'),
+]
+
+
+def title_words(papers, is_short, journals, paper_keys, credit_paper, credit_person, people, schools, check=None):
+    '''insights.json['title_words'] (2026-10-29, the owner: "give me some title trends. NLP type inspection things on
+    titles. break it out per tier buckets"): the words and wording of research-article titles from TITLE_SINCE on, by
+    tier (TITLE_BANDS), (1) by the U.S. News rank of the school whose main law review published the title and (2) by
+    the rank of the school of a current faculty member credited with it, the same titles as title_lengths (the same
+    cleaning and the same rules for what is left out, repeated here; `check` is title_lengths' counts, compared below).
+
+    Words: a title is lowercased and cut into words (a hyphenated word stays one word, a possessive 's is dropped);
+    words with no letter, one-letter words, TW_STOP and TW_GENRE are dropped; two-word phrases are pairs of kept words
+    next to each other with no punctuation between. Each title counts a word once. Compared: each tier's titles against
+    the other tiers' in the latest TW_RECENT complete years ('distinct'), and each tier's titles in those years against
+    its titles in the ten years TW_GAP years earlier ('change', also for the tiers together), by the weighted log-odds
+    ratio with an informative Dirichlet prior (Monroe, Colaresi & Quinn 2008, "Fightin' Words", eq. 16-22), the prior
+    being each word's count in the two groups together; z-scores. Listed: the TW_TOP highest and lowest z among words
+    in at least TW_MIN titles of the two groups and TW_MIN_GROUP of the group they lean to, in TW_MIN_JOURNALS journals
+    or more of that group with no more than TW_MAX_JOURNAL of those titles in one journal, leaving out a word when a
+    two-word phrase with it that qualifies for the same side is in TW_NEST or more of the word's titles there (the list
+    is filled from further down), as [word, z, titles in the first group with it, in the second]; None when either
+    group has under TITLE_MIN_N titles. 'form': per five-year window, [titles, share with a subtitle (a colon), share
+    with a question mark, share with a first-person word, share with quotation marks, share opening with a TW_FRAMES
+    phrase, mean words per title, characters per word (letters and digits over every word)], None under TITLE_MIN_N
+    titles. 'family': per window, the share of titles with a word of each TW_FAMILIES family. 'frames': titles opening
+    with each TW_FRAMES phrase in the earlier and the latest ten years.'''
+    import math
+    t = papers.drop_duplicates('paper_key').set_index('paper_key')[['journal', 'volume_key', 'title', 'year']]
+    t['title'] = t['title'].astype(str).str.strip()
+    # -- the same cleaning and rules as title_lengths (keep the two in step)
+    t['clean'] = t['title'].map(lambda s: TITLE_LABEL.sub('', s).rstrip(' -:;,'))
+    glued = set()
+    for _, g in t.groupby(['journal', 'volume_key'], sort=False):
+        ends, runs = Counter(), Counter()
+        for s in set(g['clean']):
+            w = s.split()
+            ends.update({' '.join(w[-n:]) for n in range(2, min(8, len(w) - 2) + 1)})
+            runs.update({' '.join(w[i:i + 5]) for i in range(len(w) - 4)})
+        for k, s in zip(g.index, g['clean']):
+            w = s.split()
+            end = next((n for n in range(min(8, len(w) - 2), 1, -1) if ends[' '.join(w[-n:])] >= 3), 0)
+            if end or any(runs[' '.join(w[i:i + 5])] >= 3 for i in range(len(w) - 4)):
+                glued.add(k)
+    t['eligible'] = [not BOOK_LABEL.search(raw) and not BOOK_SURVEY.search(raw) and not is_short(k) and len(s) > 0
+                     for k, s, raw in zip(t.index, t['clean'], t['title'])]
+    t['glued'] = t.index.isin(glued)
+    t['student'] = [bool(m and STUDENT_LABEL.search(m.group(0))) for m in map(TITLE_LABEL.search, t['title'])]
+    last = min(int(t['year'].max()), datetime.now().year)
+    t = t[(t['year'] >= TITLE_SINCE) & (t['year'] <= last)]
+
+    def band(rank):
+        rank = rank or 10 ** 6 - 1
+        return next(b for b, lo, hi in TITLE_BANDS if lo <= rank <= hi)
+    flagship = {j[0]: band(j[2]) for j in journals if j[2] is not None and j[2] >= 0}
+    rev = t[t['eligible'] & ~t['student'] & ~t['glued'] & t['journal'].isin(flagship)].copy()
+    rev['band'] = rev['journal'].map(flagship)
+    rev['paper_key'] = rev.index
+    school_band = [band(rank_number(s[2])) if s[1] else None for s in schools]
+    pairs = set()
+    for pk, person in zip(credit_paper, credit_person):
+        for s in people[person][1]:
+            if school_band[s] is not None:
+                pairs.add((paper_keys[pk], school_band[s]))
+    fac = pd.DataFrame(sorted(pairs), columns=['paper_key', 'band'])
+    fac = fac.join(t[t['eligible'] & ~t['glued']], on='paper_key', how='inner')
+    # -- (end of the shared rules)
+    if check and (len(rev) != check.get('review_titles') or fac['paper_key'].nunique() != check.get('school_titles')):
+        print(f"  !! title words: {len(rev)} review titles and {fac['paper_key'].nunique()} faculty titles, but title length has "
+              f"{check.get('review_titles')} and {check.get('school_titles')}: the two functions' rules have drifted apart")
+
+    def first_person(s):
+        if TW_FIRST.search(s):
+            return True
+        for m in TW_I.finditer(s):
+            before = re.findall(r'[A-Za-z]+', s[:m.start()])
+            if not before or before[-1].lower() not in TW_NUMBERED:
+                return True
+        return False
+
+    def terms(s):
+        s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode().lower()
+        out = set()
+        for seg in TW_BREAK.split(s):
+            toks = []
+            for w in TW_TOKEN.findall(seg):
+                w = w[:-2] if w.endswith("'s") else w
+                toks.append(w if len(w) > 1 and re.search('[a-z]', w) and w not in TW_STOP and w not in TW_GENRE else None)
+            out.update(w for w in toks if w)
+            out.update(a + ' ' + b for a, b in zip(toks, toks[1:]) if a and b)
+        return out
+
+    # each title's features, once
+    keys = pd.Index(rev.index).union(pd.Index(fac['paper_key'].unique()))
+    clean = t.loc[keys, 'clean']
+    feat = pd.DataFrame(index=keys)
+    feat['terms'] = [terms(s) for s in clean]
+    feat['sub'] = clean.str.contains(':', regex=False).values
+    feat['q'] = clean.str.contains('?', regex=False).values
+    feat['first'] = [first_person(s) for s in clean]
+    feat['quote'] = [bool(TW_QUOTE.search(s)) for s in clean]
+    feat['frame'] = [next((i for i, f in enumerate(TW_FRAME) if f.match(s)), -1) for s in clean]
+    words = [TW_WORD.findall(s) for s in clean]
+    feat['words'] = [len(w) for w in words]
+    feat['letters'] = [sum(sum(c.isalnum() for c in x) for x in w) for w in words]
+    fam = [(key, {w.strip() for w in ws.split(',')}) for key, _, ws in TW_FAMILIES]     # a two-word entry is matched as a phrase
+    for key, ws in fam:
+        feat['f_' + key] = [bool(x & ws) for x in feat['terms']]
+
+    full = min(last, datetime.now().year - 1)
+    recent, earlier = [full - TW_RECENT + 1, full], [full - TW_RECENT + 1 - TW_GAP, full - TW_GAP]
+    wins = []
+    e = full
+    while e - 4 >= TITLE_SINCE:
+        wins.insert(0, [e - 4, e])
+        e -= 5
+    within = lambda rows, w: rows[(rows['year'] >= w[0]) & (rows['year'] <= w[1])]
+
+    journal_of = t['journal']
+
+    def counts(keys):
+        # titles with each word, and how many of them are in each journal
+        c, js = Counter(), defaultdict(Counter)
+        for k, x in zip(keys, feat.loc[keys, 'terms']):
+            c.update(x)
+            j = journal_of.at[k]
+            for w in x:
+                js[w][j] += 1
+        return c, js
+
+    def pick(cands, cnt, js):
+        # the first TW_TOP of the ranked candidates for one side that are in TW_MIN_JOURNALS journals with no more than
+        # TW_MAX_JOURNAL of their titles in one, leaving out a word when a qualifying two-word phrase with it on the same
+        # side is in TW_NEST or more of the word's titles (a phrase's titles are a subset of each of its words' titles)
+        ok = lambda w: len(js[w]) >= TW_MIN_JOURNALS and max(js[w].values()) <= TW_MAX_JOURNAL * cnt[w]
+        inside = {}
+        for s in cands:
+            if ' ' in s[1] and ok(s[1]):
+                for u in s[1].split():
+                    inside[u] = max(inside.get(u, 0), cnt[s[1]])
+        out = []
+        for s in cands:
+            if ok(s[1]) and not (' ' not in s[1] and inside.get(s[1], 0) >= TW_NEST * cnt[s[1]]):
+                out.append(s)
+                if len(out) == TW_TOP:
+                    break
+        return out
+
+    def log_odds(a, b, la, lb):
+        # weighted log-odds ratio of group a against group b with an informative Dirichlet prior (Monroe, Colaresi &
+        # Quinn 2008): the prior for a word is its count in the two groups together; na, nb, a0: the counts' totals
+        if la < TITLE_MIN_N or lb < TITLE_MIN_N:
+            return None
+        (ka, ja), (kb, jb) = a, b
+        na, nb = sum(ka.values()), sum(kb.values())
+        a0 = na + nb
+        scored = []
+        for w in set(ka) | set(kb):
+            ya, yb = ka.get(w, 0), kb.get(w, 0)
+            aw = ya + yb
+            if aw < TW_MIN:
+                continue
+            d = math.log((ya + aw) / (na + a0 - ya - aw)) - math.log((yb + aw) / (nb + a0 - yb - aw))
+            scored.append((d / math.sqrt(1 / (ya + aw) + 1 / (yb + aw)), w, ya, yb))
+        hi = pick(sorted([s for s in scored if s[0] > 0 and s[2] >= TW_MIN_GROUP], key=lambda s: (-s[0], s[1])), ka, ja)
+        lo = pick(sorted([s for s in scored if s[0] < 0 and s[3] >= TW_MIN_GROUP], key=lambda s: (s[0], s[1])), kb, jb)
+        row = lambda s: [s[1], round(s[0], 2), s[2], s[3]]
+        return {'n': [la, lb], 'hi': [row(s) for s in hi], 'lo': [row(s) for s in lo], 'words': len(scored)}
+
+    def form(keys):
+        n = len(keys)
+        if n < TITLE_MIN_N:
+            return None
+        f = feat.loc[keys]
+        sh = lambda c: round(float(f[c].mean()), 4)
+        return [n, sh('sub'), sh('q'), sh('first'), sh('quote'), round(float((f['frame'] >= 0).mean()), 4),
+                round(float(f['words'].mean()), 2), round(float(f['letters'].sum() / max(1, f['words'].sum())), 3)]
+
+    def family(keys):
+        if len(keys) < TITLE_MIN_N:
+            return None
+        f = feat.loc[keys]
+        return [round(float(f['f_' + key].mean()), 4) for key, _ in fam]
+
+    def frames(keys):
+        c = Counter(feat.loc[keys, 'frame'])
+        return [int(c.get(i, 0)) for i in range(len(TW_FRAMES))]
+
+    out = {'since': TITLE_SINCE, 'last': last, 'full': full, 'recent': recent, 'earlier': earlier, 'windows': wins,
+           'bands': [b for b, _, _ in TITLE_BANDS], 'min_n': TITLE_MIN_N, 'min_titles': TW_MIN, 'min_group': TW_MIN_GROUP,
+           'top': TW_TOP, 'min_journals': TW_MIN_JOURNALS, 'max_journal_share': TW_MAX_JOURNAL, 'nest': TW_NEST, 'marks_since': TW_MARKS_SINCE, 'stopwords': len(TW_STOP), 'genre': sorted(TW_GENRE), 'first_person': TW_FIRST_WORDS,
+           'frames': [label for label, _ in TW_FRAMES], 'families': [[key, label, [w.strip() for w in ws.split(',')]] for key, label, ws in TW_FAMILIES],
+           'form_columns': ['titles', 'subtitle', 'question', 'first person', 'quotation marks', 'stock opening',
+                            'words per title', 'characters per word']}
+    for name, rows in (('review', rev), ('school', fac)):
+        uniq = lambda r: list(dict.fromkeys(r['paper_key']))
+        now, then = within(rows, recent), within(rows, earlier)
+        now_all, then_all = uniq(now), uniq(then)
+        v = {'titles': len(uniq(rows)), 'distinct': {}, 'change': {}, 'form': {}, 'family': {}, 'frames': {}}
+        for b in out['bands'] + ['all']:
+            sel = (lambda r: r[r['band'] == b]) if b != 'all' else (lambda r: r)
+            if b != 'all':
+                inside = uniq(sel(now))
+                outside = [k for k in now_all if k not in set(inside)]
+                v['distinct'][b] = log_odds(counts(inside), counts(outside), len(inside), len(outside))
+            late, early = uniq(sel(now)), uniq(sel(then))
+            v['change'][b] = log_odds(counts(late), counts(early), len(late), len(early))
+            v['form'][b] = [form(uniq(within(sel(rows), w))) for w in wins]
+            v['family'][b] = [family(uniq(within(sel(rows), w))) for w in wins]
+            v['frames'][b] = {'n': [len(early), len(late)], 'k': list(zip(frames(early), frames(late)))}
+        out[name] = v
+    return out
+
+
+ANON_FILE =os.path.join(SOURCE_DIR, 'anonymous_review_policies.csv')   # the reviews' own anonymous-review statements, dated
 ANON_SINCE = 2008      # the panel's first volume year: ten years before the first dated switch
 ANON_BIN = 6           # the event study's leads and lags, binned at six years and more either side
 ANON_DRAWS = 1000      # placebo draws for the randomization p-values
@@ -2135,7 +2543,7 @@ def anonymous_review_analysis(data, last_year):
     switching within ANON_BIN years of it, so no already-switched review is a control), the switch year counted as
     after, other comparison groups, other sets of switchers, each switcher left out in turn, unweighted, and a longer
     panel. Also, for the anonymous reviews with no known start (no before-and-after test is possible), the
-    home-faculty premium of every top-14 review over the default ten-year window, a description only.'''
+    own-faculty ratio of each top-14 review over the default ten-year window, a description only.'''
     if not os.path.exists(ANON_FILE):
         print('  !! anonymous review: ' + ANON_FILE + ' is missing; insights.json has no anon section')
         return None
@@ -2206,7 +2614,7 @@ def anonymous_review_analysis(data, last_year):
             return [nan_none(v) for v in x]
         return None if isinstance(x, float) and x != x else x
 
-    # ---- the context: every top-14 review's home-faculty premium over the default ten years (a description only)
+    # ---- the context: each top-14 review's own-faculty ratio over the default ten years (a description only)
     w0, w1 = last_year - 9, last_year
     top = sorted((ji for ji in flag if 1 <= rank_of[ji] <= 14), key=lambda ji: (rank_of[ji], J[ji][0]))
     win = art[(art['year'] >= w0) & (art['year'] <= w1) & art['j'].isin(top)]
@@ -2323,7 +2731,8 @@ def anonymous_review_analysis(data, last_year):
         w = 'n_rank' if key == 'rank' else 'n'
         res, d = fit(base, key, 'D', w)
         s = summary(res, d, key, w)
-        # the smallest true change this test would catch four times in five (two-sided 5%): 2.8 standard errors
+        # the smallest true change this test would catch four times in five (two-sided 5%): 2.8 times the larger of the
+        # clustered standard error and the placebo spread
         s['mde'] = round(2.8 * max(s['se'], s.get('placebo_sd', 0)), 5)
         tb = d[d['j'].isin(treated) & (d['e'] < 1)]
         s['treated_before'] = round(float(np.average(tb[key], weights=tb[w])), 5)
@@ -2420,7 +2829,7 @@ def anonymous_review_analysis(data, last_year):
     status = {ji: ('too recent' if ji in too_recent else role[ji]) for ji in row_of}
     out['journals'] = [{'j': ji, 'name': J[ji][0], 'school_rank': J[ji][2], 'role': status[ji], 'policy': row_of[ji]['policy'],
                         'adopted': int(row_of[ji]['adopted']) if row_of[ji]['adopted'] else None, 'confidence': row_of[ji]['confidence'],
-                        'basis': row_of[ji]['adopted_basis'], 'url': row_of[ji]['evidence_url']}     # (the quotes and notes stay in the list)
+                        'basis': anon_basis(row_of[ji]['adopted_basis']), 'url': row_of[ji]['evidence_url']}     # (the quotes stay in the list)
                        for ji in sorted(row_of, key=lambda j: (order[status[j]], adopt.get(j, 0), rank_of[j] or 999, J[j][0]))]
     out['counts'] = {'treated': len(treated), 'too_recent': len(too_recent), 'left_out': sorted(J[j][0] for j in left_out),
                      'comparison': int(cmp_rows['j'].nunique()),
@@ -3053,6 +3462,12 @@ def build():
     tc = insights['titles']['counts']
     print(f"  insights: title length of {tc['measured']} of {tc['all']} titles since {TITLE_SINCE} ({tc['left_out']} left out: short, "
           f"book reviews, or a heading glued on); {tc['review_titles']} in main law reviews, {tc['school_titles']} by current faculty")
+    # (2026-10-29, the owner: "give me some title trends. NLP type inspection things on titles. break it out per tier
+    # buckets") section 7: the same titles' words and wording
+    insights['title_words'] = title_words(papers, is_short, journals, paper_keys, credit_paper, credit_person, data['people'],
+                                          data['schools'], check=tc)
+    print(f"  insights: title words of {insights['title_words']['review']['titles']} main-law-review titles and "
+          f"{insights['title_words']['school']['titles']} by current faculty, {TITLE_SINCE}-{insights['title_words']['last']}")
     print(f"  insights: co-authorship of {insights['pieces']} pieces in {len(journals)} journals, "
           f"{insights['years'][0]}-{insights['years'][-1]} ({insights['panel']['journals']} journals publishing since {insights['panel']['since']})")
     # (2026-10-29, the owner: "research when journals went anonymous ... run a stat test") question 6; nothing without the policy list

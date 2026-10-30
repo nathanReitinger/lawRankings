@@ -23,7 +23,7 @@
 .an-pick .ins-seg { margin: 0; }
 .an-pick-l { font-weight: 600; color: var(--ink-2); }
 
-/* the tables: the estimates in full, the checks and the home edge */
+/* the tables: the estimates in full, the checks and the own-faculty ratio */
 .an-scroll { overflow-x: auto; margin-top: 2px; }
 .an-card table { width: 100%; font-family: var(--sans); font-variant-numeric: tabular-nums; font-size: 13px; border-collapse: collapse; }
 .an-card th, .an-card td { padding: 5px 6px; border-bottom: 1px solid var(--grid); text-align: right; vertical-align: top; overflow-wrap: break-word; }

@@ -35,41 +35,75 @@
 
   // ---- the number-crunching spinner (2026-10-25, the owner: "add in a spinner for crunching numbers. make it fun. have
   // a series of dots that move around in an interesting way that seems always changing. blur rest of page, have dots
-  // show in center of page"). The page blurs behind a veil; in the middle, fourteen dots glide from one formation to
-  // the next (a ring, a figure eight, a rose, a spiral, orbiting pairs, a wave, a Lissajous knot, a swarm), in a
-  // shuffled order with drifting colours, comet trails and faint threads between close neighbours, so it never looks
-  // the same twice. LSR.crunch.show(text) / hide() around a load; LSR.crunch.run(fn, text) for a recompute (the veil is
-  // painted before fn runs). With reduced motion the dots only turn slowly, without trails.
+  // show in center of page"; 2026-10-29: "spinner dots should be like claude code GUI spinner. and they should be
+  // black. they can be larger with more interacting parts, but must be profesional looking"). The page blurs behind a
+  // veil; in the middle, a black asterisk (about 40 CSS px at full bloom) breathes in Claude Code's rhythm (· ✢ ✳ ✶ ✻ ✽
+  // and back), spending most of its time as a small asterisk: eight solid tapered petals, each a teardrop fine at the
+  // hub and round at the tip, the four main ones longer; they open, fold back, and the star turns an eighth while it is
+  // small. The part that interacts: a pulse runs out along one pair of opposite petals, swelling their tips, and hands on
+  // to the next pair. (2026-10-29: no dotted spokes and no ring of faint dots; at full bloom those read as a snowflake
+  // in a dial.) Black only (#0b0b0b), drawn at the screen's pixel ratio so it stays crisp. LSR.crunch.show(text) /
+  // hide() around a load; LSR.crunch.run(fn, text) for a recompute (the veil is painted before fn runs). With reduced
+  // motion: a still asterisk, only its opacity pulses.
   const crunch = (function () {
-    const N = 14, SIZE = 220;
-    const COLORS = ['#1c5cab', '#ff7f00', '#0b0b0b', '#2a78d6', '#d64545', '#2e9e6b', '#7a4fd6', '#e0a800'];
-    const QUIPS = ['Crunching numbers', 'Counting footnotes', 'Splitting co-author credit', 'Taking geometric means',
-      'Sorting the law reviews', 'Weighing the specialty journals', 'Tallying the faculty', 'Shepardizing the math',
-      'Consulting the W&L tables', 'Carrying the one'];
-    let veil, canvas, ctx, label, raf = 0, shownAt = 0, depth = 0, hideTimer = 0, quipTimer = 0, quip = 0;
-    let t0 = 0, order = [], step = 0, from = 0, to = 1, phaseStart = 0;
+    const SIZE = 56, R = 19, ARMS = 8, R0 = 2.2, CYCLE = 1.8, HOP = 0.45, INK = '11,11,11';
+    const QUIPS = ['Crunching numbers'];   // (the caller's own label stays up: plain description, announced once)
+    let veil, canvas, ctx, label, raf = 0, shownAt = 0, depth = 0, hideTimer = 0;
+    let t0 = 0, dpr = 0;
     const still = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const seeds = Array.from({ length: N }, (_, i) => ({ a: 0.6 + Math.random() * 1.4, b: 0.6 + Math.random() * 1.4, p: Math.random() * 6.283, r: 3.2 + (i % 4) * 0.9 }));
-    // each formation: dot i of n at time t -> a point in the unit square [-1, 1]^2
-    const TAU = Math.PI * 2;
-    const FORMS = [
-      (i, n, t) => { const a = TAU * i / n + t * 0.7, r = 0.72 + 0.1 * Math.sin(3 * t + i); return [r * Math.cos(a), r * Math.sin(a)]; },          // breathing ring
-      (i, n, t) => { const a = TAU * i / n + t * 0.55; return [0.85 * Math.cos(a), 0.85 * Math.sin(a) * Math.cos(a)]; },                          // figure eight
-      (i, n, t) => { const a = TAU * i / n + t * 0.35, r = 0.85 * Math.cos(3 * a + t * 0.4); return [r * Math.cos(a), r * Math.sin(a)]; },          // three-petal rose
-      (i, n, t) => { const f = i / (n - 1), r = 0.12 + 0.78 * f, a = 4.4 * Math.PI * f + t * (1.6 - r); return [r * Math.cos(a), r * Math.sin(a)]; }, // spiral galaxy
-      (i, n, t) => { const k = Math.floor(i / 2), m = Math.ceil(n / 2), a = TAU * k / m + t * 0.5, s = i % 2 ? 1 : -1, b = t * 2.6 + k;         // orbiting pairs
-        return [0.62 * Math.cos(a) + s * 0.16 * Math.cos(b), 0.62 * Math.sin(a) + s * 0.16 * Math.sin(b)]; },
-      (i, n, t) => { const x = -0.88 + 1.76 * i / (n - 1); return [x, 0.42 * Math.sin(TAU * 0.8 * x + t * 2.2) * Math.cos(t * 0.6)]; },            // travelling wave
-      (i, n, t) => { const a = TAU * i / n + t * 0.4; return [0.85 * Math.sin(3 * a + t * 0.3), 0.85 * Math.sin(2 * a)]; },                         // Lissajous knot
-      (i, n, t) => { const d = seeds[i]; return [0.8 * Math.sin(d.a * t + d.p) * Math.cos(d.b * 0.7 * t), 0.8 * Math.cos(d.b * t + d.p * 1.3) * Math.sin(d.a * 0.5 * t + 1)]; }, // swarm
-    ];
+    const TAU = Math.PI * 2, STEP = TAU / ARMS;
     const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-    const mix = (a, b, k) => {
-      const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
-      const c = (sh) => Math.round(((pa >> sh) & 255) * (1 - k) + ((pb >> sh) & 255) * k);
-      return 'rgb(' + c(16) + ',' + c(8) + ',' + c(0) + ')';
-    };
-    const shuffle = () => { order = FORMS.map((_, i) => i).sort(() => Math.random() - 0.5); };
+    const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+    const ink = (a) => 'rgba(' + INK + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
+    // the backing store follows the screen's pixel ratio (also after a zoom), so the petals stay sharp
+    function fit() {
+      const d = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+      if (d === dpr) return;
+      dpr = d;
+      canvas.width = canvas.height = Math.round(SIZE * d);
+      ctx.setTransform(canvas.width / SIZE, 0, 0, canvas.width / SIZE, 0, 0);
+    }
+    // the shape at time t (s): how far out the main and the in-between petals reach (0..1 of R) and the turn (rad).
+    // One CYCLE breathes · ✢ ✳ ✶ ✻ ✽ ✻ ✶ ✳ ✢ ·, with a short bloom: the opening is squared, so most of the cycle is
+    // spent small (✢ ✳ ✶); the eighth of a turn happens around the small end
+    function shape(t) {
+      const u = t / CYCLE, c = 0.5 - 0.5 * Math.cos(TAU * u), g = c * c;
+      const w = u + 0.5, n = Math.floor(w);
+      return { main: 0.42 + 0.58 * smooth(g), side: 0.28 + 0.5 * smooth((g - 0.1) / 0.9), turn: -Math.PI / 2 + (n + ease(w - n)) * STEP, g: g };
+    }
+    // one petal: a teardrop from a fine point near the hub to a round tip (two circles joined by their outer tangents)
+    function petal(C, angle, reach, main, swell) {
+      const L = Math.max(R0 + 3, reach * R), rt = (main ? 2.5 : 2.0) * (0.3 + 0.7 * reach) * (1 + 0.3 * swell), rh = 0.45;   // (fine tips while small: no blob)
+      const tip = L - rt, D = Math.max(0.01, tip - R0);
+      const b = Math.asin(Math.min(0.95, (rt - rh) / D)), half = Math.PI / 2 + b;
+      const hx = C + R0 * Math.cos(angle), hy = C + R0 * Math.sin(angle);
+      const tx = C + tip * Math.cos(angle), ty = C + tip * Math.sin(angle);
+      ctx.beginPath();
+      ctx.arc(tx, ty, rt, angle - half, angle + half);
+      ctx.arc(hx, hy, rh, angle + half, angle - half + TAU);
+      ctx.closePath();
+      ctx.fill();
+    }
+    function draw(t, calm) {
+      const C = SIZE / 2;
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      ctx.fillStyle = ink(1);
+      if (calm) {                                      // a still asterisk; only the opacity breathes, slowly
+        ctx.globalAlpha = 0.8 + 0.2 * (0.5 + 0.5 * Math.cos(TAU * t / 2.8));
+        for (let k = 0; k < ARMS; k++) petal(C, -Math.PI / 2 + k * STEP, k % 2 ? 0.62 : 0.85, k % 2 === 0, 0);
+        ctx.beginPath(); ctx.arc(C, C, 1.9, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+        return;
+      }
+      const s = shape(t);
+      // the pulse: out along petals k and k + 4, then on to the next pair (clockwise, the way the star turns)
+      const v = t / HOP, hop = Math.floor(v), at = v - hop, live = hop % (ARMS / 2), lift = Math.sin(Math.PI * at);
+      for (let k = 0; k < ARMS; k++) {
+        const on = k % (ARMS / 2) === live;
+        petal(C, s.turn + k * STEP, (k % 2 ? s.side : s.main) * (on ? 1 + 0.06 * lift : 1), k % 2 === 0, on ? lift : 0);
+      }
+      ctx.beginPath(); ctx.arc(C, C, 1.7 + 0.5 * (1 - s.g), 0, TAU); ctx.fill();
+    }
 
     function build() {
       veil = document.createElement('div');
@@ -84,57 +118,14 @@
       veil.appendChild(canvas);
       veil.appendChild(label);
       document.body.appendChild(veil);
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = canvas.height = SIZE * dpr;
       canvas.style.width = canvas.style.height = SIZE + 'px';
       ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
+      fit();
     }
 
     function frame(now) {
-      const calm = still();
-      const t = Math.max(0, now - t0) / 1000 * (calm ? 0.15 : 1);   // (the first frame's time can come before show's)
-      const HOLD = 2.4, MORPH = 1.2;
-      let k = 0;
-      if (!calm) {
-        const el = Math.max(0, now - phaseStart) / 1000;
-        if (el > HOLD + MORPH) {                       // next formation; a new shuffle once all have been shown
-          from = to; step++;
-          if (step >= order.length) { const last = order[order.length - 1]; shuffle(); if (order[0] === last) order.push(order.shift()); step = 0; }
-          to = order[step]; phaseStart = now;
-        } else if (el > HOLD) k = ease((el - HOLD) / MORPH);
-      }
-      const spin = t * 0.08, cs = Math.cos(spin), sn = Math.sin(spin);
-      const R = SIZE * 0.4, C = SIZE / 2;
-      if (calm) ctx.clearRect(0, 0, SIZE, SIZE);
-      else {                                          // fade the last frames into trails
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.fillStyle = 'rgba(0,0,0,0.24)';
-        ctx.fillRect(0, 0, SIZE, SIZE);
-        ctx.globalCompositeOperation = 'source-over';
-      }
-      const pts = [];
-      for (let i = 0; i < N; i++) {
-        const a = FORMS[calm ? 0 : from](i, N, t), b = FORMS[calm ? 0 : to](i, N, t);
-        const x = a[0] + (b[0] - a[0]) * k, y = a[1] + (b[1] - a[1]) * k;
-        pts.push([C + R * (x * cs - y * sn), C + R * (x * sn + y * cs)]);
-      }
-      ctx.lineWidth = 1;
-      for (let i = 0; i < N; i++) {                   // threads between close neighbours
-        for (let j = i + 1; j < N; j++) {
-          const d = Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]);
-          if (d < 46) { ctx.strokeStyle = 'rgba(28,92,171,' + (0.22 * (1 - d / 46)).toFixed(3) + ')'; ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[j][0], pts[j][1]); ctx.stroke(); }
-        }
-      }
-      const drift = t * 0.25;
-      for (let i = 0; i < N; i++) {
-        const k0 = (i + Math.floor(drift)) % COLORS.length;
-        const c0 = COLORS[k0], c1 = COLORS[(k0 + 1) % COLORS.length];
-        ctx.fillStyle = mix(c0, c1, drift % 1);
-        ctx.beginPath();
-        ctx.arc(pts[i][0], pts[i][1], seeds[i].r * (1 + 0.25 * Math.sin(t * 3 + i)), 0, TAU);
-        ctx.fill();
-      }
+      fit();
+      draw(Math.max(0, now - t0) / 1000, still());   // (the first frame's time can come before show's)
       raf = requestAnimationFrame(frame);
     }
 
@@ -145,16 +136,13 @@
       label.textContent = (text || QUIPS[0]) + '…';
       if (veil.classList.contains('on')) return;
       shownAt = performance.now();
-      t0 = phaseStart = shownAt;
-      shuffle(); step = 0; from = order[0]; to = order[1] !== undefined ? order[1] : order[0]; step = 1;
-      ctx.clearRect(0, 0, SIZE, SIZE);
+      t0 = shownAt;
+      fit();
+      draw(0, still());
       veil.classList.add('on');
       document.body.setAttribute('aria-busy', 'true');
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(frame);
-      quip = Math.floor(Math.random() * QUIPS.length);
-      clearInterval(quipTimer);
-      quipTimer = setInterval(() => { quip = (quip + 1) % QUIPS.length; label.textContent = QUIPS[quip] + '…'; }, 1600);
     }
 
     // hidden once every show() has its hide(), and not before it has been seen for a moment (no flicker)
@@ -167,7 +155,6 @@
         if (depth) return;
         veil.classList.remove('on');
         document.body.removeAttribute('aria-busy');
-        clearInterval(quipTimer);
         setTimeout(() => { if (!veil.classList.contains('on')) cancelAnimationFrame(raf); }, 300);
       }, wait);
     }
@@ -238,9 +225,10 @@
   // logo and then we'll keep that one for them. and allow a click-button to change logo with a pop-up of all logos to
   // view"). A small "change logo" button by the build hash opens every masthead, drawn live in its own face; a click
   // previews one on the page, "Vote for this one" keeps it for this visitor (localStorage lsr.mastPin, which the
-  // <head> script reads before anything is drawn), and "Surprise me" goes back to a new one each visit. The votes stay
+  // <head> script reads before anything is drawn; a second press clears it), and "A new masthead each visit" goes back
+  // to a new one each visit. The votes stay
   // in each visitor's browser: a static site has nowhere to count them.
-  const FAMILY = (n) => (n <= 10 ? 'Classic' : n <= 15 ? 'Minimal' : n <= 20 ? 'Glass' : n <= 25 ? 'Color' : 'Interactive');
+  const FAMILY = (n) => (n <= 10 ? 'Classic' : n <= 15 ? 'Type' : n <= 20 ? 'Light' : n <= 25 ? 'Ink' : 'Interactive');
   const PIN = 'lsr.mastPin';
   const pinned = () => { try { return +(localStorage.getItem(PIN) || 0); } catch (e) { return 0; } };
   let gallery = null, fontsAll = false, opener = null;
@@ -276,10 +264,10 @@
     gallery.setAttribute('role', 'dialog');
     gallery.setAttribute('aria-modal', 'true');
     gallery.setAttribute('aria-labelledby', 'mastGalleryTitle');
-    gallery.innerHTML = '<div class="mast-panel"><div class="mast-top"><div><h2 id="mastGalleryTitle">Pick a masthead</h2>' +
-      '<p>Click one to see it on the page. <b>Vote for your favorite</b> and it stays for you on this browser; or let a new one come each visit.</p></div>' +
+    gallery.innerHTML = '<div class="mast-panel"><div class="mast-top"><div><h2 id="mastGalleryTitle">Mastheads</h2>' +
+      '<p>"See it" shows a masthead on this page. A voted favorite stays on this browser; without one, a new masthead comes each visit.</p></div>' +
       '<button type="button" class="mast-x" aria-label="Close">&times;</button></div><div class="mast-grid"></div>' +
-      '<div class="mast-bottom"><button type="button" class="mast-shuffle">Surprise me again: a new one each visit</button></div></div>';
+      '<div class="mast-bottom"><button type="button" class="mast-shuffle">A new masthead each visit</button></div></div>';
     const grid = gallery.querySelector('.mast-grid');
     for (let n = 1; n <= N; n++) {
       const card = document.createElement('div');
@@ -288,20 +276,21 @@
       const wrap = document.createElement('div');
       wrap.className = 'lsr-mast-wrap mast-preview';
       wrap.setAttribute('data-mast', n);
+      wrap.setAttribute('aria-hidden', 'true');   // a picture of the masthead, not a second page header
       if (head) {
         const c = head.cloneNode(true);
         c.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
         c.querySelectorAll('.lsr-foot, .mast-pick').forEach((x) => x.remove());
-        c.querySelectorAll('.px-canvas').forEach((x) => x.remove());          // a copy of the page's dots, not the card's own
-        c.querySelectorAll('.px-on').forEach((x) => x.classList.remove('px-on'));
+        c.querySelectorAll('.px-canvas, .sv-layer').forEach((x) => x.remove());   // a copy of the page's dots or outlines, not the card's own
+        c.querySelectorAll('.px-on, .sv-on').forEach((x) => x.classList.remove('px-on', 'sv-on'));
         c.querySelectorAll('.lsr-mark').forEach(reactClean);                // not the page's pointer state (11-25)
         c.querySelectorAll('a').forEach((x) => { x.removeAttribute('href'); x.setAttribute('tabindex', '-1'); });
         wrap.appendChild(c);
       }
       const bar = document.createElement('div');
       bar.className = 'mast-bar';
-      bar.innerHTML = '<span class="mast-no">No. ' + n + ' · ' + FAMILY(n) + '</span>' +
-        '<button type="button" class="mast-see">See it</button><button type="button" class="mast-vote">Vote for this one</button>';
+      bar.innerHTML = '<span class="mast-no" id="mastNo' + n + '">No. ' + n + ' · ' + FAMILY(n) + '</span>' +
+        '<button type="button" class="mast-see" aria-describedby="mastNo' + n + '">See it</button><button type="button" class="mast-vote" aria-describedby="mastNo' + n + '">Vote for this one</button>';
       card.appendChild(wrap);
       card.appendChild(bar);
       grid.appendChild(card);
@@ -316,12 +305,12 @@
       if (!card) return;
       const n = +card.dataset.n;
       if (e.target.closest('.mast-vote')) {
-        try { localStorage.setItem(PIN, String(n)); } catch (err) { /* private mode: it applies for this page only */ }
+        try { if (pinned() === n) localStorage.removeItem(PIN); else localStorage.setItem(PIN, String(n)); } catch (err) { /* private mode: it applies for this page only */ }
         applyMast(n); markCards(); return;
       }
       applyMast(n); markCards();
     });
-    gallery.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeGallery(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && gallery && gallery.classList.contains('on')) closeGallery(); });
     document.body.appendChild(gallery);
   }
 
@@ -344,6 +333,7 @@
     if (!gallery) buildGallery();
     markCards();
     gallery.classList.add('on');
+    [...document.body.children].forEach((el) => { if (el !== gallery) el.inert = true; });   // modal: focus stays in the dialog
     document.documentElement.classList.add('mast-open');
     reactSync();
     pixelSync();
@@ -356,6 +346,7 @@
     document.documentElement.classList.remove('mast-open');
     reactSync();
     pixelSync();
+    [...document.body.children].forEach((el) => { el.inert = false; });
     if (opener) opener.focus();
   }
 
@@ -365,7 +356,7 @@
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'mast-pick';
-    b.title = 'See every masthead and vote for your favorite';
+    b.title = 'The ' + ((window.LSR_MAST || {}).n || 26) + ' mastheads, with a vote for a favorite';
     b.textContent = 'change logo';
     b.addEventListener('click', () => openGallery(b));
     const stamp = line.querySelector('.lsr-stamp');
@@ -403,14 +394,18 @@
       } else if (c.nodeType === 1) walk(c);
     });
     walk(a);
+    a.querySelectorAll('.w1, .w2, .w3').forEach((w) => { w.dataset.text = w.textContent; });   // (23 draws copies of each word)
   }
   // ---- 26. "pixel" (2026-10-28, the owner: "do one logo with a pixelated mover that changes motion based on mouse
-  // movement (small dots)"; then: "the dots should be more like they are on https://www.paper2audio.com"): the wordmark
-  // set in a pixel face and drawn as small soft dots on a canvas over the (invisible, still clickable and readable) link,
-  // in the manner of paper2audio's hero: fine monochrome dots of varied weight, and a faint field of loose dots drifting
-  // around it. The letters' dots gather in on load, sway a little, and the pointer's movement carries the dots near it
-  // along its own direction and speed; they ease back. The loose dots drift on a slow current and part around the
-  // pointer. No motion under prefers-reduced-motion; the loop stops when the mark is off screen or the tab hidden.
+  // movement (small dots)"; then: "the dots should be more like they are on https://www.paper2audio.com"; 2026-10-29: the
+  // dots looked grainy, with stray dots): the wordmark set in Silkscreen and drawn as a dot matrix on a canvas over the
+  // (invisible, still clickable and readable) link. Silkscreen is built on a square grid (a pixel is an eighth of the
+  // em), so each of its pixels becomes one round dot on one lattice whose pitch is a whole number of device pixels:
+  // every dot the same size and the same black, falling the same way on the screen's pixels (no grain), nothing
+  // between the letters. On load the dots print in from left to right. The pointer is a lens over the lattice, as on
+  // paper2audio: near it the faint lattice of the paper shows (only in the letters' band, fading out before its edges),
+  // the letters' dots swell and lean away from it, and its movement carries them a little along its own direction;
+  // they spring back onto the grid. No motion under prefers-reduced-motion; the loop stops whenever nothing moves.
   const PX_ON = (mark) => { const w = mark.closest('.lsr-mast-wrap'); return !!w && (w.classList.contains('mast-preview') ? w.getAttribute('data-mast') === '26' : document.documentElement.getAttribute('data-mast') === '26'); };
   const pxMarks = new Map();
   const still = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
@@ -421,150 +416,216 @@
     canvas.setAttribute('aria-hidden', 'true');
     mark.appendChild(canvas);
     const ctx = canvas.getContext('2d');
-    const rnd = (k) => { const x = Math.sin(k * 78.233) * 43758.5453; return x - Math.floor(x); };
-    let dots = [], loose = [], W = 0, H = 0, bleedX = 0, bleedY = 0, step = 3, r = 1, ink = '17,17,22', raf = 0, visible = true, alive = true;
-    const ptr = { x: -1e4, y: -1e4, vx: 0, vy: 0, t: 0 };
-    const t0 = performance.now();
+    let dots = [], W = 0, H = 0, s = 3, r = 1, R = 60, dpr = 1, ink = '17,17,22', raf = 0, visible = true, alive = true, born = 0;
+    let sq = false;                                            // a small pitch (2-3 device px): whole device-pixel squares, not discs
+    // (2026-10-29) the dots are built only from the real pixel face: document.fonts.load() can resolve before the Google
+    // stylesheet has registered it, and a build from the fallback face then flew its dots into the real letters. Until
+    // the face is in (or for 3 s at most), the link shows its own text.
+    const face = getComputedStyle(mark).fontFamily.split(',')[0].replace(/["']/g, '').trim();
+    let gaveUp = false, waitT = 0, waited = 0;
+    const faceIn = () => { try { return [...document.fonts].some((f) => f.family.replace(/["']/g, '').trim() === face && f.status === 'loaded'); } catch (e) { return true; } };
+    function waitFace() {
+      if (waitT || !alive) return;
+      waitT = setTimeout(() => { waitT = 0; waited += 150; if (waited >= 3000) gaveUp = true; build(); }, 150);
+    }
+    let band = [0, 0, 0, 0];                                   // the lattice's rows and columns (CSS px): x0, x1, y0, y1
+    const ptr = { x: -1e4, y: -1e4, vx: 0, vy: 0, t: 0, on: false, pa: 0 };
+    // one dot for each pixel of the face, on one lattice whose pitch is a whole number of device pixels (so every dot
+    // falls the same way on the screen's pixels: no grain), the letters set at exactly eight lattice pitches to the em
     function build() {
+      if (!alive) return;
+      if (!gaveUp && !faceIn()) { waitFace(); return; }
       const box = mark.getBoundingClientRect();
       if (!box.width) return;
-      const cs = getComputedStyle(mark);
+      const cs = getComputedStyle(mark), lb = a.getBoundingClientRect();
+      dpr = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
       const size = parseFloat(cs.fontSize);
-      bleedX = Math.round(size * 0.9); bleedY = Math.round(size * 0.8);
-      W = Math.ceil(box.width) + 2 * bleedX; H = Math.ceil(box.height) + 2 * bleedY;
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = W * dpr; canvas.height = H * dpr;
+      let pd = Math.max(2, Math.round(size * dpr / 8));                // the pitch, device px
+      s = pd / dpr; r = s * 0.39; R = s * 16;
+      const bx = Math.ceil(s * 10), by = Math.ceil(s * 4);
+      W = Math.ceil(box.width) + 2 * bx; H = Math.ceil(box.height) + 2 * by;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-      canvas.style.left = -bleedX - (parseFloat(cs.borderLeftWidth) || 0) + 'px';
-      canvas.style.top = -bleedY - (parseFloat(cs.borderTopWidth) || 0) + 'px';
+      canvas.style.left = -bx - (parseFloat(cs.borderLeftWidth) || 0) + 'px';
+      canvas.style.top = -by - (parseFloat(cs.borderTopWidth) || 0) + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       const m = /(\d+),\s*(\d+),\s*(\d+)/.exec(cs.color);
       if (m) ink = m[1] + ',' + m[2] + ',' + m[3];
-      // the letters where the link sets them, drawn off screen in the same face, then sampled on a grid of small dots
+      // the letters drawn once at 8 pitches to the em in device pixels, each advance a whole number of pitches, then read
+      // one pitch at a time at the middle of each cell
       const off = document.createElement('canvas');
-      off.width = W; off.height = H;
       const o = off.getContext('2d');
-      o.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily;
+      o.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + 8 * pd + 'px ' + cs.fontFamily;
+      const text = (a.dataset.text || a.textContent).replace(/\s+/g, ' ').trim();
+      const wrap = mark.closest('.lsr-mast-wrap'), room = (wrap ? wrap.clientWidth : box.width) - 8;
+      let adv = [], cols = 0;
+      for (;;) {                                                        // (a smaller pitch if rounding up made it wider than the link)
+        o.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + 8 * pd + 'px ' + cs.fontFamily;
+        adv = [...text].map((ch) => Math.max(1, Math.round(o.measureText(ch).width / pd)));   // in pitches
+        cols = adv.reduce((x, y) => x + y, 0) - 1;                      // (the last letter's right bearing)
+        if (pd <= 2 || cols * pd / dpr <= room) break;                    // (within the masthead's column)
+        pd--;
+      }
+      const oldS = s;
+      s = pd / dpr; r = s * 0.39; R = s * 16; sq = pd <= 3;
+      const mt = o.measureText(text);
+      const up = Math.ceil(mt.actualBoundingBoxAscent / pd), down = Math.ceil(mt.actualBoundingBoxDescent / pd), rows = up + down;
+      off.width = (cols + 2) * pd; off.height = (rows + 2) * pd;
+      o.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + 8 * pd + 'px ' + cs.fontFamily;
       o.fillStyle = '#000'; o.textBaseline = 'alphabetic';
-      const asc = o.measureText('A').fontBoundingBoxAscent || size * 0.8;
-      const chars = a.querySelectorAll('.ch');
-      const at = (el, ch) => { const q = el.getBoundingClientRect(); o.fillText(ch, q.left - box.left + bleedX, q.top - box.top + bleedY + asc); };
-      if (chars.length) chars.forEach((c) => { if (c.textContent.trim()) at(c, c.textContent); });
-      else at(a, a.textContent);
-      step = Math.max(2.4, size / 15);
-      r = Math.max(0.75, step * 0.37);
-      const img = o.getImageData(0, 0, W, H).data;
-      const old = dots;
-      dots = [];
-      for (let y = step / 2; y < H; y += step) {
-        for (let x = step / 2; x < W; x += step) {
-          if (img[(Math.floor(y) * W + Math.floor(x)) * 4 + 3] > 110) {
-            const k = dots.length, from = old[k], q = rnd(k + 7);
-            // first time: from anywhere in the field; after a resize: from where the dot was
-            const sx = from ? from.x : rnd(k + 3) * W, sy = from ? from.y : rnd(k + 5) * H;
-            dots.push({ hx: x, hy: y, x: still() ? x : sx, y: still() ? y : sy, vx: 0, vy: 0, ph: x * 0.09 + y * 0.05,
-              a: 0.72 + 0.28 * q, s: 0.85 + 0.3 * rnd(k + 11) });
-          }
+      let cx = pd;
+      [...text].forEach((ch, i) => { o.fillText(ch, cx, (up + 1) * pd); cx += adv[i] * pd; });
+      const img = o.getImageData(0, 0, off.width, off.height).data;
+      // where the lattice sits on the canvas: centred on the link, on the device-pixel grid
+      const gx = Math.round((bx + lb.left - box.left + (lb.width - cols * s) / 2) * dpr) / dpr;
+      const gy = Math.round((by + lb.top - box.top + (lb.height - rows * s) / 2) * dpr) / dpr;
+      band = [gx - 6 * s, gx + (cols + 6) * s, gy - 3 * s, gy + (rows + 3) * s];
+      const old = dots, next = [];
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const sx = Math.floor((i + 1.5) * pd), sy = Math.floor((j + 1.5) * pd);
+          if (img[(sy * off.width + sx) * 4 + 3] < 128) continue;
+          const hx = gx + (i + 0.5) * s, hy = gy + (j + 0.5) * s;
+          next.push({ hx, hy, x: hx, y: hy, vx: 0, vy: 0, g: 1, at: i / (cols || 1) });
         }
       }
-      // the loose dots: a faint field around the letters, more of them near the middle, as on paper2audio
-      const n = Math.round((W * H) / 520);
-      loose = [];
-      for (let k = 0; k < n; k++) {
-        const u = rnd(k + 1000), v = rnd(k + 2000);
-        loose.push({ x: u * W, y: (0.5 + (v - 0.5) * (0.6 + 0.4 * rnd(k + 3000))) * H, vx: 0, vy: 0,
-          a: 0.07 + 0.22 * rnd(k + 4000) * rnd(k + 5000), s: 0.55 + 0.6 * rnd(k + 6000), ph: rnd(k + 7000) * 6.28 });
-      }
+      // a dot keeps its place in flight only when it is the same dot (same letters, same pitch); a new set of letters
+      // starts at home and prints in once more
+      if (!still() && old.length === next.length && oldS === s) next.forEach((d, k) => { d.x = old[k].x; d.y = old[k].y; d.vx = old[k].vx; d.vy = old[k].vy; d.g = old[k].g; });
+      else if (old.length && old.length !== next.length) born = 0;
+      dots = next;
       mark.classList.add('px-on');
-      draw();
+      if (!born) born = still() ? -1e9 : performance.now();
+      draw(performance.now());
       wake();
     }
-    function draw() {
+    function draw(now) {
       ctx.clearRect(0, 0, W, H);
-      // a few shades, each drawn in one path: loose dots, then the letters (a dot out of place is fainter)
-      const shades = new Map();
-      const put = (d, alpha, rad) => {
-        const key = Math.round(alpha * 12);
-        if (!shades.has(key)) shades.set(key, []);
-        shades.get(key).push(d.x, d.y, rad);
-      };
-      loose.forEach((d) => put(d, d.a, r * d.s));
+      const intro = Math.max(0, (now - born) / 1000);
+      // the paper's lattice, only around the pointer and only in the band of the letters: faint dots on the same
+      // lattice, fading in steps with distance (a few flat greys, not a gradient)
+      if (ptr.pa > 0.01) {
+        const R2 = R * 0.6;
+        const x1 = Math.max(band[0], ptr.x - R2), x2 = Math.min(band[1], ptr.x + R2), y1 = Math.max(band[2], ptr.y - R2), y2 = Math.min(band[3], ptr.y + R2);
+        const bins = [[], [], [], [], [], []];
+        const ox = band[0] + 6 * s, oy = band[2] + 3 * s, Rv = (band[3] - band[2]) / 2;   // the letters' lattice origin; the band's half height
+        for (let gy = oy + (Math.ceil((y1 - oy) / s - 0.5) + 0.5) * s; gy < y2; gy += s) {
+          for (let gx = ox + (Math.ceil((x1 - ox) / s - 0.5) + 0.5) * s; gx < x2; gx += s) {
+            const q = Math.min(1 - Math.hypot(gx - ptr.x, gy - ptr.y) / R2, 1 - Math.abs(gy - (band[2] + Rv)) / Rv);   // (fading out before the band's edges)
+            if (q <= 0) continue;
+            bins[Math.min(5, Math.floor(q * 6))].push(gx, gy);
+          }
+        }
+        bins.forEach((pts, i) => {
+          if (!pts.length) return;
+          ctx.fillStyle = 'rgba(' + ink + ',' + (0.08 * (i + 0.5) / 6 * ptr.pa).toFixed(3) + ')';
+          ctx.beginPath();
+          const rr = r * 0.62;
+          if (sq) { const q = 1 / dpr; for (let j = 0; j < pts.length; j += 2) ctx.rect(Math.round((pts[j] - q / 2) * dpr) / dpr, Math.round((pts[j + 1] - q / 2) * dpr) / dpr, q, q); }
+          else for (let j = 0; j < pts.length; j += 2) { ctx.moveTo(pts[j] + rr, pts[j + 1]); ctx.arc(pts[j], pts[j + 1], rr, 0, 6.2832); }
+          ctx.fill();
+        });
+      }
+      ctx.fillStyle = 'rgb(' + ink + ')';
+      ctx.beginPath();
+      // at a pitch of 2 or 3 device px a disc would be all antialiasing (grey letters at 1x): whole device-pixel squares
+      // instead, the full pitch at 2 (solid pixel letters), two of three at 3 (a crisp dot grid)
+      const sqw = sq ? Math.max(1, Math.round(s * dpr) - (Math.round(s * dpr) > 2 ? 1 : 0)) : 0;
       dots.forEach((d) => {
-        const off = Math.abs(d.x - d.hx) + Math.abs(d.y - d.hy);
-        put(d, d.a * (off > step * 1.5 ? 0.55 : 1), r * d.s);
+        const g = Math.min(1, Math.max(0, (intro - d.at * 0.7) / 0.22));      // printed in, left to right
+        if (g <= 0) return;
+        if (sq) {
+          const w = Math.max(1, Math.round(sqw * g * d.g)) / dpr;
+          ctx.rect(Math.round((d.x - w / 2) * dpr) / dpr, Math.round((d.y - w / 2) * dpr) / dpr, w, w);
+          return;
+        }
+        const rr = r * g * d.g;
+        ctx.moveTo(d.x + rr, d.y); ctx.arc(d.x, d.y, rr, 0, 6.2832);
       });
-      shades.forEach((pts, key) => {
-        ctx.fillStyle = 'rgba(' + ink + ',' + (key / 12).toFixed(3) + ')';
-        ctx.beginPath();
-        for (let i = 0; i < pts.length; i += 3) { ctx.moveTo(pts[i] + pts[i + 2], pts[i + 1]); ctx.arc(pts[i], pts[i + 1], pts[i + 2], 0, 6.2832); }
-        ctx.fill();
-      });
+      ctx.fill();
     }
     function tick(now) {
       raf = 0;
       if (!alive) return;
-      const t = (now - t0) / 1000, R = step * 13, R2 = R * R, sp = Math.hypot(ptr.vx, ptr.vy), moving = sp > 0.05;
+      ptr.pa += ((ptr.on ? 1 : 0) - ptr.pa) * (ptr.on ? 0.15 : 0.08);
+      if (Math.abs(ptr.pa - (ptr.on ? 1 : 0)) < 0.004) ptr.pa = ptr.on ? 1 : 0;
+      const sp = Math.min(30, Math.hypot(ptr.vx, ptr.vy));
+      let moving = ptr.pa > 0 || (now - born) / 1000 < 1.0;
       dots.forEach((d) => {
-        const sw = Math.sin(t * 1.3 + d.ph) * step * 0.12;          // a slow sway, a fraction of a dot
-        let ax = (d.hx - d.x) * 0.045, ay = (d.hy + sw - d.y) * 0.045;
-        if (moving) {
-          const dx = d.x - ptr.x, dy = d.y - ptr.y, dd = dx * dx + dy * dy;
-          if (dd < R2) {
-            const dist = Math.sqrt(dd) || 1, f = (1 - dist / R) * (1 - dist / R);
-            // carried along the pointer's own motion, and eased aside in proportion to its speed
-            ax += ptr.vx * f * 0.12 + (dx / dist) * f * Math.min(sp, 40) * 0.06;
-            ay += ptr.vy * f * 0.12 + (dy / dist) * f * Math.min(sp, 40) * 0.06;
+        let tx = d.hx, ty = d.hy, tg = 1;
+        if (ptr.pa > 0) {
+          const dx = d.hx - ptr.x, dy = d.hy - ptr.y, dist = Math.hypot(dx, dy) || 1;
+          if (dist < R) {
+            const f = (1 - dist / R) * (1 - dist / R) * ptr.pa;
+            tx += (dx / dist) * f * s * 0.4; ty += (dy / dist) * f * s * 0.4;   // the lens: the dots lean away, a little
+            tg = 1 + 0.12 * f;                                                   // and swell, a little (the letters stay legible)
+            d.vx += Math.max(-0.3, Math.min(0.3, ptr.vx * f * 0.01)); d.vy += Math.max(-0.3, Math.min(0.3, ptr.vy * f * 0.01));   // the pointer's movement nudges them
           }
         }
-        d.vx = (d.vx + ax) * 0.86; d.vy = (d.vy + ay) * 0.86;
+        d.vx = (d.vx + (tx - d.x) * 0.16) * 0.72; d.vy = (d.vy + (ty - d.y) * 0.16) * 0.72;
         d.x += d.vx; d.y += d.vy;
+        d.g += (tg - d.g) * 0.25;
+        if (Math.abs(d.x - tx) < 0.02 && Math.abs(d.y - ty) < 0.02 && Math.abs(d.vx) + Math.abs(d.vy) < 0.02) { d.x = tx; d.y = ty; d.vx = d.vy = 0; }
+        else moving = true;
+        if (Math.abs(d.g - tg) < 0.003) d.g = tg; else moving = true;
       });
-      loose.forEach((d) => {
-        // a slow current: each dot drifts on its own gentle curve, and wraps around the field
-        let ax = Math.cos(t * 0.35 + d.ph + d.y * 0.012) * 0.012, ay = Math.sin(t * 0.3 + d.ph + d.x * 0.01) * 0.008;
-        if (moving) {
-          const dx = d.x - ptr.x, dy = d.y - ptr.y, dd = dx * dx + dy * dy;
-          if (dd < R2 * 1.6) {
-            const dist = Math.sqrt(dd) || 1, f = 1 - dist / (R * 1.26);
-            ax += ptr.vx * f * 0.05 + (dx / dist) * f * 0.25;
-            ay += ptr.vy * f * 0.05 + (dy / dist) * f * 0.25;
-          }
-        }
-        d.vx = (d.vx + ax) * 0.95; d.vy = (d.vy + ay) * 0.95;
-        d.x += d.vx; d.y += d.vy;
-        if (d.x < -4) d.x += W + 8; else if (d.x > W + 4) d.x -= W + 8;
-        if (d.y < -4) d.y += H + 8; else if (d.y > H + 4) d.y -= H + 8;
-      });
-      ptr.vx *= 0.8; ptr.vy *= 0.8;
-      draw();
-      if (visible && !document.hidden && !still()) raf = requestAnimationFrame(tick);
+      ptr.vx *= 0.7; ptr.vy *= 0.7;
+      if (sp > 0.05) moving = true;
+      draw(now);
+      if (moving && visible && !document.hidden && !still()) raf = requestAnimationFrame(tick);
     }
-    function wake() { if (!raf && alive && visible && !document.hidden && !still() && dots.length) raf = requestAnimationFrame(tick); }
+    function wake() {
+      if (alive && dots.length && Math.min(3, Math.max(1, window.devicePixelRatio || 1)) !== dpr) { build(); return; }   // (a zoom or another screen)
+      if (!raf && alive && visible && !document.hidden && !still() && dots.length) raf = requestAnimationFrame(tick);
+    }
+    // the screen's pixel ratio can change with no resize (browser zoom of a capped mark, a window moved to a Retina
+    // screen): rebuild on the lattice of the new device pixels
+    let dprMQ = null;
+    const onDpr = () => { if (!alive) return; armDpr(); build(); };
+    function armDpr() {
+      if (dprMQ) dprMQ.removeEventListener('change', onDpr);
+      try { dprMQ = window.matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)'); dprMQ.addEventListener('change', onDpr); } catch (e) { dprMQ = null; }
+    }
+    armDpr();
     function onMove(e) {
       if (still() || !dots.length) return;
       const q = canvas.getBoundingClientRect();
       const x = e.clientX - q.left, y = e.clientY - q.top;
-      if (x < -40 || y < -40 || x > q.width + 40 || y > q.height + 40) { ptr.x = ptr.y = -1e4; return; }
+      const inside = x > -20 && y > -20 && x < q.width + 20 && y < q.height + 20;
+      if (!inside) { if (ptr.on) { ptr.on = false; wake(); } return; }
       const now = performance.now();
-      if (ptr.x > -1e3 && now - ptr.t < 100) { ptr.vx = (x - ptr.x) * 0.6 + ptr.vx * 0.4; ptr.vy = (y - ptr.y) * 0.6 + ptr.vy * 0.4; }
-      ptr.x = x; ptr.y = y; ptr.t = now;
+      if (ptr.on && now - ptr.t < 100) { ptr.vx = (x - ptr.x) * 0.6 + ptr.vx * 0.4; ptr.vy = (y - ptr.y) * 0.6 + ptr.vy * 0.4; }
+      ptr.x = x; ptr.y = y; ptr.t = now; ptr.on = true;
       wake();
     }
+    // a finger: the touch events keep coming while the page scrolls under it (pointer events stop), all passive
+    function onTouch(e) { const t = e.touches && e.touches[0]; if (t) onMove({ clientX: t.clientX, clientY: t.clientY }); else { ptr.on = false; wake(); } }
+    function onAway(e) { if (e.type === 'pointerout' ? !e.relatedTarget : e.pointerType === 'touch') { ptr.on = false; wake(); } }
     window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerdown', onMove, { passive: true });
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach((t) => window.addEventListener(t, onTouch, { passive: true }));
+    ['pointerup', 'pointercancel', 'pointerout'].forEach((t) => window.addEventListener(t, onAway, { passive: true }));
     const ro = new ResizeObserver(() => { if (alive) build(); });
     ro.observe(mark);
     const io = new IntersectionObserver((es) => { visible = es.some((x) => x.isIntersecting); if (visible) wake(); });
     io.observe(mark);
     const onVis = () => { if (!document.hidden) wake(); };
     document.addEventListener('visibilitychange', onVis);
-    const face = getComputedStyle(mark).fontFamily.split(',')[0].replace(/["']/g, '').trim();
     (document.fonts && document.fonts.load ? document.fonts.load('700 32px "' + face + '"').catch(() => null) : Promise.resolve())
       .then(() => { if (alive) build(); });
+    const onFonts = () => { if (alive) build(); };                    // (the face can arrive after the first load() resolves)
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', onFonts);
     return {
       destroy() {
         alive = false;
+        if (document.fonts && document.fonts.removeEventListener) document.fonts.removeEventListener('loadingdone', onFonts);
+        if (dprMQ) dprMQ.removeEventListener('change', onDpr);
+        clearTimeout(waitT);
         if (raf) cancelAnimationFrame(raf);
         window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerdown', onMove);
+        ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach((t) => window.removeEventListener(t, onTouch));
+        ['pointerup', 'pointercancel', 'pointerout'].forEach((t) => window.removeEventListener(t, onAway));
         document.removeEventListener('visibilitychange', onVis);
         ro.disconnect(); io.disconnect();
         canvas.remove(); mark.classList.remove('px-on');
@@ -576,28 +637,97 @@
     const marks = [...document.querySelectorAll('.lsr-mast-wrap .lsr-mark')].filter((m) => PX_ON(m) && (!m.closest('.mast-gallery') || m.closest('.mast-gallery.on')));
     pxMarks.forEach((inst, m) => { if (!marks.includes(m)) { inst.destroy(); pxMarks.delete(m); } });
     marks.forEach((m) => { if (!pxMarks.has(m)) pxMarks.set(m, pixelMark(m)); });
+    strokeSync();
+  }
+
+  // ---- 20. drawn outlines (freefrontend "CSS Text Handwriting Animation" and "Animated Text": SVG text with
+  // stroke-dasharray and stroke-dashoffset): the wordmark as SVG <text>, each letter where the page set it, over the
+  // (transparent, still clickable and readable) link. On load a hairline draws every contour at once, then the ink
+  // fills in. The pointer sends a short accent dash running round every contour as it moves (the dash offset is the
+  // pointer's x; style.css). Without SVG or JavaScript the link shows its own letters.
+  const svMarks = new Map();
+  const SV_ON = (mark) => { const w = mark.closest('.lsr-mast-wrap'); return !!w && (w.classList.contains('mast-preview') ? w.getAttribute('data-mast') === '20' : document.documentElement.getAttribute('data-mast') === '20'); };
+  function strokeMark(mark) {
+    const a = mark.querySelector('a'), NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'sv-layer');
+    svg.setAttribute('aria-hidden', 'true');
+    const ink = document.createElementNS(NS, 'text'), run = document.createElementNS(NS, 'text');
+    ink.setAttribute('class', 'sv-ink'); run.setAttribute('class', 'sv-run');
+    svg.appendChild(ink); svg.appendChild(run);
+    mark.appendChild(svg);
+    let alive = true;
+    function build() {
+      const box = mark.getBoundingClientRect();
+      if (!box.width || !alive) return;
+      const cs = getComputedStyle(a), ms = getComputedStyle(mark), fs = parseFloat(cs.fontSize);
+      const probe = document.createElement('span');
+      probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+      a.appendChild(probe);
+      const base = probe.getBoundingClientRect().top - box.top;
+      probe.remove();
+      const up = cs.textTransform === 'uppercase', xs = [];
+      let text = '';
+      a.querySelectorAll('.ch').forEach((c) => { const q = c.getBoundingClientRect(); xs.push((q.left - box.left).toFixed(2)); text += up ? c.dataset.c.toUpperCase() : c.dataset.c; });
+      svg.setAttribute('width', box.width); svg.setAttribute('height', box.height);
+      svg.setAttribute('viewBox', '0 0 ' + box.width.toFixed(2) + ' ' + box.height.toFixed(2));
+      svg.style.left = -(parseFloat(ms.borderLeftWidth) || 0) + 'px';
+      svg.style.top = -(parseFloat(ms.borderTopWidth) || 0) + 'px';
+      [ink, run].forEach((t) => {
+        t.textContent = text;
+        t.setAttribute('x', xs.join(' '));
+        t.setAttribute('y', base.toFixed(2));
+        t.style.fontFamily = cs.fontFamily; t.style.fontWeight = cs.fontWeight; t.style.fontSize = fs + 'px';
+      });
+      svg.style.setProperty('--sl', Math.round(fs * 12) + 'px');            // longer than any one contour
+      svg.style.setProperty('--sw', Math.max(1, fs * 0.03).toFixed(2) + 'px');
+      svg.style.setProperty('--sd', (fs * 0.16).toFixed(1) + 'px ' + (fs * 0.62).toFixed(1) + 'px');
+      mark.classList.add('sv-on');
+    }
+    const ro = new ResizeObserver(build);
+    ro.observe(mark);
+    const face = getComputedStyle(mark).fontFamily.split(',')[0].replace(/["']/g, '').trim();
+    (document.fonts && document.fonts.load ? document.fonts.load('32px "' + face + '"').catch(() => null) : Promise.resolve()).then(build);
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', build);
+    return {
+      destroy() {
+        alive = false;
+        ro.disconnect();
+        if (document.fonts && document.fonts.removeEventListener) document.fonts.removeEventListener('loadingdone', build);
+        svg.remove(); mark.classList.remove('sv-on');
+      },
+    };
+  }
+  function strokeSync() {
+    const marks = [...document.querySelectorAll('.lsr-mast-wrap .lsr-mark')].filter((m) => SV_ON(m) && (!m.closest('.mast-gallery') || m.closest('.mast-gallery.on')));
+    svMarks.forEach((inst, m) => { if (!marks.includes(m)) { inst.destroy(); svMarks.delete(m); } });
+    marks.forEach((m) => { if (!svMarks.has(m)) svMarks.set(m, strokeMark(m)); });
   }
 
   // ---- 11-25 answer the pointer (2026-10-29, the owner: "improve the titles again. use a bunch of reactive titles from
-  // the two css links i shared. i want the title to feel professional but futuristic"). One small layer for all fifteen:
-  // it follows a mouse or pen anywhere on the page, or a finger on a touch screen (every listener passive, so the page
-  // scrolls as usual), and writes a few CSS custom properties that each variant's CSS turns into its effect (style.css,
-  // "11-25 answer the pointer"):
+  // the two css links i shared. i want the title to feel professional but futuristic"; then: "the new title logos do
+  // not look like they should"). Each of the fifteen copies one method from prismic.io/blog/css-text-animations or
+  // freefrontend.com/css-text-animations (style.css says which); this one small layer feeds them all. It follows a mouse
+  // or pen anywhere on the page, or a finger on a touch screen (every listener passive, so a drag still scrolls the
+  // page), and writes a few CSS custom properties that each variant's CSS turns into its effect:
   //   on the mark: --pa, how present the pointer is (0-1, eased in and out); --mx/--my, the pointer from the link's top
-  //   left, and --ux/--uy, from the mark's (px);
+  //   left, and --ux/--uy, from the mark's (px); --u, the pointer across the link (0-1);
   //   on each letter (.ch), for the variants with a radius r (em): --d, its closeness to the pointer (0-1); --dx/--dy,
   //   where it sits from the pointer (-1 to 1, in radii).
-  // 12 runs a letter the pointer reaches through a few characters before it resolves (a monospaced face, so nothing
-  // moves), and 15 rolls one over. Frames run only while something is changing, and only for marks on screen (the
-  // page's, and the gallery's cards while it is open); nothing runs under prefers-reduced-motion, where each mark
-  // keeps its resting state.
+  // And for single variants: 12 (cell) --cx/--cw, the character cell the pointer is over, for its block cursor; 13
+  // (roll) rolls a letter over as the pointer crosses it (data-r); 15 (gap) parts the line at the word space nearest
+  // the pointer, never inside a word: --gx on the mark is that space, and each letter's --dx is its side (-1 or 1);
+  // 23 (words) replays a word's two-pass wipe as the pointer comes onto it (data-k on .w1-.w3); 17 (sweep) runs its
+  // lens once across the name on load, as if a pointer passed (prismic 35 swings its spotlight on its own).
+  // Frames run only while something is changing, and only for marks on screen (the page's while the gallery is shut,
+  // and the gallery's cards while it is open); a pointer moving elsewhere on the page wakes nothing; nothing runs under
+  // prefers-reduced-motion, where each mark keeps its resting state.
   const REACT = {
-    11: { r: 2.6 }, 12: { r: 1.6, hot: 'scramble' }, 13: { r: 2.4 }, 14: {}, 15: { r: 1.1, hot: 'roll' },
-    16: {}, 17: {}, 18: { r: 6 }, 19: { r: 2.6 }, 20: { r: 2.4 },
-    21: {}, 22: { r: 2.8 }, 23: {}, 24: {}, 25: {},
+    11: { r: 2.1, fixw: true }, 12: { cell: true }, 13: { r: 0.75, hot: 'roll' }, 14: { words: true, ww: true }, 15: { r: 2.4 },
+    16: {}, 17: { sweep: true }, 18: { r: 9 }, 19: {}, 20: {},
+    21: { r: 1.8 }, 22: {}, 23: { words: true }, 24: { r: 1.9, fixw: true }, 25: { words: true },
   };
-  const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  const MARK_VARS = ['--pa', '--mx', '--my', '--ux', '--uy'], CH_VARS = ['--d', '--dx', '--dy'];
+  const MARK_VARS = ['--pa', '--mx', '--my', '--ux', '--uy', '--u', '--gx', '--cx', '--cw'], CH_VARS = ['--d', '--dx', '--dy', '--w'];
   const reacting = new Map();
   const pointer = { x: 0, y: 0, on: false };
   let reactRaf = 0, reactListening = false;
@@ -612,38 +742,61 @@
   function reactClean(mark) {
     MARK_VARS.forEach((k) => mark.style.removeProperty(k));
     if (!mark.getAttribute('style')) mark.removeAttribute('style');
+    mark.removeAttribute('data-hotw'); mark.removeAttribute('data-fw'); mark.removeAttribute('data-ww');
+    const la = mark.querySelector('a');
+    if (la) { la.style.removeProperty('--aw'); if (!la.getAttribute('style')) la.removeAttribute('style'); }
+    mark.querySelectorAll('[data-hot]').forEach((w) => w.removeAttribute('data-hot'));
+    mark.querySelectorAll('.mx-probe').forEach((x) => x.remove());
     mark.querySelectorAll('.ch').forEach((c) => {
       CH_VARS.forEach((k) => c.style.removeProperty(k));
-      if (c.dataset.c != null && c.textContent !== c.dataset.c) c.textContent = c.dataset.c;
-      c.removeAttribute('data-s');
+      if (!c.getAttribute('style')) c.removeAttribute('style');
       c.removeAttribute('data-r');
     });
+    mark.querySelectorAll('[data-k]').forEach((w) => w.removeAttribute('data-k'));
   }
-  // where each letter sits at home (its centre, from the mark's top left), and the link's corner
+  // where each letter sits at home (its centre, from the mark's top left), the link's corner and width, and for the
+  // variants that need them the word spaces (15), the character cells (12) and the words (23)
   function reactMeasure(st) {
-    const m = st.mark;
+    const m = st.mark, cs = getComputedStyle(m);
+    st.fs = parseFloat(cs.fontSize) || 16;
+    // 11, 24: each letter's cell, as wide as the letter at its resting weight; 14: the name's width, as it is at rest. Measured on a hidden copy (so the letters' own animation is not restarted and the pointer's state does not
+    // count), in em, so a heavier letter or the wider word takes the others' room and nothing outside the name moves
+    if (st.cfg.fixw || st.cfg.ww) {
+      const probe = st.a.cloneNode(true);
+      probe.className = 'mx-probe'; probe.removeAttribute('href'); probe.setAttribute('aria-hidden', 'true');
+      m.appendChild(probe);
+      const ws = st.cfg.fixw ? [...probe.querySelectorAll('.ch')].map((c) => c.getBoundingClientRect().width) : [];
+      const aw = st.cfg.ww ? probe.getBoundingClientRect().width : 0;
+      probe.remove();
+      if (st.cfg.fixw) { st.chars.forEach((c, i) => { if (ws[i]) c.style.setProperty('--w', (ws[i] / st.fs).toFixed(4) + 'em'); }); m.setAttribute('data-fw', ''); }
+      if (st.cfg.ww && aw) { st.a.style.setProperty('--aw', (aw / st.fs).toFixed(4) + 'em'); m.setAttribute('data-ww', ''); }
+    }
     m.classList.add('mx-measure');
-    const box = m.getBoundingClientRect(), lb = st.a.getBoundingClientRect();
-    st.fs = parseFloat(getComputedStyle(m).fontSize) || 16;
-    st.lx = lb.left - box.left; st.ly = lb.top - box.top;
-    st.home = st.chars.map((c) => { const q = c.getBoundingClientRect(); return [(q.left + q.right) / 2 - box.left, (q.top + q.bottom) / 2 - box.top]; });
+    const box = m.getBoundingClientRect(), lb = st.a.getBoundingClientRect(), ls = parseFloat(cs.letterSpacing) || 0;
+    st.lx = lb.left - box.left; st.ly = lb.top - box.top; st.lw = lb.width || 1;
+    st.gaps = []; st.cells = [];
+    st.home = st.chars.map((c) => {
+      const q = c.getBoundingClientRect(), mid = (q.left + q.right) / 2 - box.left, blank = !(c.dataset.c || '').trim();
+      if (st.cfg.gap && blank) st.gaps.push(mid);
+      if (st.cfg.cell) st.cells.push([q.left - box.left, Math.max(1, q.width - ls)]);
+      return [mid, (q.top + q.bottom) / 2 - box.top];
+    });
+    st.words = st.cfg.words ? [...st.a.querySelectorAll('.w1, .w2, .w3')].map((w) => { const q = w.getBoundingClientRect(); return [q.left - box.left, q.right - box.left - ls, w]; }) : [];
     m.classList.remove('mx-measure');
+    st.box = null;
     reactWake();
   }
   function reactMark(mark, n) {
     reactClean(mark);
     const chars = [...mark.querySelectorAll('.ch')], zero = () => chars.map(() => 0);
-    const st = { mark, a: mark.querySelector('a'), n, cfg: REACT[n], chars, home: [], fs: 16, lx: 0, ly: 0, seen: true,
-      pa: 0, ux: 0, uy: 0, d: zero(), dx: zero(), dy: zero(), hot: chars.map(() => false), until: zero(), flip: zero(), rolled: zero(),
+    const st = { mark, a: mark.querySelector('a'), n, cfg: REACT[n], chars, home: [], gaps: [], cells: [], words: [], fs: 16, lx: 0, ly: 0, lw: 1,
+      seen: true, box: null, rest: false, cell: -1, word: -1, sweep: REACT[n].sweep ? performance.now() + 350 : 0,
+      pa: 0, ux: 0, uy: 0, gx: 0, d: zero(), dx: zero(), dy: zero(), hot: chars.map(() => false), rolled: zero(),
       wm: {}, wc: chars.map(() => ({})) };
     reacting.set(mark, st);
     reactMeasure(st);
     if (reactIO) reactIO.observe(mark);
     if (reactRO) reactRO.observe(mark);
-    if (st.cfg.hot === 'scramble') {                 // on arrival the name decodes, left to right
-      const now = performance.now();
-      chars.forEach((c, i) => { if ((c.dataset.c || '').trim()) st.until[i] = now + 260 + i * 48; });
-    }
     return st;
   }
   function reactDrop(st) {
@@ -652,30 +805,64 @@
     if (reactRO) reactRO.unobserve(st.mark);
     reactClean(st.mark);
   }
-  // the pointer has reached letter i: 12 starts it running through characters, 15 rolls it over (once per crossing)
+  // the pointer has reached letter i: 13 rolls it over (once per crossing)
   function reactHot(st, i, now) {
     const c = st.chars[i];
     if (!(c.dataset.c || '').trim()) return;
-    if (st.cfg.hot === 'scramble') { if (!st.until[i]) { st.until[i] = now + 180 + Math.random() * 160; st.flip[i] = 0; } }
-    else if (now - st.rolled[i] > 420) { st.rolled[i] = now; c.setAttribute('data-r', c.getAttribute('data-r') === 'a' ? 'b' : 'a'); }
+    if (now - st.rolled[i] > 700) { st.rolled[i] = now; c.setAttribute('data-r', c.getAttribute('data-r') === 'a' ? 'b' : 'a'); }
   }
   const setv = (el, memo, k, v) => { if (memo[k] !== v) { memo[k] = v; el.style.setProperty(k, v); } };
   // one frame for one mark (its box read beforehand); true while anything is still on its way
   function reactStep(st, box, now) {
     const cfg = st.cfg, fs = st.fs;
-    const px = pointer.x - box.left, py = pointer.y - box.top, pad = fs * 0.6;
+    let px = pointer.x - box.left, py = pointer.y - box.top, busy = false, show = false;
+    const pad = fs * 0.6;
     const near = pointer.on && box.width > 0 && px > -pad && py > -pad && px < box.width + pad && py < box.height + pad;
-    let busy = false;
     const ease = (cur, to, k, eps) => { if (Math.abs(to - cur) <= eps) return to; busy = true; return cur + (to - cur) * k; };
-    if (near) {
+    if (st.sweep) {                                  // 17's sweep on load: a pointer of its own, left to right
+      const t = (now - st.sweep) / 1900;
+      if (near || t >= 1 || !box.width) st.sweep = 0;
+      else {
+        busy = true;
+        if (t > 0) { const e = t * t * (3 - 2 * t); px = st.lx + (-0.04 + 1.08 * e) * st.lw; py = st.ly + fs * 0.5; show = t < 0.82; }
+      }
+    }
+    if (near || show) {
       if (st.pa < 0.01) { st.ux = px; st.uy = py; }  // arriving: start where the pointer is
       st.ux = ease(st.ux, px, 0.3, 0.1); st.uy = ease(st.uy, py, 0.3, 0.1);
     }
-    st.pa = ease(st.pa, near ? 1 : 0, near ? 0.12 : 0.07, 0.002);
+    st.pa = ease(st.pa, near || show ? 1 : 0, near || show ? 0.12 : 0.07, 0.002);
     setv(st.mark, st.wm, '--pa', st.pa.toFixed(3));
     if (st.pa > 0) {
       setv(st.mark, st.wm, '--ux', st.ux.toFixed(1) + 'px'); setv(st.mark, st.wm, '--uy', st.uy.toFixed(1) + 'px');
       setv(st.mark, st.wm, '--mx', (st.ux - st.lx).toFixed(1) + 'px'); setv(st.mark, st.wm, '--my', (st.uy - st.ly).toFixed(1) + 'px');
+      setv(st.mark, st.wm, '--u', Math.max(0, Math.min(1, (st.ux - st.lx) / st.lw)).toFixed(3));
+    }
+    // 12: the cell under the pointer (it jumps from cell to cell, as a terminal's cursor does)
+    if (cfg.cell && near && st.cells.length) {
+      let k = 0;
+      st.cells.forEach((c, i) => { if (Math.abs(c[0] + c[1] / 2 - st.ux) < Math.abs(st.cells[k][0] + st.cells[k][1] / 2 - st.ux)) k = i; });
+      if (k !== st.cell) { st.cell = k; setv(st.mark, st.wm, '--cx', (st.cells[k][0] - st.lx).toFixed(1) + 'px'); setv(st.mark, st.wm, '--cw', st.cells[k][1].toFixed(1) + 'px'); }
+    }
+    // 23: the word the pointer has come onto replays its wipe
+    if (cfg.words) {
+      let k = -1;
+      if (near) st.words.forEach((w, i) => { if (st.ux >= w[0] - fs * 0.15 && st.ux <= w[1] + fs * 0.15) k = i; });
+      if (k !== st.word) {
+        if (st.word >= 0 && st.words[st.word]) st.words[st.word][2].removeAttribute('data-hot');
+        st.word = k;
+        if (k >= 0) { const w = st.words[k][2]; w.setAttribute('data-k', w.getAttribute('data-k') === 'a' ? 'b' : 'a'); w.setAttribute('data-hot', ''); st.mark.setAttribute('data-hotw', ''); }
+        else st.mark.removeAttribute('data-hotw');
+      }
+    }
+    // 15: the line parts at the word space nearest the pointer, which glides to the other space as the pointer moves on
+    let ox = st.ux;
+    if (cfg.gap && st.gaps.length) {
+      let g = st.gaps[0];
+      st.gaps.forEach((x) => { if (Math.abs(x - st.ux) < Math.abs(g - st.ux)) g = x; });
+      if (near) { if (st.pa < 0.05) st.gx = g; st.gx = ease(st.gx, g, 0.25, 0.1); }
+      ox = st.gx;
+      if (st.pa > 0) setv(st.mark, st.wm, '--gx', (st.gx - st.lx).toFixed(1) + 'px');
     }
     if (cfg.r) {
       const R = cfg.r * fs;
@@ -684,30 +871,18 @@
         if (!h) return;
         let to = 0;
         if (near) {
-          const ex = h[0] - st.ux, ey = h[1] - st.uy, q = Math.max(0, 1 - Math.hypot(ex, ey) / R);
+          const ex = h[0] - ox, ey = h[1] - st.uy, q = Math.max(0, 1 - Math.hypot(ex, ey) / R);
           to = q * q * (3 - 2 * q);
-          st.dx[i] = Math.max(-1, Math.min(1, ex / R)); st.dy[i] = Math.max(-1, Math.min(1, ey / R));
+          st.dx[i] = cfg.gap ? ease(st.dx[i], ex < 0 ? -1 : 1, 0.25, 0.002) : Math.max(-1, Math.min(1, ex / R));
+          st.dy[i] = Math.max(-1, Math.min(1, ey / R));
           if (cfg.hot && to > 0.55 && !st.hot[i]) { st.hot[i] = true; reactHot(st, i, now); }
           else if (to < 0.25) st.hot[i] = false;
         } else st.hot[i] = false;
-        st.d[i] = ease(st.d[i], to, near ? 0.35 : 0.12, 0.002);
+        st.d[i] = ease(st.d[i], to, near ? 0.3 : 0.1, 0.002);
         setv(c, st.wc[i], '--d', st.d[i].toFixed(3));
         if (st.d[i] > 0 || st.pa > 0) { setv(c, st.wc[i], '--dx', st.dx[i].toFixed(3)); setv(c, st.wc[i], '--dy', st.dy[i].toFixed(3)); }
       });
     }
-    if (cfg.hot === 'scramble') st.chars.forEach((c, i) => {
-      if (!st.until[i]) return;
-      busy = true;
-      const own = c.dataset.c;
-      if (now >= st.until[i]) { st.until[i] = 0; c.textContent = own; c.removeAttribute('data-s'); return; }
-      if (now >= st.flip[i]) {
-        st.flip[i] = now + 60;
-        let g;
-        do { g = GLYPHS[Math.floor(Math.random() * GLYPHS.length)]; } while (g === own.toUpperCase());
-        c.textContent = g;
-        c.setAttribute('data-s', '');
-      }
-    });
     return busy;
   }
   function reactTick(now) {
@@ -716,19 +891,34 @@
     reacting.forEach((st) => { if (st.seen && st.home.length) live.push(st); });
     const boxes = live.map((st) => st.mark.getBoundingClientRect());     // every read first, then the writes
     let busy = false;
-    live.forEach((st, k) => { if (reactStep(st, boxes[k], now)) busy = true; });
+    live.forEach((st, k) => { const b = reactStep(st, boxes[k], now); st.box = boxes[k]; st.rest = !b && st.pa === 0; if (b) busy = true; });
     if (busy) reactRaf = requestAnimationFrame(reactTick);
   }
   function reactWake() { if (!reactRaf && reacting.size && !document.hidden) reactRaf = requestAnimationFrame(reactTick); }
+  // a pointer moving elsewhere on the page wakes nothing: only a mark on screen that is still settling, or that the
+  // pointer is near (its box from the last frame, with a wide margin; a scroll or resize drops the boxes)
+  function reactWanted() {
+    for (const st of reacting.values()) {
+      if (!st.seen) continue;
+      const b = st.box, pad = st.fs * 1.5;
+      if (!st.rest || !b) return true;
+      if (pointer.on && pointer.x > b.left - pad && pointer.x < b.right + pad && pointer.y > b.top - pad && pointer.y < b.bottom + pad) return true;
+    }
+    return false;
+  }
+  function reactStale() {
+    reacting.forEach((st) => { st.box = null; });
+    if (pointer.on && reactWanted()) reactWake();
+  }
   function reactPointer(e) {
     if (e.pointerType === 'touch') return;          // fingers come through the touch events, which keep firing while the page scrolls
     pointer.x = e.clientX; pointer.y = e.clientY; pointer.on = true;
-    reactWake();
+    if (reactWanted()) reactWake();
   }
   function reactTouch(e) {
     const t = e.touches && e.touches[0];
     if (t) { pointer.x = t.clientX; pointer.y = t.clientY; pointer.on = true; } else pointer.on = false;
-    reactWake();
+    if (reactWanted()) reactWake();
   }
   function reactAway() { pointer.on = false; reactWake(); }
   function reactListen() {
@@ -740,17 +930,20 @@
     window.addEventListener('pointerout', (e) => { if (!e.relatedTarget && e.pointerType !== 'touch') reactAway(); }, o);
     window.addEventListener('blur', reactAway, o);
     ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach((t) => window.addEventListener(t, reactTouch, o));
-    window.addEventListener('scroll', () => { if (pointer.on) reactWake(); }, { passive: true, capture: true });
+    window.addEventListener('scroll', reactStale, { passive: true, capture: true });   // the page's, or the gallery's
+    window.addEventListener('resize', reactStale, o);
     document.addEventListener('visibilitychange', reactWake);
     if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => reacting.forEach(reactMeasure));
   }
-  // start or stop the layer wherever 11-25 are showing: the page's masthead and, while the gallery is open, its cards
+  // start or stop the layer wherever 11-25 are showing: the page's masthead while the gallery is shut (open, its panel
+  // covers the page's mark, which still counts as on screen) and the gallery's cards while it is open
   function reactSync() {
     const want = new Map();
     if (!still()) {
+      const open = document.documentElement.classList.contains('mast-open');
       document.querySelectorAll('.lsr-mast-wrap .lsr-mark').forEach((m) => {
-        const n = mastOf(m);
-        if (REACT[n] && (!m.closest('.mast-gallery') || m.closest('.mast-gallery.on'))) want.set(m, n);
+        const n = mastOf(m), g = m.closest('.mast-gallery');
+        if (REACT[n] && (g ? g.classList.contains('on') : !open)) want.set(m, n);
       });
     }
     reacting.forEach((st, m) => { if (want.get(m) !== st.n) reactDrop(st); });
