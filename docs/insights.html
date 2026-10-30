@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Insights · Law School Rankings</title>
-  <meta name="description" content="Who publishes where, and with whom: law school faculty and the law reviews they publish in, how co-authorship has grown, and how long their titles run.">
+  <meta name="description" content="Law school faculty and the law reviews they publish in: co-authorship by year, title length, connections between schools, the distribution of articles across schools, anonymous review and the words in titles, from HeinOnline metadata.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" href="data/data.json" as="fetch" crossorigin>
@@ -38,17 +38,17 @@
 
   <div class="ins-hero">
     <p class="ins-kicker">Insights</p>
-    <h2 class="ins-title">Who publishes where, and with whom</h2>
-    <p class="ins-dek">Six questions about legal scholarship, answered from the same HeinOnline metadata as the rankings: where faculty at each law school publish, whether law professors write alone less often than they used to, whether their titles are getting shorter, what other connections the same data turn up, how evenly the articles are spread across schools, and whether anonymous review changes who gets in.</p>
+    <h2 class="ins-title">Law review publishing by school, journal and year</h2>
+    <p class="ins-dek">Seven sections on legal scholarship, from the same HeinOnline metadata as the rankings: the journals faculty at each law school publish in, co-authorship by year, title length, connections between schools, journals and subjects, the distribution of articles across schools, anonymous review and the schools of published authors, and the words in titles.</p>
     <nav class="ins-toc" aria-label="Sections">
-      <a href="#where"><span>1</span>Who publishes where</a>
-      <a href="#coauthor"><span>2</span>Co-authorship over time</a>
+      <a href="#where"><span>1</span>Schools and journals</a>
+      <a href="#coauthor"><span>2</span>Co-authorship by year</a>
       <a href="#titles"><span>3</span>Title length</a>
-      <a href="#connections"><span>4</span>Connections in the data</a>
-      <a href="#equality"><span>5</span>How equal is publishing?</a>
-      <a href="#anonymous"><span>6</span>Does anonymous review change who gets in?</a>
+      <a href="#connections"><span>4</span>Schools, journals and subjects</a>
+      <a href="#equality"><span>5</span>Distribution across schools</a>
+      <a href="#anonymous"><span>6</span>Anonymous review</a>
       <a href="#words"><span>7</span>Words in titles</a>
-      <a href="#method"><span>8</span>How these are computed</a>
+      <a href="#method"><span>8</span>Method</a>
     </nav>
   </div>
 
@@ -78,8 +78,8 @@
   <!-- ===================================================== 1. who publishes where -->
   <section class="ins-section" id="where" hidden>
     <header class="ins-head">
-      <p class="ins-q">Question 1</p>
-      <h2>Do faculty at top law schools publish only in top law reviews?</h2>
+      <p class="ins-q">Section 1</p>
+      <h2>Law schools and the journals their faculty publish in</h2>
       <p class="ins-lede" id="whereLede"></p>
       <p class="ins-uses" id="whereUses"></p>
     </header>
@@ -88,8 +88,8 @@
 
     <figure class="ins-card" id="figJournal">
       <figcaption>
-        <h3>Who publishes in a journal</h3>
-        <p>Pick a journal. Its institutions come first: every school whose faculty published there in the years chosen above, the bigger the dot and the thicker the line, the more articles. Click an institution to open its most frequent authors (the list has all of them), and an author for their faculty page.</p>
+        <h3>Institutions and authors in one journal</h3>
+        <p>Institutions whose faculty published in the selected journal in the years chosen above; dot size and line width scale with the number of articles. Click an institution for its most frequent authors (the institution list names the rest), and an author for their faculty page.</p>
       </figcaption>
       <div class="ins-row">
         <label class="ins-pick">Journal <select id="jnJournal" class="ctl-select" aria-label="Journal"></select></label>
@@ -106,8 +106,8 @@
 
     <figure class="ins-card" id="figNetwork">
       <figcaption>
-        <h3>Every law school, every flagship law review</h3>
-        <p>Each flow runs from a group of law schools (left, by rank) to a group of flagship law reviews (right, by their school's rank); the wider the flow, the more articles that group's faculty published in those reviews. A flow that runs straight across stays at its own level; one that climbs or falls crosses the ranking. Pick a group, or a single school or law review to see its own flows.</p>
+        <h3>Groups of law schools and groups of flagship law reviews</h3>
+        <p>Flows from groups of law schools (left, by rank) to groups of flagship law reviews (right, by the rank of the school that publishes each); flow width is the number of articles by that group's faculty in those reviews. A level flow joins a group of schools to reviews of the same group; a rising or falling flow joins different groups. Pick a group, a school or a law review to highlight its flows.</p>
       </figcaption>
       <div class="ins-chips" id="netChips" role="radiogroup" aria-label="Highlight a group of schools"></div>
       <div class="ins-row">
@@ -121,12 +121,12 @@
 
     <figure class="ins-card" id="figMatrix">
       <figcaption>
-        <h3 id="matrixTitle">Where each group of schools publishes</h3>
+        <h3 id="matrixTitle">Each group of schools’ articles, by group of journals</h3>
         <p id="matrixNote"></p>
       </figcaption>
       <div class="ins-seg" role="radiogroup" aria-label="Read the table by row or by column">
-        <button type="button" data-view="row" aria-pressed="true">Where each group publishes</button>
-        <button type="button" data-view="col" aria-pressed="false">Who writes for each group of journals</button>
+        <button type="button" data-view="row" aria-pressed="true">By group of schools</button>
+        <button type="button" data-view="col" aria-pressed="false">By group of journals</button>
       </div>
       <div class="ins-chart" id="matrix"></div>
       <details class="ins-table"><summary>The numbers</summary><div id="matrixTable"></div></details>
@@ -134,8 +134,8 @@
 
     <figure class="ins-card" id="figScatter">
       <figcaption>
-        <h3>A school's rank, and the rank of the reviews its faculty publish in</h3>
-        <p>One dot per law school (at least 10 flagship-review articles in these years): across, the school's rank; up, the median rank of the flagship reviews its faculty published in. On the diagonal a school publishes at its own level; above it, in higher-ranked reviews. Tap or click a dot to follow that school here and in the flows above.</p>
+        <h3>School rank and median rank of the flagship reviews its faculty publish in</h3>
+        <p>One dot per law school with at least 10 flagship-review articles in these years. Horizontal axis: the school's rank; vertical axis: the median rank of the flagship reviews its faculty published in. The diagonal marks equal ranks; above it, the median review is ranked higher than the school. Tap or click a dot to highlight that school here and in the flows above.</p>
       </figcaption>
       <div class="ins-chart" id="scatter"></div>
     </figure>
@@ -144,13 +144,13 @@
   <!-- ===================================================== 2. co-authorship -->
   <section class="ins-section" id="coauthor" hidden>
     <header class="ins-head">
-      <p class="ins-q">Question 2</p>
-      <h2>Is co-authorship more common than it used to be?</h2>
+      <p class="ins-q">Section 2</p>
+      <h2>Co-authorship by year</h2>
       <p class="ins-lede" id="coLede"></p>
       <p class="ins-uses" id="coUses"></p>
     </header>
 
-    <div class="ins-filters" role="group" aria-label="Filters for question 2">
+    <div class="ins-filters" role="group" aria-label="Filters for section 2">
       <label class="ins-check"><input type="checkbox" id="cPanel"> Same journals throughout <span class="text-muted" id="cPanelNote"></span></label>
       <label class="ins-pick">Highlight a school <select id="coSchool" class="ctl-select" aria-label="Highlight one school"></select></label>
     </div>
@@ -160,7 +160,7 @@
     <figure class="ins-card" id="figTrend">
       <figcaption>
         <h3 id="trendTitle">Share of articles with more than one author</h3>
-        <p id="trendNote">Every piece in every journal collected here, whoever wrote it, by year of the volume.</p>
+        <p id="trendNote">Pieces in the journals collected here, whoever wrote them, by year of the volume.</p>
       </figcaption>
       <div class="ins-seg" id="trendMeasure" role="radiogroup" aria-label="What to plot">
         <button type="button" data-m="2" aria-pressed="true">2 or more authors</button>
@@ -174,8 +174,8 @@
 
     <figure class="ins-card" id="figTeams">
       <figcaption>
-        <h3>And the teams are getting bigger</h3>
-        <p>Of the co-authored articles in each decade, how many had two, three, or four or more authors.</p>
+        <h3>Co-authored articles by number of authors, by decade</h3>
+        <p>Share of each decade's co-authored articles with two, three, or four or more authors.</p>
       </figcaption>
       <div class="ins-legend" id="teamsLegend"></div>
       <div class="ins-chart" id="teams"></div>
@@ -183,21 +183,21 @@
 
     <figure class="ins-card" id="figSpread">
       <figcaption>
-        <h3>The rise shows up across schools, not at a few</h3>
-        <p>For each period, every U.S. law school with at least 15 articles by its current faculty is a dot, placed at the share of those articles that were co-authored (dots spread sideways where schools crowd together). The darker band holds the middle half of schools, the lighter band the 10th to 90th percentile, and the line follows the median school. Pick a school above, or tap a dot, to follow one school.</p>
+        <h3>Co-authored share of articles, by the author's school</h3>
+        <p>One dot per U.S. law school with at least 15 articles by its current faculty in the period, at the share of those articles that were co-authored (dots are spread sideways where they overlap). Darker band: the middle half of schools (25th to 75th percentile); lighter band: 10th to 90th percentile; line: the median school. Pick a school above, or tap a dot, to highlight one school.</p>
       </figcaption>
       <div class="ins-legend" id="spreadLegend"></div>
       <div class="ins-chart" id="spread"></div>
       <details class="ins-table"><summary>The numbers, by period</summary><div id="spreadTable"></div></details>
-      <p class="ins-foot">Current faculty only: articles are credited to where each author teaches now, so the early periods show the earlier work of today's faculty.</p>
+      <p class="ins-foot">Current faculty only: articles are credited to where each author teaches now, so the early periods hold the earlier work of current faculty.</p>
     </figure>
   </section>
 
   <!-- ===================================================== 3. title length -->
   <section class="ins-section" id="titles" hidden>
     <header class="ins-head">
-      <p class="ins-q">Question 3</p>
-      <h2>Are law review titles getting shorter?</h2>
+      <p class="ins-q">Section 3</p>
+      <h2>Title length by tier</h2>
       <p class="ins-lede" id="tiLede"></p>
       <p class="ins-uses" id="tiUses"></p>
     </header>
@@ -230,8 +230,8 @@
        drawn by connections.js from the same data, once this section comes into view -->
   <section class="ins-section" id="connections" hidden>
     <header class="ins-head">
-      <p class="ins-q">Question 4</p>
-      <h2>Connections in the data</h2>
+      <p class="ins-q">Section 4</p>
+      <h2>Connections between schools, journals and subjects</h2>
       <p class="ins-lede" id="cnLede"></p>
       <p class="ins-uses" id="cnUses"></p>
     </header>
@@ -242,8 +242,8 @@
        publishing", from his Lorenz curves and Gini coefficients by journal-rank slice); drawn by equality.js -->
   <section class="ins-section" id="equality" hidden>
     <header class="ins-head">
-      <p class="ins-q">Question 5</p>
-      <h2>How equal is publishing?</h2>
+      <p class="ins-q">Section 5</p>
+      <h2>Distribution of flagship-review articles across law schools</h2>
       <p class="ins-lede" id="eqLede"></p>
       <p class="ins-uses" id="eqUses"></p>
     </header>
@@ -254,8 +254,8 @@
        anonymous and show trends in publication around that time ... run a stat test"); drawn by anon.js -->
   <section class="ins-section" id="anonymous" hidden>
     <header class="ins-head">
-      <p class="ins-q">Question 6</p>
-      <h2>Does anonymous review change who gets in?</h2>
+      <p class="ins-q">Section 6</p>
+      <h2>Anonymous review and the schools of published authors</h2>
       <p class="ins-lede" id="anLede"></p>
       <p class="ins-uses" id="anUses"></p>
     </header>
@@ -267,7 +267,7 @@
   <section class="ins-section" id="words" hidden>
     <header class="ins-head">
       <p class="ins-q">Section 7</p>
-      <h2>Words and wording of law review titles, by tier</h2>
+      <h2>Words in law review titles, by tier</h2>
       <p class="ins-lede" id="twLede"></p>
       <p class="ins-uses" id="twUses"></p>
     </header>
@@ -276,15 +276,15 @@
 
   <!-- ===================================================== 7. method -->
   <section class="ins-section prose ins-method" id="method" hidden>
-    <h2>How these are computed</h2>
-    <p><b>Who publishes where</b> uses the rankings' own data. "Who publishes in a journal" shows every institution on the faculty lists (courts and non-US schools included); the rest of question 1 uses the articles of current faculty at U.S. law schools, credited to the school where each author teaches now. Article counts and the shares in the tiles and the row view count each article once (an article with authors from two groups of schools counts once in each group); the column view and the flows count it once for each school with an author on it. Flagship law reviews (each school's main law review) are placed by their school's rank, under the ranking chosen above (the <i>U.S. News</i> overall rank, or the TaxProf peer rank: the peer-reputation rank from the <i>U.S. News</i> survey of deans and faculty, as published on TaxProf Blog); schools tied at a rank sit together, and schools listed in a range ("175–194") at its top. With a school's own journals left out (an option in the bar above), an article does not count for a school that publishes its journal. "Online editions &amp; other general journals" are the general journals that are not a school's main review; specialty journals are the rest (including two general journals that W&amp;L also lists under a subject, the <i>Journal of Legal Analysis</i> and the <i>University of Chicago Legal Forum</i>, here and in question 2).</p>
-    <p><b>Co-authorship</b> counts every piece in every journal collected here (<span id="mPieces"></span> pieces), not only those by current faculty, so the trend is not an artifact of who teaches today. A piece's authors are the names HeinOnline lists for it. "Skip short pieces" (an option in the bar above) leaves out short pieces (under 10 pages by HeinOnline's page numbers, or a memorial under 20; where the length is not known, the short-piece classifier described on the <a href="faq.html#short">About page</a> decides). "Same journals throughout" keeps only the <span id="mPanel"></span> journals with articles in every five years since 1980, so a rise is not just newer journals joining. The latest year is partial until its volumes are complete.</p>
-    <p><b>Title length</b> counts the characters of research-article titles from 1980 on, subtitle included. HeinOnline glues a section heading onto many titles with no separator ("&hellip; Note", "&hellip; Symposium: Law and the Internet"), so a title is measured only when that heading can be taken off for certain: the labels HeinOnline uses for sections (Note, Comment, Essay, Article, Symposium, Foreword, Recent Developments and the like) are removed, and a title is left out rather than cut at a guess when its last words also end two or more other titles in the same volume, or when any five words in a row of it appear in two or more other titles of the volume (a symposium's, a survey's or a panel's heading, wherever it sits). <span id="tiLeftOut"></span> Short pieces and book reviews (the title is the book's) are left out too, and by the law review's rank, so are pieces HeinOnline labels as student work (Note, Comment, Casenote, Recent Case, Student Article and the like). By the law review's rank counts every such article in each school's main law review, whoever wrote it; by the author's school counts the articles of current faculty in every journal collected here, under the school where each author teaches now. Groups are by U.S. News overall rank whatever the rank option above, and short pieces are left out whatever the short-piece option; each point on the chart pools a year with the years either side, and the table gives single years.</p>
-    <p><b>Connections in the data</b> uses the rankings' own data: articles (short pieces left out when that option is on) with at least one author on the faculty of a U.S. law school, from the years chosen in the bar above, each author credited to the school where they teach now. The subject-area shift compares the last ten of those years (all of them when there are fewer) with the same years two decades earlier, counting only today's faculty. Groups of schools are by the rank chosen above (<i>U.S. News</i> overall rank, or the TaxProf peer rank when that option is on) with ties kept (the top 14 is every school ranked 1st through 14th), and unranked schools join 101 &amp; below. Two schools' shared articles count each article once for each pair of schools on it. The own-review chart counts each school's faculty's flagship-review articles and covers schools with their own review and at least 20 such articles. The co-authorship chart counts all of an article's authors, not only law faculty. The last chart counts an article once for each current faculty author on it. With a school's own journals left out, an article does not count for a school that publishes its journal (nor for that school's faculty in the last chart), and the own-review chart is not drawn.</p>
-    <p><b>How equal is publishing</b> uses the rankings' own data: articles (short pieces left out when that option is on) in flagship law reviews, in the years chosen in the bar above, with an author on the faculty of a U.S. law school, each author at the school where they teach now; an article counts once for each school with an author on it. Reviews are grouped by their school's rank chosen above (<i>U.S. News</i> overall rank, or the TaxProf peer rank when that option is on), ties kept (the top 14 is every review whose school is ranked 1st through 14th). With a school's own journals left out, an article does not count for the school that publishes the review. Each Lorenz curve and Gini coefficient runs over every U.S. law school on the faculty lists, those with no articles included; the five-year windows end at the last year chosen and step back while they start within the chosen years (with all years, from 1980 on).</p>
-    <p><b>Anonymous review</b> compares the flagship reviews that switched to anonymous (or partly anonymous) article selection in a known year with every other flagship review, volume year by volume year from <span id="mAnonSince">2008</span> on. The switch years come from the reviews' own submission pages and editors' statements, dated by archived copies of those pages; a review whose policy has no known start (Harvard, Yale and Stanford among them) cannot be tested before and after and is left out of the test. The articles are research articles (short pieces left out) with an author on the faculty of a U.S. law school, each author at the school where they teach now, so an older article is credited to its author's school today. The estimate is a difference in differences with review and year fixed effects, each review-year weighted by its articles, with standard errors clustered by review; because only a handful of reviews switched, a randomization test (the same switch years given to random sets of other top-100 reviews) is reported beside it. Every review's policy, with its source, is listed in the section. The years and options in the bar above do not change this section: its years and its counting are part of the test's design.</p>
-    <p><b>Words in titles</b> uses the research-article titles of the title-length section, with the same rules for what is left out, from 1980 on, grouped into the same five tiers by the law review's school or by the school of a current faculty member credited with the title (U.S. News overall rank, with short pieces left out, whatever the options above). Each title is lowercased and cut into words (a hyphenated word stays one word, a possessive &rsquo;s is dropped); one-letter words, words with no letter, the 179 words of NLTK's standard English stopword list and words that name a piece's genre or place in an issue (law, legal, essay, article, note, comment, introduction, foreword, afterword, symposium, response, reply, lecture, remarks and the like) are dropped, and two-word phrases are pairs of kept words next to each other with no punctuation between them; a title counts each word or phrase once. The tier-against-tiers and window-against-window comparisons are scored with the weighted log-odds ratio with an informative Dirichlet prior of Monroe, Colaresi and Quinn (2008, &ldquo;Fightin&rsquo; Words&rdquo;), the prior for each word being its count in the two groups together, reported as a z-score (the log-odds ratio over its standard error, not adjusted for the number of words compared); the prior is as large as the two groups' own counts, which draws a smaller group's rates toward the two groups' combined rate, so the z-scores order the words within one comparison and are on different scales for comparisons of different sizes. Listed are words in at least 25 titles of the two groups together and in 10 titles and 3 journals of the side they are listed for, with no more than half of those titles in one journal; a word is not listed beside a two-word phrase that is in 80% or more of its titles. By the author's school, the earlier window holds only the titles of authors on a law faculty today, under the school where each teaches now. Title form is the share of titles with a colon or a first-person word, or opening with one of the listed phrases, and the mean words per title and characters per word, per five-year window; HeinOnline's metadata carries question marks and double quotation marks in titles from about 2020 on and seldom before, so those two are listed for the latest window only. Term families are fixed word lists, printed with the chart, and a title counts when it has any of a family's words. A window with fewer than 30 titles in a tier is left blank.</p>
-    <p>The numbers behind every chart are in <code>data/data.json</code> and <code>data/insights.json</code> on <a href="https://github.com/nathanReitinger/lawRankings/tree/main/docs/data">GitHub</a>. The charts are drawn with Highcharts.</p>
+    <h2>Method</h2>
+    <p><b>Schools and journals</b> uses the rankings' own data. "Institutions and authors in one journal" includes the institutions on the faculty lists (courts and non-U.S. schools included); the rest of section 1 uses the articles of current faculty at U.S. law schools, credited to the school where each author teaches now. Article counts and the shares in the tiles and the row view count each article once (an article with authors from two groups of schools counts once in each group); the column view and the flows count it once for each school with an author on it. Flagship law reviews (each school's main law review) are placed by their school's rank, under the ranking chosen above (the <i>U.S. News</i> overall rank, or the TaxProf peer rank: the peer-reputation rank from the <i>U.S. News</i> survey of deans and faculty, as published on TaxProf Blog); schools tied at a rank sit together, and schools listed in a range ("175–194") at its top. With a school's own journals left out (an option in the bar above), an article does not count for a school that publishes its journal. "Online editions &amp; other general journals" are the general journals that are not a school's main review; specialty journals are the rest (including two general journals that W&amp;L also lists under a subject, the <i>Journal of Legal Analysis</i> and the <i>University of Chicago Legal Forum</i>, here and in section 2).</p>
+    <p><b>Co-authorship by year</b> counts the pieces in the journals collected here (<span id="mPieces"></span> pieces), whoever wrote them, not only those by current faculty. A piece's authors are the names HeinOnline lists for it. "Skip short pieces" (an option in the bar above) leaves out short pieces (under 10 pages by HeinOnline's page numbers, or a memorial under 20; where the length is not known, the short-piece classifier described on the <a href="faq.html#short">About page</a> decides). "Same journals throughout" keeps only the <span id="mPanel"></span> journals with articles in each five-year period since 1980. The latest year is partial until its volumes are complete.</p>
+    <p><b>Title length</b> counts the characters of research-article titles from 1980 on, subtitle included. HeinOnline glues a section heading onto many titles with no separator ("&hellip; Note", "&hellip; Symposium: Law and the Internet"), so a title is measured only when that heading can be taken off for certain: the labels HeinOnline uses for sections (Note, Comment, Essay, Article, Symposium, Foreword, Recent Developments and the like) are removed, and a title is left out rather than cut at a guess when its last words also end two or more other titles in the same volume, or when any five words in a row of it appear in two or more other titles of the volume (a symposium's, a survey's or a panel's heading, wherever it sits). <span id="tiLeftOut"></span> Short pieces and book reviews (the title is the book's) are left out too, and by the law review's rank, so are pieces HeinOnline labels as student work (Note, Comment, Casenote, Recent Case, Student Article and the like). By the law review's rank counts these articles in each school's main law review, whoever wrote them; by the author's school counts the articles of current faculty in the journals collected here, under the school where each author teaches now. Groups are by U.S. News overall rank whatever the rank option above, and short pieces are left out whatever the short-piece option; each point on the chart pools a year with the years either side, and the table gives single years.</p>
+    <p><b>Schools, journals and subjects</b> uses the rankings' own data: articles (short pieces left out when that option is on) with at least one author on the faculty of a U.S. law school, from the years chosen in the bar above, each author credited to the school where they teach now. The subject-area shift compares the last ten of those years (the full range when it is shorter) with the same years two decades earlier, counting only today's faculty. Groups of schools are by the rank chosen above (<i>U.S. News</i> overall rank, or the TaxProf peer rank when that option is on) with ties kept (the top 14 is the schools ranked 1st through 14th), and unranked schools join 101 &amp; below. Two schools' shared articles count each article once for each pair of schools on it. The own-review chart counts each school's faculty's flagship-review articles and covers schools with their own review and at least 20 such articles. The co-authorship chart counts each listed author of an article, not only law faculty. The last chart counts an article once for each current faculty author on it. With a school's own journals left out, an article does not count for a school that publishes its journal (nor for that school's faculty in the last chart), and the own-review chart is not drawn.</p>
+    <p><b>Distribution across schools</b> uses the rankings' own data: articles (short pieces left out when that option is on) in flagship law reviews, in the years chosen in the bar above, with an author on the faculty of a U.S. law school, each author at the school where they teach now; an article counts once for each school with an author on it. Reviews are grouped by their school's rank chosen above (<i>U.S. News</i> overall rank, or the TaxProf peer rank when that option is on), ties kept (the top 14 is the reviews whose schools are ranked 1st through 14th). With a school's own journals left out, an article does not count for the school that publishes the review. Each Lorenz curve and Gini coefficient runs over the U.S. law schools on the faculty lists, including those with no articles; the five-year windows end at the last year chosen and step back while they start within the chosen years and in 1980 or later.</p>
+    <p><b>Anonymous review</b> compares the flagship reviews that switched to anonymous (or partly anonymous) article selection in a known year with the other flagship reviews, volume year by volume year from <span id="mAnonSince">2008</span> on. The switch years come from the reviews' own submission pages and editors' statements, dated by archived copies of those pages; a review whose policy has no known start (Harvard, Yale and Stanford among them) has no switch year to split before from after and is left out of the test. The articles are research articles (short pieces left out) with an author on the faculty of a U.S. law school, each author at the school where they teach now, so an older article is credited to its author's school today. The estimate is a difference in differences with review and year fixed effects, each review-year weighted by its articles, with standard errors clustered by review; a randomization test (the same switch years given to random sets of other top-100 reviews) is reported beside it. The section lists each review's policy, with its source. The years and options in the bar above do not change this section: its years and its counting are part of the test's design.</p>
+    <p><b>Words in titles</b> uses the research-article titles of section 3 (title length), with the same rules for what is left out, from 1980 on, grouped into the same five tiers by the law review's school or by the school of a current faculty member credited with the title (U.S. News overall rank, with short pieces left out, whatever the options above). Each title is lowercased and cut into words (a hyphenated word stays one word, a possessive &rsquo;s is dropped); one-letter words, words with no letter, the 179 words of NLTK's standard English stopword list and words that name a piece's genre or place in an issue (law, legal, essay, article, note, comment, introduction, foreword, afterword, symposium, response, reply, lecture, remarks and the like) are dropped, and two-word phrases are pairs of kept words next to each other with no punctuation between them; a title counts each word or phrase once. The tier-against-tiers and window-against-window comparisons are scored with the weighted log-odds ratio with an informative Dirichlet prior of Monroe, Colaresi and Quinn (2008, &ldquo;Fightin&rsquo; Words&rdquo;), the prior for each word being its count in the two groups together, reported as a z-score (the log-odds ratio over its standard error, not adjusted for the number of words compared); the prior is as large as the two groups' own counts, which draws a smaller group's rates toward the two groups' combined rate, so the z-scores order the words within one comparison and are on different scales for comparisons of different sizes. Listed are words in at least 25 titles of the two groups together and in 10 titles and 3 journals of the side they are listed for, with no more than half of those titles in one journal; a word is not listed beside a two-word phrase that is in 80% or more of its titles. By the author's school, the earlier window holds only the titles of authors on a law faculty today, under the school where each teaches now. Title form is the share of titles with a colon or a first-person word, or opening with one of the listed phrases, and the mean words per title and characters per word, per five-year window; HeinOnline's metadata carries question marks and double quotation marks in titles from about 2020 on and seldom before, so those two are listed for the latest window only. Term families are fixed word lists, printed with the chart, and a title counts when it has any of a family's words. A window with fewer than 30 titles in a tier is left blank.</p>
+    <p>The numbers behind the charts are in <code>data/data.json</code> and <code>data/insights.json</code> on <a href="https://github.com/nathanReitinger/lawRankings/tree/main/docs/data">GitHub</a>. The charts are drawn with Highcharts.</p>
   </section>
 
   <div class="ins-tip" id="tip" role="tooltip" hidden></div>

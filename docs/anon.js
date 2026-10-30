@@ -30,8 +30,8 @@
   // the four outcomes (insights.json anon.outcomes, the primary one first): shares are drawn in percentage points,
   // the mean rank in places (a higher number is a lower-ranked school)
   const SHORT = { t14: 'Top-14 share', t25: 'Top-25 share', rank: 'Mean school rank', own: 'Own-faculty share' };
-  const SAY = { t14: 'articles by professors at top-14 schools', t25: 'articles by professors at top-25 schools',
-    rank: 'the U.S. News rank of the authors’ schools', own: 'articles by the review’s own faculty' };
+  const SAY = { t14: 'share of articles by professors at top-14 schools', t25: 'share of articles by professors at top-25 schools',
+    rank: 'mean U.S. News rank of the authors’ schools', own: 'share of articles by the review’s own faculty' };
   let A = null, DATA = null, INS = null, drawn = false, outcome = 't14';
   const charts = [];
   const figs = [];        // { box, draw } for each chart, redrawn on resize and when the measure changes
@@ -195,7 +195,7 @@
     const c = card('anMain', 'Difference-in-differences estimates by measure',
       'Each row is a difference in differences: how much a measure changed at the ' + C.treated + ' switching reviews from before their switch to after it, minus how much it changed at the ' +
       num(C.comparison) + ' comparison reviews over the same years (two-way fixed effects for review and year, ' + A.since + '–' + A.last + ', each review-year weighted by its articles). ' +
-      '“After” starts with the first volume chosen under the policy, the year after the switch. The top-14 share was set as the main measure before any estimate was looked at; the others are secondary.');
+      '“After” starts with the first volume chosen under the policy, the year after the switch. Main measure: the top-14 share, chosen before the estimates were looked at; the other three are secondary.');
     c.legend.remove(); c.box.remove();
     const rows = A.outcomes.map((o) => {
       const m = A.main[o.key];
@@ -210,10 +210,10 @@
     // its switch), and the rest, whose article policy is not known (two were looked up: only student-note policies)
     c.foot.textContent = 'Reviews: ' + C.treated + ' switching, ' + num(C.comparison) + ' comparison (' + C.comparison_on_record + ' on record as naming authors or with no anonymity statement, ' +
       (recent.length ? listSay(recent.map((j) => jshort(j.name) + ' before its ' + j.adopted + ' switch')) + ', and ' : '') + num(C.comparison_unknown) + ' with no known article policy); ' +
-      num(C.journal_years) + ' review-years and ' + num(C.articles) + ' articles. Before: the switching reviews’ level before their switch. Clustered: standard errors clustered by review. Both tests are shown (' + C.treated + ' switching reviews). The randomization test ' +
-      'gives the same switch years to ' + num(A.draws) + ' random sets of comparison reviews of top-' + A.placebo_top + ' schools (from ' + m.placebo_pool + ') and counts how often the placebo change is as large' +
+      num(C.journal_years) + ' review-years and ' + num(C.articles) + ' articles. Before: the switching reviews’ level before their switch. Clustered: standard errors clustered by review. Randomization: the same switch years ' +
+      'given to ' + num(A.draws) + ' random sets of comparison reviews of top-' + A.placebo_top + ' schools (from ' + m.placebo_pool + '), counting how often the placebo change is as large' +
       // (review, 2026-10-29) it tests "no switching review changed at all", so one review that changed a lot can carry it
-      (m.se > m.placebo_sd ? '; it does not allow for the switching reviews changing by different amounts (clustered standard error ' + (100 * m.se).toFixed(1) + ' points; placebo spread ' + (100 * m.placebo_sd).toFixed(1) + ' points)' : '') + '. ' +
+      (m.se > m.placebo_sd ? '; this test does not allow for the switching reviews changing by different amounts (clustered standard error ' + (100 * m.se).toFixed(1) + ' points; placebo spread ' + (100 * m.placebo_sd).toFixed(1) + ' points)' : '') + '. ' +
       'Detectable: the smallest true change the test would catch four times in five (2.8 standard errors): ' + A.outcomes.map((o) => SHORT[o.key].toLowerCase() + ' ±' + (scale(o.key) * A.main[o.key].mde).toFixed(1) + unitWord(o.key)).join(', ') +
       '. Mean school rank: a higher number means authors from lower-ranked schools.';
   }
@@ -248,17 +248,18 @@
     const words = () => {
       const k = outcome, ev = E();
       c.h.textContent = SHORT[k] + ' by year since the switch: switching reviews minus comparison reviews (' + (isShare(k) ? 'percentage points' : 'places') + ', 95% intervals)';
-      c.p.textContent = 'Each dot is how far the switching reviews were from the comparison reviews in a year counted from the switch, against the year before the switch (set to 0), in ' + SHORT[k].toLowerCase() +
-        (isShare(k) ? ' (percentage points)' : ' (places)') + ', with its 95% interval. Years six or more before or after are pooled at the ends. The switch year itself (0) mostly holds articles chosen before the policy. The comparison assumes the two groups moved together in the years before the switch (left of 0).';
+      c.p.textContent = 'Dots: the difference between the switching and comparison reviews in ' + SHORT[k].toLowerCase() + (isShare(k) ? ' (percentage points)' : ' (places)') +
+        ' in each year counted from the switch, relative to the year before the switch (set to 0), with 95% intervals. Years ' + A.bin + ' or more before or after are pooled at the ends. Year 0, the switch year, mostly holds articles chosen before the policy. ' +
+        'The difference-in-differences design assumes the two groups would have moved in parallel without the switch; the years left of 0 are the years before it.';
       const lp = ev.pretest_p, lpr = ev.pretest_p_perm;
-      c.foot.textContent = 'Joint test of the ' + ev.pretest_df + ' earlier years: clustered ' + pIs(lp) + (lpr != null ? ', randomization ' + pIs(lpr) : '') + '. ' +
+      c.foot.textContent = 'Joint test of the ' + ev.pretest_df + ' years before the reference year: clustered ' + pIs(lp) + (lpr != null ? ', randomization ' + pIs(lpr) : '') + '. ' +
         'Per year: ' + Math.min.apply(null, ev.reviews) + '–' + Math.max.apply(null, ev.reviews) + ' reviews and about ' + num(Math.round(ev.articles.slice(1, -1).reduce((s, x) => s + x, 0) / (ev.articles.length - 2))) + ' articles (mean of the years between the pooled ends).';
       table(T.tb, ['Years since the switch', 'Estimate', '95% interval', 'Reviews', 'Articles'],
         ev.e.map((e, i) => [lab(e) + (e === -1 ? ' (reference)' : ''), e === -1 ? '0' : eff(k, ev.b[i]), e === -1 ? '–' : ci(k, ev.lo[i], ev.hi[i]), num(ev.reviews[i]), num(ev.articles[i])]));
     };
     texts.push(words);
     words();
-    c.legend.append(swatch('Before the switch', C_CMP, 'dot'), swatch('After (from the first volume chosen under it)', C_SW, 'dot'), swatch('Reference year', '#ffffff', 'dot ring'));
+    c.legend.append(swatch('Before the switch, and the switch year', C_CMP, 'dot'), swatch('After (from the first volume chosen under it)', C_SW, 'dot'), swatch('Reference year', '#ffffff', 'dot ring'));
     if (!has('errorbar') || !has('scatter')) { noChart(c, T.d); return; }
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560, k = outcome, ev = E(), s = scale(k);
@@ -268,7 +269,7 @@
         marker: e === -1 ? { fillColor: '#ffffff', lineColor: C_CMP, lineWidth: 1.5 } : undefined }));
       makeChart(c.box, {
         chart: { height: narrow ? 300 : 360 },
-        accessibility: { description: 'Event study: the difference between switching and comparison reviews in ' + SHORT[k] + ', by year since the switch, with 95% intervals. The table below lists the numbers.' },
+        accessibility: { description: 'Event study: the difference between switching and comparison reviews in ' + SHORT[k].toLowerCase() + ', by year since the switch, with 95% intervals. The table below lists the numbers.' },
         xAxis: { min: -A.bin - 0.5, max: A.bin + 0.5, tickPositions: ev.e, labels: { formatter() { return lab(this.value); }, autoRotation: false, padding: 0,
           style: { fontSize: narrow ? '10px' : '11.5px', textOverflow: 'none', whiteSpace: 'nowrap' } },
           title: { text: narrow ? 'Years since the switch' : 'Years since the switch (volume year minus switch year)' },
@@ -302,9 +303,9 @@
     const words = () => {
       const k = outcome, t = A.trend[k];
       c.h.textContent = SHORT[k] + ', switching and comparison reviews, ' + A.since + '–' + A.last;
-      c.p.textContent = 'Per volume year, the ' + sw.length + ' switching reviews pooled (each article once) and the ' + num(A.counts.comparison) + ' comparison reviews pooled: ' + SAY[k] +
-        (k === 'rank' ? ' (each article the mean over its authors; lower is a higher-ranked school)' : '') + '. The shaded years are when the ' + sw.length + ' switched (' + y0 + '–' + y1 + '). ' +
-        'The difference-in-differences estimate is the change in the gap between the lines after the switches. Volume year ' + A.last + ' is partial.';
+      c.p.textContent = 'Per volume year: ' + SAY[k] + (k === 'rank' ? ' (each article the mean over its authors; lower is a higher-ranked school)' : '') +
+        ', for the ' + sw.length + ' switching reviews pooled (each article once) and the ' + num(A.counts.comparison) + ' comparison reviews pooled. Shaded: the switch years of the ' + sw.length + ' (' + y0 + '–' + y1 + '). ' +
+        'The difference-in-differences estimate is the change in the gap between the two lines after the switches. Volume year ' + A.last + ' is partial.';
       table(T.tb, ['Year', 'Switching', 'Articles', 'Comparison', 'Articles'],
         t.years.map((y, i) => { const a = t.switched[i], b = t.comparison[i]; return [String(y), a ? val(k, a[0]) : '–', a ? num(a[1]) : '0', b ? val(k, b[0]) : '–', b ? num(b[1]) : '0']; }));
       const P = A.per_journal[k];
@@ -352,7 +353,7 @@
     const words = () => {
       const k = outcome, R = rows();
       c.h.textContent = 'Other specifications' + (k === 't14' ? '' : ' (' + SHORT[k].toLowerCase() + ')') + ': comparison groups, sets of switching reviews, weights and windows';
-      c.p.textContent = 'The same comparison with other specifications. The stacked difference-in-differences runs each switch year as its own experiment against reviews that do not switch within six years, so reviews that have already switched are not used as controls (a concern with staggered switches). ' +
+      c.p.textContent = 'The same comparison with other specifications. The stacked difference-in-differences runs each switch year as its own experiment against reviews that do not switch within six years, so reviews that have already switched are not used as comparisons. ' +
         'The other rows change the comparison reviews, which switching reviews count, the weighting, or the years, or leave out one switching review at a time. Reviews: the number of switching and comparison reviews in each row.';
       table(T.tb, ['Specification', 'Change (95% interval)', 'p, clustered', 'p, random\u00ADization', 'Reviews'],
         R.map((r, i) => [[robLabel(r), r.label], [eff(k, r.est) + unitWord(k), ci(k, r.lo, r.hi)], fmtP(r.p), r.p_perm == null ? '–' : fmtP(r.p_perm), [r.n_treated + ' / ' + num(r.n_control), 'switching / comparison'], i === 0 ? { cls: 'an-primary' } : {}]), 'an-rob');
@@ -366,7 +367,7 @@
       const W = c.box.clientWidth, narrow = W < 560, k = outcome, s = scale(k), R = rows();
       makeChart(c.box, {
         chart: { inverted: true, height: 46 + R.length * (narrow ? 24 : 26), marginLeft: narrow ? 132 : 190 },
-        accessibility: { description: 'Estimate of the change in ' + SHORT[k] + ' for each specification, with its 95% interval. The table below lists the numbers.' },
+        accessibility: { description: 'Estimate of the change in ' + SHORT[k].toLowerCase() + ' for each specification, with its 95% interval. The table below lists the numbers.' },
         xAxis: { categories: R.map((r) => robLabel(r, narrow)), labels: { style: { fontSize: narrow ? '11px' : '12px', color: css('--ink-2', '#52514e'), textOverflow: 'ellipsis' }, step: 1 }, tickLength: 0, lineWidth: 0 },
         yAxis: { title: { text: narrow ? null : (isShare(k) ? 'Change, percentage points' : 'Change, places') }, labels: { formatter() { return (this.value > 0 ? '+' : this.value < 0 ? MINUS : '') + Math.abs(this.value); } },
           plotLines: [{ value: 0, color: css('--axis', '#c3c2b7'), width: 1.5, zIndex: 2 }, { value: s * R[0].est, color: css('--ink-2', '#52514e'), width: 1, dashStyle: 'Dash', zIndex: 2 }] },
@@ -391,7 +392,7 @@
     c.legend.remove(); c.box.remove(); c.foot.remove();
     const groups = [
       ['switched', 'Switched in a dated year: switching reviews', 0],
-      ['too recent', 'Switched with fewer than two volume years chosen after it (a comparison review until then)', 0],
+      ['too recent', 'Switched with fewer than two volume years chosen after it: a comparison review until its switch', 0],
       ['before', 'Anonymous, earliest record only: not in the comparison', 0],
       ['undated', 'Anonymous, undated: not in the comparison', 0],
       ['named', 'On record as asking for names or CVs: comparison reviews', 1],
@@ -442,11 +443,11 @@
     const named = rv.filter((r) => r.role === 'named' || r.role === 'no statement');
     const med = (xs) => { const s = xs.map((r) => r.ratio).sort((a, b) => a - b), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : null; };
     const mn = med(named);
-    const c = card('anHome', 'Own-faculty share of articles in top-14 reviews against other top-14 reviews (home edge), with each review’s stated policy',
+    const c = card('anHome', 'Home edge of top-14 law reviews (own-faculty share against the other top-14 reviews), by stated anonymous-review policy',
       (anon.length ? listSay(anon.map((r) => jshort(jname(r.j)))) + ': anonymous review with no known start (earliest records: ' + listSay(anon.map((r) => jshort(jname(r.j)) + ' ' + r.adopted)) + '), so not in the before-and-after comparison. ' : '') +
       'For each review of a top-14 school (' + rv.length + ' reviews, ties kept), the home edge, ' + H.window[0] + '–' + H.window[1] +
-      ': the share of its faculty-authored articles with an author on its own faculty, divided by that faculty’s share of the other top-14 reviews’ articles. 1: no home edge. ' +
-      'The ratio counts published articles; submissions are not in the data, and some reviews give their own faculty a guaranteed read.');
+      ': the share of its faculty-authored articles with an author on its own faculty, divided by that faculty’s share of the other top-14 reviews’ articles (1 = the same share in both). ' +
+      'The ratio counts published articles; submissions and reading practices (such as a guaranteed read for a review’s own faculty) are not in the data.');
     const lg = {}, swYears = [];
     rv.forEach((r) => { const k = r.role === 'too recent' ? 'switched' : r.role; lg[k] = 1; if (k === 'switched' && swYears.indexOf(r.adopted) < 0) swYears.push(r.adopted); });
     Object.keys(ROLE).filter((k) => lg[k]).forEach((k) => c.legend.appendChild(swatch(k === 'switched' ? 'Switched (' + swYears.sort().join(', ') + ')' : ROLE[k].label, ROLE[k].color, 'box')));

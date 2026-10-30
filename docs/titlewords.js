@@ -152,10 +152,10 @@
   function lede() {
     const box = $('twLede');
     if (!box) return;
-    box.textContent = 'Words, two-word phrases and title forms of the research-article titles of the title-length section (3), ' + T.since + '–' + T.last +
+    box.textContent = 'Words, two-word phrases and title forms of the research-article titles of section 3, ' + T.since + '–' + T.last +
       (T.last > T.full ? ' (the charts end with ' + T.full + ')' : '') + ', in five tiers: by the U.S. News rank of the school whose main law review published the title (' + num(T.review.titles) +
       ' titles), or by the rank of the school of a current faculty member credited with it (' + num(T.school.titles) +
-      ' titles, any journal). Metadata from HeinOnline; aggregate counts of words, no single title.';
+      ' titles, in the journals collected here). Metadata from HeinOnline; counts of words across titles, with individual titles not shown.';
   }
 
   // the tiers' grouping, for every card below
@@ -226,8 +226,8 @@
       try { oddsChart(c, R, a, b, tierColor(st.dTier), c.h.textContent + ', ' + tierName(st.dTier) + ', ' + byText()); } catch (e) { fail(c.box); }
       oddsTable(t.tb, R, a, b, 'z: the weighted log-odds ratio over its standard error; a title counts a word once.');
       c.foot.textContent = st.by === 'review'
-        ? 'Titles in each school’s main law review, by the U.S. News rank of that school; pieces labelled as student work left out.'
-        : 'Titles by current faculty in any journal collected here, by the U.S. News rank of each author’s school; compared with the titles of the other tiers not credited to this tier.';
+        ? 'Titles in each school’s main law review, by the U.S. News rank of that school; pieces labeled as student work left out.'
+        : 'Titles by current faculty in the journals collected here, by the U.S. News rank of each author’s school; compared with the titles of the other tiers not credited to this tier.';
     };
     figs.push({ box: c.box, draw });
   }
@@ -248,8 +248,8 @@
       try { oddsChart(c, R, a, b, tierColor(st.cTier), c.h.textContent + ', ' + tierName(st.cTier) + ', ' + byText()); } catch (err) { fail(c.box); }
       oddsTable(t.tb, R, a, b, tierName(st.cTier) + '. z: the weighted log-odds ratio over its standard error; a title counts a word once.');
       c.foot.textContent = st.by === 'review'
-        ? 'Titles in each school’s main law review, by the U.S. News rank of that school; pieces labelled as student work left out.'
-        : 'Titles by current faculty in any journal collected here, by the U.S. News rank of the school where each author teaches now; the titles of ' + span(e) +
+        ? 'Titles in each school’s main law review, by the U.S. News rank of that school; pieces labeled as student work left out.'
+        : 'Titles by current faculty in the journals collected here, by the U.S. News rank of the school where each author teaches now; the titles of ' + span(e) +
           ' are those of authors on a law faculty today.';
     };
     figs.push({ box: c.box, draw });
@@ -349,8 +349,8 @@
         }).filter(Boolean);
         parts.push(span(w) + ': ' + per.join('; '));
       });
-      c.foot.textContent = 'Question marks and double quotation marks: HeinOnline\u2019s metadata carries them in titles from about ' + T.marks_since +
-        ' on and seldom before, so they are not charted over time. Share of titles with a question mark and with quotation marks, ' + parts.join(' ') + '.';
+      c.foot.textContent = 'Question marks and double quotation marks: in HeinOnline\u2019s title metadata from about ' + T.marks_since +
+        ' on (seldom before), so listed here for the windows starting after ' + T.marks_since + ' rather than charted. Share of titles with a question mark and with quotation marks: ' + parts.join(' ') + '.';
     };
     figs.push({ box: c.box, draw });
   }

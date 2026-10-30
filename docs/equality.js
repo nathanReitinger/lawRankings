@@ -293,13 +293,13 @@
     const sl = SLICES[i], n = R.reviews[i].length;
     if (sl.cut === 1 && n === 1) return long ? 'Ranked 1st: ' + DATA.journals[R.reviews[i][0]][0] : 'Ranked 1st';
     if (sl.cut === Infinity) return long ? 'Flagship reviews, total (' + n + ')' : 'Flagship total';
-    return long ? (sl.cut === 1 ? 'Ranked 1st' : 'Ranked 1–' + sl.cut) + ' (' + n + ' reviews)' : sl.short;
+    return long ? (sl.cut === 1 ? 'Ranked 1st' : 'Top ' + sl.cut) + ' (' + n + ' reviews)' : sl.short;
   };
   const sliceParts = (i) => {
     const sl = SLICES[i], n = R.reviews[i].length;
     if (sl.cut === 1 && n === 1) return ['Ranked 1st', ': ' + DATA.journals[R.reviews[i][0]][0]];
     if (sl.cut === Infinity) return ['Flagship reviews, total', ' (' + n + ')'];
-    return [sl.cut === 1 ? 'Ranked 1st' : 'Ranked 1–' + sl.cut, ' (' + n + ' reviews)'];
+    return [sl.cut === 1 ? 'Ranked 1st' : 'Top ' + sl.cut, ' (' + n + ' reviews)'];
   };
   const sliceSubject = (i) => {  // "the Stanford Law Review", "the top-14 reviews", in a sentence
     const sl = SLICES[i];
@@ -550,8 +550,8 @@
       'The Gini coefficient of the same counts, in five-year windows from ' + lab(W5[0]) + ' to ' + lab(W5[W5.length - 1]) + ', for four of the slices (the table has the six); ' +
       'each window counts the ' + R.n + ' U.S. law schools, those with no articles included. The reviews keep current ranks in each window. Counted: current faculty only, ' +
       'each credited to the school where they teach now, so the early windows hold the earlier work of those still teaching' +
-      (R.thin != null && !thin(h0) && !thin(h1) ? '. Gini of ' + num(h0.articles) + ' of the ' + num(h1.articles) + ' top-14 articles of ' + lab(W5[W5.length - 1]) + ' (evenly spaced; as many articles as ' +
-        lab(W5[0]) + '): ' + gini(R.thin) + '; of the ' + num(h1.articles) + ': ' + gini(h1.g) + '; ' + lab(W5[0]) + ': ' + gini(h0.g) + '.' : '.'));
+      (R.thin != null && !thin(h0) && !thin(h1) ? '. Top-14 Gini: ' + gini(h0.g) + ' in ' + lab(W5[0]) + ' (' + num(h0.articles) + ' articles); ' + gini(h1.g) + ' in ' +
+        lab(W5[W5.length - 1]) + ' (' + num(h1.articles) + ' articles); ' + gini(R.thin) + ' for ' + num(h0.articles) + ' of those ' + num(h1.articles) + ' articles, evenly spaced.' : '.'));
     key(c, OVER_TIME.map((i) => [i, '']));
     c.foot.textContent = 'Articles counted in the top-14 reviews: ' + num(h0.articles) + ' in ' + lab(W5[0]) + ', ' + num(h1.articles) + ' in ' + lab(W5[W5.length - 1]) +
       '; in the flagship reviews in total, ' + num(first[5].articles) + ' and ' + num(last[5].articles) + '.';
@@ -628,8 +628,8 @@
     const b = barOf();
     if (!b || !R) return;
     const W5 = R.wins;
-    b.uses('eqUses', [b.yearsText(R.from, R.to) + (W5.length >= 2 ? ' (five-year windows from 1980 on: ' + yrs(W5[0][0], W5[W5.length - 1][1]) + ')'
-      : ' (the five-year figure needs ten years or more' + (R.wFloor > R.from ? ' from ' + R.wFloor + ' on' : '') + ')'),
+    b.uses('eqUses', [b.yearsText(R.from, R.to) + (W5.length >= 2 ? ' (five-year windows ' + yrs(W5[0][0], W5[W5.length - 1][1]) + (R.wFloor > R.from ? ', none starting before ' + R.wFloor : '') + ')'
+      : ' (five-year chart not drawn: it needs ten or more years' + (R.wFloor > R.from ? ' from ' + R.wFloor + ' on' : '') + ')'),
       b.shortText(), 'law reviews grouped by ' + R.srcName, R.noHome ? 'a school’s own journals left out' : null]);
   }
   function build() {

@@ -24,7 +24,7 @@
 
   // the groups of schools question 1 uses (insights.js BANDS): the "top 14" split out, as legal academia talks
   const BANDS = [
-    { label: 'Top 14', short: 'T14', lo: 1, hi: 14 },
+    { label: 'Top 14', short: 'Top 14', lo: 1, hi: 14 },
     { label: '15–25', short: '15–25', lo: 15, hi: 25 },
     { label: '26–50', short: '26–50', lo: 26, hi: 50 },
     { label: '51–100', short: '51–100', lo: 51, hi: 100 },
@@ -279,7 +279,7 @@
     // share is 75% or more; pairs tied at that share are all named, most articles first
     const solos = top.filter((o) => o.n >= 10 && o.byN / o.n >= 0.75).sort((x, y) => y.byN / y.n - x.byN / x.n);
     const solo = solos.filter((o) => solos[0] && o.byN * solos[0].n === solos[0].byN * o.n);
-    c.foot.textContent = 'Pair with the most articles: ' + S[first.a][0] + ' and ' + S[first.b][0] + ', ' + num(first.n) + ' articles.' +
+    c.foot.textContent = 'Pair with the most articles: ' + S[first.a][0] + ' and ' + S[first.b][0] + ', ' + num(first.n) + ' article' + (first.n === 1 ? '' : 's') + '.' +
       (solo.length ? ' Largest share by one pair of authors (pairs on the wheel with 10 or more articles): ' +
         solo.map((o) => name(o.a) + '–' + name(o.b) + ' (' + o.by.join(' and ') + ', ' + num(o.byN) + ' of ' + num(o.n) + ')').join('; ') + '.' : '');
     table(c.tb, ['Schools', 'Articles together', 'Most by'], top.map((o) => [S[o.a][0] + ' & ' + S[o.b][0], num(o.n), o.by ? o.by.join(' & ') + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '']));
@@ -314,7 +314,7 @@
           const pt = this.point || this;
           if (pt.isNode) {
             const s = pt.custom && pt.custom.s;
-            return '<b>' + esc(S[s][0]) + '</b><br>' + num(R.crossOf[s]) + ' articles with a co-author at another U.S. law school<br>' + num(wheelN[s]) + ' with the schools it is joined to on the wheel';
+            return '<b>' + esc(S[s][0]) + '</b><br>' + num(R.crossOf[s]) + ' article' + (R.crossOf[s] === 1 ? '' : 's') + ' with a co-author at another U.S. law school<br>' + num(wheelN[s]) + ' with the schools it is joined to on the wheel';
           }
           const o = pt.custom || {};
           return '<b>' + esc(name(o.a)) + ' & ' + esc(name(o.b)) + '</b><br>' + num(o.n) + ' article' + (o.n === 1 ? '' : 's') + ' together, ' + yrs(R.from, R.to) +
@@ -362,7 +362,7 @@
       (t14.length ? ' Highest share among the top 14: ' + S[t14[0].s][0] + ', ' + pct(t14[0].share) + ' (' + num(t14[0].home) + ' of ' + num(t14[0].tot) + ') in the ' + ownName(t14[0].s) + '.' : '');
     table(c.tb, ['School', R.srcShort, 'In its own review', 'Flagship-review articles', 'Share'],
       rows.map((r) => [S[r.s][0], S[r.s][R.rankCol] || 'unranked', num(r.home), num(r.tot), pct1(r.share)])
-        .concat(pooled.filter((g) => g.tot).map((g) => [BANDS[g.k].label + ' (' + g.n + ' schools, pooled)', '', num(g.home), num(g.tot), pct1(g.share)])));
+        .concat(pooled.filter((g) => g.tot).map((g) => [BANDS[g.k].label + ' (' + num(g.n) + ' school' + (g.n === 1 ? '' : 's') + ', pooled)', '', num(g.home), num(g.tot), pct1(g.share)])));
     if (!has('scatter')) { noChart(c); return { c }; }
     const blue = css('--flagship', '#2a78d6'), ink = css('--ink', '#0b0b0b'), ink2 = css('--ink-2', '#52514e');
     legendKey(c, [['Each school', blue, 'dot'], ['Each group of schools, pooled', ink2, '']]);
@@ -385,7 +385,7 @@
         yAxis: { min: 0, softMax: 50, tickInterval: narrow ? 20 : 10, title: { text: narrow ? null : 'In its own review' }, labels: { format: '{value}%' } },
         tooltip: { formatter() {
           const pt = this.point || this, o = pt.custom || {};
-          if (o.k != null) return '<b>Schools ranked ' + esc(BANDS[o.k].label) + '</b><br>' + pct1(o.share) + ' of their flagship-review articles in their own review<br>' + num(o.home) + ' of ' + num(o.tot) + ', ' + o.n + ' schools pooled';
+          if (o.k != null) return '<b>Schools ranked ' + esc(BANDS[o.k].label) + '</b><br>' + pct1(o.share) + ' of their flagship-review articles in their own review<br>' + num(o.home) + ' of ' + num(o.tot) + ', ' + num(o.n) + ' school' + (o.n === 1 ? '' : 's') + ' pooled';
           return '<b>' + esc(S[o.s][0]) + '</b><br>' + R.srcShort + ' ' + esc(S[o.s][R.rankCol] || 'unranked') + '<br>' + pct1(o.share) + ' in its own review (' + num(o.home) + ' of ' + num(o.tot) + ')<br><span style="color:#898781">' + esc(ownName(o.s)) + '</span>';
         } },
         series: [
@@ -468,7 +468,7 @@
     const sh = (a) => R.teamMulti[a] / R.teamTot[a];
     const c = card('cnTeams',
       'Co-written specialty-journal articles, by subject area',
-      'Of the specialty-journal ' + R.art + ' with an author on a U.S. law faculty, ' + yrs(R.from, R.to) + ', the share with two or more authors (authors counted whether or not on a law faculty), by the journal’s subject area. Subject areas with fewer than 50 articles are not listed (they are in the total).');
+      'Of the specialty-journal ' + R.art + ' with an author on a U.S. law faculty, ' + yrs(R.from, R.to) + ', the share with two or more authors (co-authors counted with or without a law-faculty appointment), by the journal’s subject area. Subject areas with fewer than 50 articles are not listed (they are in the total).');
     c.foot.textContent = 'Specialty journals, total: ' + pct(multi / tot) + ' (' + num(multi) + ' of ' + num(tot) + ').';
     table(c.tb, ['Subject area', 'Articles', 'Two or more authors', 'Share'], areas.map((a) => [G[a], num(R.teamTot[a]), num(R.teamMulti[a]), pct1(sh(a))])
       .concat([['Specialty journals, total', num(tot), num(multi), pct1(multi / tot)]]));
@@ -623,7 +623,7 @@
       ['few', 'the share of articles by the most prolific authors']].filter(([k]) => F[k]).map(([, t]) => t);
     if (!parts.length) return;
     box.appendChild(document.createTextNode(R.Art + ' by current faculty at U.S. law schools, ' + yrs(R.from, R.to) +
-      (F.shift && (R.eFrom < R.from || R.eTo > R.to) ? ' (one figure also ' + yrs(R.eFrom, R.eTo) + ')' : '') + ': ' + parts.join('; ') + '.'));
+      (F.shift && (R.eFrom < R.from || R.eTo > R.to) ? ' (one chart also ' + yrs(R.eFrom, R.eTo) + ')' : '') + ': ' + parts.join('; ') + '.'));
   }
 
   function drawAll() {
@@ -633,12 +633,13 @@
 
   let gen = 0, observed = false;
   const barOf = () => (window.LSR_INS && LSR_INS.bar ? LSR_INS.bar : null);
-  // the line under the heading: the years and options these figures use
-  function usesLine() {
+  // the line under the heading: the years and options these figures use; the subject-area shift's years only when
+  // that figure is drawn (F: the figures computed)
+  function usesLine(F) {
     const b = barOf();
     if (!b || !R) return;
-    b.uses('cnUses', [b.yearsText(R.from, R.to) + (R.eFrom < R.from || R.eTo > R.to || R.lFrom > R.from ? ' (the subject-area shift: ' + yrs(R.eFrom, R.eTo) + ' and ' + yrs(R.lFrom, R.lTo) + ')' : ''),
-      b.shortText(), 'groups by ' + R.srcName, R.noHome ? 'a school’s own journals left out (so the own-review figure is not drawn)' : null]);
+    b.uses('cnUses', [b.yearsText(R.from, R.to) + (F && F.shift && (R.eFrom < R.from || R.eTo > R.to || R.lFrom > R.from) ? ' (the subject-area shift: ' + yrs(R.eFrom, R.eTo) + ' and ' + yrs(R.lFrom, R.lTo) + ')' : ''),
+      b.shortText(), 'groups by ' + R.srcName, R.noHome ? 'a school’s own journals left out (so the own-review chart is not drawn)' : null]);
   }
   function build() {
     if (drawn) return;
@@ -648,7 +649,6 @@
     if (!body) return;
     try {
       R = compute(DATA, META, barOf() ? barOf().get() : null);
-      usesLine();
     } catch (e) {
       body.replaceChildren(el('p', { class: 'text-muted' }, 'These figures could not be computed from this version of the data.'));
       return;
@@ -659,6 +659,7 @@
     [['pairs', figPairs], ['home', figHome], ['tiers', figTiers], ['teams', figTeams], ['shift', figShift], ['few', figFew]].forEach(([k, f]) => {
       try { F[k] = f(); } catch (e) { F[k] = null; if (window.console) console.warn('connections: ' + k, e); }
     });
+    try { usesLine(F); } catch (e) { /* the line under the heading names the years; the cards stand alone */ }
     try { lede(F); } catch (e) { /* the lede lists the figures; the cards stand alone */ }
     if (!Object.keys(F).some((k) => F[k])) {
       $('cnLede') && $('cnLede').replaceChildren();

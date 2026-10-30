@@ -1788,7 +1788,7 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         research = {'areas': [], 'approaches': [], 'sources': [], 'name': '', 'description': ''}
     about = {'General & Policy Journals': {'d': 'Journals whose own scope statement covers law, or law and public policy, generally, '
                                                  'with no subject focus. Their papers count in the rankings when this group is chosen; '
-                                                 'they give no one an area.'},
+                                                 'they do not place their authors in a subject area.'},
              'No subject focus': {'d': 'Placed here because the journal describes its scope as law or policy generally.'}}
     # (2026-10-28, audit R47: its card had no description and no outside schemes) the method journals' higher-level
     # group, with the outside schemes the research's approaches match (each once); critical legal theory is the one
@@ -1806,6 +1806,29 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
         about.setdefault(top['n'], top)
         for k in top.get('k', []):
             about.setdefault(k['n'], k)
+    # (2026-10-30, the owner: "doesn't say the finding, just description") six areas' research descriptions end with
+    # what the research found about who co-publishes with whom; the page says only what each area covers (its outside
+    # schemes are kept)
+    for n, d in {
+            'Criminal Law & Justice': 'Crime and its control: substantive criminal law, criminal procedure from policing to '
+                                      'post-conviction review, sentencing and punishment, and evidence, juries and trials.',
+            'Tax, Trusts & Estates': 'Taxation and the transfer of wealth: income and business tax, tax policy and administration, '
+                                     'wealth-transfer tax and exempt organizations, and trusts and estates.',
+            'Property, Environment & Natural Resources': 'Land and the natural world: property and real estate, environmental and '
+                                                         'climate law, natural resources and public lands, energy, food, '
+                                                         'agriculture and animals, and federal Indian law.',
+            'Science, Technology & IP': 'Innovation, information and the sciences: intellectual property, technology law and policy '
+                                        '(internet, AI, telecommunications, cybersecurity), privacy and data protection, science '
+                                        'and biotechnology, and arts, entertainment and sports. Biotechnology is cross-listed in '
+                                        'Health Law & Bioethics.',
+            'Health Law & Bioethics': 'Health and medicine: health care law and policy, public health and drug regulation, bioethics, '
+                                      'reproduction, and disability, mental health and aging. Biotechnology & genetics is '
+                                      'cross-listed here from Science, Technology & IP.',
+            'Civil Rights, Equality & Family': 'Equality, membership and the family: race and the law, gender and sexuality, '
+                                               'civil-rights and antidiscrimination law, immigration and citizenship, family law, '
+                                               'poverty and inequality, and education law.'}.items():
+        if n in about:
+            about[n] = dict(about[n], d=d)
     # the groups' own definitions (and the scope words behind them) win over the older research fields' descriptions
     if os.path.exists(GROUPS_FILE):
         for r in pd.read_csv(GROUPS_FILE, dtype=str).fillna('').itertuples():
@@ -1852,10 +1875,29 @@ def journal_tree(groups, subjects, journals, field_of, paper_journal, paper_year
     placed = {}
     tax = pd.read_csv(TAXONOMY_FILE, dtype=str).fillna('') if os.path.exists(TAXONOMY_FILE) else pd.DataFrame()
     rows = {r['journal']: r for r in tax.to_dict('records')} if len(tax) else {}
+    # (2026-10-30, the owner: "it should be a website that just reports information and says what that information is")
+    # six journals' deciding words in TAXONOMY_FILE are the judge's note on the two placers ("Agree with placer B. ...");
+    # the page shows the name, scope and W&L words the placement rests on instead
+    deciding = {
+        'Tax Lawyer': 'name "Tax Lawyer"; "the ABA Tax Section\'s flagship journal"',
+        'Minnesota Journal of Law, Science & Technology': 'name "Law, Science & Technology"; "bioethics, and law and science"; '
+                                                          'W&L "Science, Technology and Computing Law"',
+        'Santa Clara High Technology Law Journal': 'name "High Technology Law Journal"; "all aspects of intellectual property and '
+                                                   'high tech law"; W&L "Science, Technology and Computing Law"',
+        'Connecticut Public Interest Law Journal': '"public interest issues and especially those confronting underrepresented '
+                                                   'individuals"; W&L "Civil Rights and Social Justice" first',
+        'Journal of Legal Studies': '"uses social science methodologies to shed light on legal institutions or actors"; '
+                                    'W&L "Social Sciences and Law"',
+        'Harvard BlackLetter Law Journal': 'name "BlackLetter Law Journal" (no scope or W&L subject on file)'}
     for ji in counted:
         r = rows.get(journals[ji][0])
         if r:
-            placed[ji] = [r.get('basis', ''), r.get('deciding_words', ''), r.get('scope_statement', ''), r.get('scope_url', ''),
+            words = r.get('deciding_words', '')
+            if re.match(r'(I )?agree with placer', words, re.I):
+                if journals[ji][0] not in deciding:
+                    print(f'  !! {journals[ji][0]}: its deciding words are a note on the placers; the page shows them as they are')
+                words = deciding.get(journals[ji][0], words)
+            placed[ji] = [r.get('basis', ''), words, r.get('scope_statement', ''), r.get('scope_url', ''),
                           r.get('scope_source', ''), r.get('wl_subjects', '')]
         else:
             placed[ji] = ['by its W&L subject (not yet placed by its scope statement)', '', '', '', '', '']
@@ -2693,7 +2735,7 @@ def anonymous_review_analysis(data, last_year):
     status = {ji: ('too recent' if ji in too_recent else role[ji]) for ji in row_of}
     out['journals'] = [{'j': ji, 'name': J[ji][0], 'school_rank': J[ji][2], 'role': status[ji], 'policy': row_of[ji]['policy'],
                         'adopted': int(row_of[ji]['adopted']) if row_of[ji]['adopted'] else None, 'confidence': row_of[ji]['confidence'],
-                        'basis': row_of[ji]['adopted_basis'], 'url': row_of[ji]['evidence_url']}     # (the quotes and notes stay in the list)
+                        'basis': row_of[ji]['adopted_basis'].replace(' (page-fetch budget)', ''), 'url': row_of[ji]['evidence_url']}     # (the quotes and notes stay in the list)
                        for ji in sorted(row_of, key=lambda j: (order[status[j]], adopt.get(j, 0), rank_of[j] or 999, J[j][0]))]
     out['counts'] = {'treated': len(treated), 'too_recent': len(too_recent), 'left_out': sorted(J[j][0] for j in left_out),
                      'comparison': int(cmp_rows['j'].nunique()),
