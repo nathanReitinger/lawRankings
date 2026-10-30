@@ -14,6 +14,7 @@
   const num = (n) => Number(n).toLocaleString('en-US');
   const pct = (x) => (x == null || !isFinite(x) ? '–' : (x < 0.1 && x > 0 ? (100 * x).toFixed(1) : (100 * x).toFixed(0)) + '%');
   const pct1 = (x) => (x == null || !isFinite(x) ? '–' : (100 * x).toFixed(1) + '%');
+  const yrs = (a, b) => (a === b ? String(a) : a + '–' + b);
   const gini = (g) => (g == null || !isFinite(g) ? '–' : g.toFixed(2));
   const css = (name, dflt) => getComputedStyle(document.body).getPropertyValue(name).trim() || dflt;
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -49,6 +50,11 @@
   const inSlice = (r, cut) => (cut === Infinity ? r >= 0 : r >= 1 && r <= cut);   // 0: the review of an unranked school
   const HEAD = 2;                 // the headline's slice: the top 14, as legal academia talks about the top
   const OVER_TIME = [1, 2, 3, 5]; // the slices drawn over time (the table has all six)
+  // (review, 2026-10-29) a Gini or a share rests on at least MIN articles: with fewer, a dash and the count instead
+  const MIN = 30;
+  const thin = (L) => !L || L.articles < MIN;
+  const giniOf = (L) => (thin(L) ? null : L.g);
+  const fewText = (L) => 'fewer than ' + MIN + ' articles (' + num(L ? L.articles : 0) + ')';
 
   ////////////////////////////////////////////////////////////////////////// the numbers
 
@@ -58,15 +64,26 @@
   // window" is the ten years ending at meta.default_to, the latest year whose volumes are mostly in (until 2026-10-29
   // also the rankings page's default window), and the nine before; the five-year windows
   // end at meta.default_to and step back while they start in 1980 or later.
-  function compute(DATA, META) {
+  // (2026-10-29, the owner: "Add the year range into the 'insights' ... either asked on all data or that limited range
+  // a user selects. And include the optional options too") with the page's bar (insights.js), the years are the bar's
+  // (all years, or a range) and the five-year windows end at its last year and step back while they start within the
+  // chosen years and in 1980 or later (review, 2026-10-29: before 1980 a window holds from 0 to a few dozen articles);
+  // short pieces are left out only with that option; the
+  // slices follow the rank chosen (U.S. News overall, or the TaxProf peer rank); with a school's own journals left out,
+  // an article does not count for the school that publishes the review.
+  function compute(DATA, META, B) {
     const P = DATA.papers, C = DATA.credits, S = DATA.schools, J = DATA.journals, people = DATA.people;
     const NP = P.n || P.journal.length, NS = S.length;
     let maxYear = 0;
     for (let p = 0; p < NP; p++) if (P.year[p] > maxYear) maxYear = P.year[p];
-    const to = META && META.default_to ? +META.default_to : maxYear;
-    const from = to - 9;
+    const to = B ? B.to : META && META.default_to ? +META.default_to : maxYear;
+    const from = B ? B.from : to - 9;
+    const minor = B ? B.minor : true;
+    const src = B && B.src === 'peer' ? 'peer' : 'usnews';
+    const own = B && B.noHome && DATA.journal_school ? DATA.journal_school : null;
+    const wFloor = B && !B.all ? Math.max(from, 1980) : 1980;
     const wins = [];
-    for (let e = to; e - 4 >= 1980; e -= 5) wins.unshift([e - 4, e]);
+    for (let e = to; e - 4 >= wFloor; e -= 5) wins.unshift([e - 4, e]);
     const winOf = (y) => { for (let w = 0; w < wins.length; w++) if (y >= wins[w][0] && y <= wins[w][1]) return w; return -1; };
     // every U.S. law school on the faculty lists, and each person's (the rankings credit every U.S. school a person is
     // listed at)
@@ -74,7 +91,7 @@
     S.forEach((row, s) => { if (row[1]) US.push(s); });
     const usOf = people.map((row) => (row[1] || []).filter((s) => S[s] && S[s][1]));
     // each flagship review's school rank (U.S. News overall); null for every other journal (insights.js journalColumn)
-    const jr = (DATA.journal_ranks && DATA.journal_ranks.usnews) || J.map((j) => j[2]);
+    const jr = (DATA.journal_ranks && (DATA.journal_ranks[src] || DATA.journal_ranks.usnews)) || J.map((j) => j[2]);
     const fr = J.map((j, ji) => {
       if (j[3] && j[3].length) return null;
       const r = j[2] == null ? null : (DATA.host_ranks ? jr[ji] : j[2]);
@@ -94,13 +111,14 @@
     const thinA = [], thinB = [];   // the headline slice's articles (their schools) in the first and the last five years
     const ss = [];
     for (let p = 0; p < NP; p++) {
-      if (P.minor && P.minor[p]) continue;
+      if (minor && P.minor && P.minor[p]) continue;
       const r = fr[P.journal[p]];
       if (r == null) continue;
       const y = P.year[p], inWin = y >= from && y <= to, w = winOf(y);
       if (!inWin && w < 0) continue;
       ss.length = 0;
-      for (let k = start[p]; k < start[p + 1]; k++) usOf[who[k]].forEach((s) => { if (!ss.includes(s)) ss.push(s); });
+      const ow = own ? own[P.journal[p]] : null;
+      for (let k = start[p]; k < start[p + 1]; k++) usOf[who[k]].forEach((s) => { if (!ss.includes(s) && !(ow && ow.includes(s))) ss.push(s); });
       if (!ss.length) continue;
       for (let i = 0; i < NL; i++) {
         if (!inSlice(r, SLICES[i].cut)) continue;
@@ -111,7 +129,8 @@
         }
       }
     }
-    const R = { from, to, US, n: US.length, wins, reviews };
+    const R = { from, to, US, n: US.length, wins, reviews, minor, src, noHome: !!own, wFloor,
+      rankCol: src === 'peer' ? 3 : 2, srcShort: src === 'peer' ? 'TaxProf peer' : 'U.S. News', srcName: src === 'peer' ? 'TaxProf peer rank' : 'U.S. News overall rank' };
     R.slices = SLICES.map((sl, i) => Object.assign(lorenz(cnt[i], US), { articles: arts[i], counts: cnt[i] }));
     R.time = wins.map((w, k) => SLICES.map((sl, i) => Object.assign(lorenz(wcnt[k][i], US), { articles: warts[k][i] })));
     // how much fewer articles raise the Gini by themselves: the last five years' top-14 articles thinned to as many as
@@ -299,11 +318,14 @@
       box.appendChild(d);
     };
     const all = R.slices[5], h = R.slices[HEAD], top = R.slices[1];
-    add([gini(all.g), gini(top.g)], 'Gini coefficient of schools’ article counts: flagship reviews in total → top-3 reviews (' + R.from + '–' + R.to + ')');
+    const few = [all, top].filter(thin).map((L) => (L === all ? 'flagship reviews in total: ' : 'top-3 reviews: ') + fewText(L));
+    add([gini(giniOf(all)), gini(giniOf(top))], 'Gini coefficient of schools’ article counts: flagship reviews in total → top-3 reviews (' + yrs(R.from, R.to) + ')' +
+      (few.length ? '; ' + few.join('; ') : ''));
     // (the ten's share of the school counts the curves add up, so "credited to" with the counting rule, not "are by":
     // counted by article, the share with an author at one of the ten is higher and the share by the ten alone lower)
-    add(pct(h.top10), 'share of the top-14 reviews’ articles credited to the 10 schools with the most (an article counts once for each school with an author on it)');
-    add(num(h.none), 'of the ' + R.n + ' U.S. law schools with no article in a top-14 review, ' + R.from + '–' + R.to);
+    add(thin(h) ? '–' : pct(h.top10), 'share of the top-14 reviews’ articles credited to the 10 schools with the most (an article counts once for each school with an author on it)' +
+      (thin(h) ? '; ' + fewText(h) : ''));
+    add(num(h.none), 'of the ' + R.n + ' U.S. law schools with no article in a top-14 review, ' + yrs(R.from, R.to));
     $('equalityBody').appendChild(box);
   }
 
@@ -313,12 +335,12 @@
     const half = Math.floor(n / 2);
     const c = card('eqLorenz',
       'Lorenz curves: articles across U.S. law schools, by slice of flagship law reviews',
-      'Each curve is a slice of the flagship law reviews (each school’s main review) by the school’s U.S. News overall rank, ties kept (the top 14 is ' + R.reviews[HEAD].length +
+      'Each curve is a slice of the flagship law reviews (each school’s main review) by the school’s ' + R.srcName + ', ties kept (the top 14 is ' + R.reviews[HEAD].length +
       ' reviews). It lines up the ' + n + ' U.S. law schools, fewest articles first and those with none included, against their running share of the articles; the diagonal ' +
       'is equal counts at each school. Gini coefficient: the area between the curve and the diagonal as a share of the area under the diagonal, from 0 (equal counts) to 1 (one school with the articles). ' +
-      'Counted: research articles (short pieces left out), ' + R.from + '–' + R.to + ', by current faculty at U.S. law schools, each at the school where they teach now; ' +
-      'an article counts once for each school with an author on it, not split among co-authors. Tap a slice in the key to pick it out.');
-    key(c, SLICES.map((sl, i) => [i, ' · Gini ' + gini(R.slices[i].g)]), [['Equal counts', 'dash']]);
+      'Counted: ' + (R.minor ? 'research articles (short pieces left out)' : 'articles (short pieces included)') + ', ' + yrs(R.from, R.to) + ', by current faculty at U.S. law schools, each at the school where they teach now; ' +
+      'an article counts once for each school with an author on it, not split among co-authors' + (R.noHome ? ', and not for the school that publishes the review' : '') + '. Tap a slice in the key to pick it out.');
+    key(c, SLICES.map((sl, i) => [i, ' · Gini ' + gini(giniOf(R.slices[i]))]), [['Equal counts', 'dash']]);
     // the ten schools, named
     const top = R.US.slice().sort((a, b) => h.counts[b] - h.counts[a] || S[a][0].localeCompare(S[b][0]));
     const ten = top.slice(0, 10).map((s) => instLabel(S[s][0]));
@@ -327,18 +349,18 @@
       sliceSubject(0).charAt(0).toUpperCase() + sliceSubject(0).slice(1) + ' had ' + num(one.articles) + ' articles by U.S. law faculty in these years, from ' + one.any + ' of the ' + n + ' schools.';
     const T = details(c, 'The numbers');
     table(T.tb, ['Slice (reviews)', 'Articles', 'School counts', 'Schools with articles', 'Top 10 schools', 'Bottom ' + half, 'Gini'],
-      SLICES.map((sl, i) => { const L = R.slices[i]; return [sliceName(i, false) + ' (' + num(R.reviews[i].length) + ')', num(L.articles), num(L.tot), num(L.any), pct1(L.top10), pct1(L.bottom), gini(L.g)]; }), 'eq-sum');
+      SLICES.map((sl, i) => { const L = R.slices[i]; const f = thin(L); return [sliceName(i, false) + ' (' + num(R.reviews[i].length) + ')', num(L.articles), num(L.tot), num(L.any), f ? '–' : pct1(L.top10), f ? '–' : pct1(L.bottom), gini(giniOf(L))]; }), 'eq-sum');
     T.tb.insertBefore(el('p', { class: 'eq-note' }, 'School counts: the articles counted once for each school with an author on them (what the curves add up). Top 10 schools: the share of those counts the ten schools with the most have; bottom ' +
-      half + ': the share the ' + half + ' with the fewest have.'), T.tb.firstChild);
+      half + ': the share the ' + half + ' with the fewest have. A dash: fewer than ' + MIN + ' articles in the slice.'), T.tb.firstChild);
     // every school's counts
     const E = details(c, 'Each school’s articles');
     const rows = R.US.slice().sort((a, b) => {
       for (let i = SLICES.length - 1; i >= 0; i--) { const d = R.slices[i].counts[b] - R.slices[i].counts[a]; if (d) return d; }
       return S[a][0].localeCompare(S[b][0]);
     });
-    table(E.tb, ['School', 'U.S. News'].concat(SLICES.map((sl) => sl.key)),
-      rows.map((s) => [S[s][0], S[s][2] || 'unranked'].concat(SLICES.map((sl, i) => num(R.slices[i].counts[s])))), 'eq-schools');
-    E.tb.insertBefore(el('p', { class: 'eq-note' }, 'Articles in each slice of flagship reviews, ' + R.from + '–' + R.to + ', by current faculty of each U.S. law school (an article once per school). The columns are the slices by school rank, ties kept: the school ranked 1st, the top 3, 14, 50 and 100, and the flagship reviews in total.'), E.tb.firstChild);
+    table(E.tb, ['School', R.srcShort].concat(SLICES.map((sl) => sl.key)),
+      rows.map((s) => [S[s][0], S[s][R.rankCol] || 'unranked'].concat(SLICES.map((sl, i) => num(R.slices[i].counts[s])))), 'eq-schools');
+    E.tb.insertBefore(el('p', { class: 'eq-note' }, 'Articles in each slice of flagship reviews, ' + yrs(R.from, R.to) + ', by current faculty of each U.S. law school (an article once per school). The columns are the slices by school rank, ties kept: the school ranked 1st, the top 3, 14, 50 and 100, and the flagship reviews in total.'), E.tb.firstChild);
     if (!has('line') || !has('bar')) { noChart(c, T.d); return { h, half, ten }; }
 
     // the chart and, beside it (under it on a phone), each slice's Gini as a bar
@@ -503,11 +525,12 @@
         yAxis: { min: 0, max: 1, tickInterval: 0.25, title: { text: null }, labels: { format: '{value:.2f}' } },
         tooltip: { formatter() {
           const pt = this.point || this, i = pt.custom, L = R.slices[i];
+          if (thin(L)) return '<b>' + esc(sliceName(i, true)) + '</b><br>Gini –: ' + fewText(L);
           return '<b>' + esc(sliceName(i, true)) + '</b><br>Gini ' + gini(L.g) + '<br>' + num(L.articles) + ' articles, ' + L.any + ' of ' + n + ' schools with articles<br>' +
             'Ten with the most: ' + pct1(L.top10) + '; the ' + half + ' with the fewest: ' + pct1(L.bottom);
         } },
         series: [{ name: 'Gini coefficient', borderRadius: 3, pointPadding: 0.16, groupPadding: 0, borderWidth: 0, custom: { bars: true },
-          data: SLICES.map((sl, i) => ({ y: R.slices[i].g, color: isOn(i) ? sl.color : faded(sl.color), custom: i })),
+          data: SLICES.map((sl, i) => ({ y: giniOf(R.slices[i]), color: isOn(i) ? sl.color : faded(sl.color), custom: i })),
           dataLabels: { enabled: true, crop: false, overflow: 'allow', formatter() { return gini((this.point || this).y); },
             style: { color: ink, fontSize: '11.5px', fontWeight: '600', textOutline: '3px #ffffff' } } }],
       }, W);
@@ -518,7 +541,7 @@
   // ---------------------------------------------------------------- 2. the Gini over time
   function figTime() {
     const W5 = R.wins, T = R.time;
-    if (W5.length < 3) return null;
+    if (W5.length < 2) return null;      // (two windows at the least: ten of the years chosen)
     const first = T[0], last = T[T.length - 1];
     const lab = (w) => w[0] + '–' + w[1];
     const h0 = first[HEAD], h1 = last[HEAD];
@@ -527,15 +550,15 @@
       'The Gini coefficient of the same counts, in five-year windows from ' + lab(W5[0]) + ' to ' + lab(W5[W5.length - 1]) + ', for four of the slices (the table has the six); ' +
       'each window counts the ' + R.n + ' U.S. law schools, those with no articles included. The reviews keep current ranks in each window. Counted: current faculty only, ' +
       'each credited to the school where they teach now, so the early windows hold the earlier work of those still teaching' +
-      (R.thin != null ? '. Gini of ' + num(h0.articles) + ' of the ' + num(h1.articles) + ' top-14 articles of ' + lab(W5[W5.length - 1]) + ' (evenly spaced; as many articles as ' +
+      (R.thin != null && !thin(h0) && !thin(h1) ? '. Gini of ' + num(h0.articles) + ' of the ' + num(h1.articles) + ' top-14 articles of ' + lab(W5[W5.length - 1]) + ' (evenly spaced; as many articles as ' +
         lab(W5[0]) + '): ' + gini(R.thin) + '; of the ' + num(h1.articles) + ': ' + gini(h1.g) + '; ' + lab(W5[0]) + ': ' + gini(h0.g) + '.' : '.'));
     key(c, OVER_TIME.map((i) => [i, '']));
     c.foot.textContent = 'Articles counted in the top-14 reviews: ' + num(h0.articles) + ' in ' + lab(W5[0]) + ', ' + num(h1.articles) + ' in ' + lab(W5[W5.length - 1]) +
       '; in the flagship reviews in total, ' + num(first[5].articles) + ' and ' + num(last[5].articles) + '.';
     const D = details(c, 'The numbers, by five years');
     table(D.tb, ['Years'].concat(SLICES.map((sl) => sl.key)),
-      W5.map((w, k) => [lab(w)].concat(SLICES.map((sl, i) => [gini(T[k][i].g), num(T[k][i].articles)]))), 'eq-time');
-    D.tb.insertBefore(el('p', { class: 'eq-note' }, 'Each cell: the Gini coefficient, and under it the number of articles. The columns are the slices by school rank, ties kept: the school ranked 1st, the top 3, 14, 50 and 100, and the flagship reviews in total.'), D.tb.firstChild);
+      W5.map((w, k) => [lab(w)].concat(SLICES.map((sl, i) => [gini(giniOf(T[k][i])), num(T[k][i].articles)]))), 'eq-time');
+    D.tb.insertBefore(el('p', { class: 'eq-note' }, 'Each cell: the Gini coefficient, and under it the number of articles (a dash: fewer than ' + MIN + '; the chart leaves those points out). The columns are the slices by school rank, ties kept: the school ranked 1st, the top 3, 14, 50 and 100, and the flagship reviews in total.'), D.tb.firstChild);
     if (!has('line')) { noChart(c, D.d); return { h0, h1 }; }
     const rule = css('--axis', '#c3c2b7'), ink2 = css('--ink-2', '#52514e');
     figs.push({ box: c.box, draw: () => {
@@ -569,7 +592,7 @@
         } },
         plotOptions: { series: { marker: { enabled: true, symbol: 'circle', radius: narrow ? 3 : 3.5, lineWidth: 1, lineColor: '#ffffff' }, states: { hover: { lineWidthPlus: 0 } } } },
         series: OVER_TIME.map((i, z) => ({ name: SLICES[i].short, color: SLICES[i].color, lineWidth: 2, custom: { slice: i, z: 1 + z },
-          opacity: isOn(i, OVER_TIME) ? 1 : 0.2, zIndex: 1 + z + (focus === i ? 10 : 0), data: T.map((row) => row[i].g) })),
+          opacity: isOn(i, OVER_TIME) ? 1 : 0.2, zIndex: 1 + z + (focus === i ? 10 : 0), data: T.map((row) => giniOf(row[i])) })),
       }, W);
     } });
     return { h0, h1 };
@@ -584,11 +607,12 @@
     const say = (t) => box.appendChild(document.createTextNode(t));
     const bold = (t) => box.appendChild(el('b', null, t));
     const all = R.slices[5], h = R.slices[HEAD], top = R.slices[1];
-    say('Flagship law review articles by current faculty across the ' + R.n + ' U.S. law schools, ' + R.from + '–' + R.to + '. ' +
+    if (thin(h)) { say('Fewer than ' + MIN + ' top-14-review articles by current faculty, ' + yrs(R.from, R.to) + ' (' + num(h.articles) + ').'); return; }
+    say('Flagship law review articles by current faculty across the ' + R.n + ' U.S. law schools, ' + yrs(R.from, R.to) + '. ' +
       'Gini coefficient across schools (0: equal counts; 1: one school with the articles): ');
-    bold(gini(all.g)); say(' for the flagship reviews in total, ');
-    bold(gini(h.g)); say(' for the top 14 and ');
-    bold(gini(top.g)); say(' for the top 3. Share of the top-14 reviews’ articles at the ten schools with the most: ');
+    bold(gini(giniOf(all))); say(' for the flagship reviews in total, ');
+    bold(gini(giniOf(h))); say(' for the top 14 and ');
+    bold(gini(giniOf(top))); say(' for the top 3' + (thin(top) ? ' (' + fewText(top) + ')' : '') + '. Share of the top-14 reviews’ articles at the ten schools with the most: ');
     bold(pct(h.top10)); say('; schools with no top-14 article: ' + h.none + '.');
   }
 
@@ -597,16 +621,32 @@
     figs.forEach((f) => { try { f.box.replaceChildren(); f.draw(); } catch (e) { f.box.replaceChildren(el('p', { class: 'text-muted eq-none' }, 'The chart could not be drawn; the table below lists the numbers.')); } });
   }
 
+  let gen = 0, observed = false;
+  const barOf = () => (window.LSR_INS && LSR_INS.bar ? LSR_INS.bar : null);
+  // the line under the heading: the years and options these figures use
+  function usesLine() {
+    const b = barOf();
+    if (!b || !R) return;
+    const W5 = R.wins;
+    b.uses('eqUses', [b.yearsText(R.from, R.to) + (W5.length >= 2 ? ' (five-year windows from 1980 on: ' + yrs(W5[0][0], W5[W5.length - 1][1]) + ')'
+      : ' (the five-year figure needs ten years or more' + (R.wFloor > R.from ? ' from ' + R.wFloor + ' on' : '') + ')'),
+      b.shortText(), 'law reviews grouped by ' + R.srcName, R.noHome ? 'a school’s own journals left out' : null]);
+  }
   function build() {
     if (drawn) return;
     drawn = true;
+    const my = ++gen;
     const body = $('equalityBody');
     if (!body) return;
+    R = null;
     try {
-      R = compute(DATA, META);
+      R = compute(DATA, META, barOf() ? barOf().get() : null);
+      usesLine();
       if (!R.n || !R.slices[5].tot) throw new Error('no flagship-review articles');
     } catch (e) {
-      body.replaceChildren(el('p', { class: 'text-muted' }, 'These figures could not be computed from this version of the data.'));
+      body.replaceChildren(el('p', { class: 'text-muted' }, R && R.n && !R.slices[5].tot ? 'No flagship-review articles by current faculty at U.S. law schools in the years chosen.'
+        : 'These figures could not be computed from this version of the data.'));
+      $('eqLede') && $('eqLede').replaceChildren();
       return;
     }
     body.replaceChildren();
@@ -618,16 +658,18 @@
     });
     try { lede(); } catch (e) { /* the lede is a summary; the cards stand alone */ }
     if (typeof Highcharts === 'undefined') { body.querySelectorAll('details.ins-table').forEach((d) => { d.open = true; }); figs.length = 0; }
-    // one figure per frame, so drawing never holds up scrolling
+    // one figure per frame, so drawing never holds up scrolling (a newer build stops an older one's frames)
     let i = 0;
     const next = () => {
-      if (i >= figs.length) return;
+      if (my !== gen || i >= figs.length) return;
       const f = figs[i++];
       try { f.draw(); } catch (e) { f.box.replaceChildren(el('p', { class: 'text-muted eq-none' }, 'The chart could not be drawn; the table below lists the numbers.')); }
       requestAnimationFrame(next);
     };
     requestAnimationFrame(next);
     // drawn again when the width changes (a phone turned, a window resized)
+    if (observed) return;
+    observed = true;
     let lastW = body.clientWidth, timer = null;
     if ('ResizeObserver' in window) {
       new ResizeObserver(() => {
@@ -640,12 +682,23 @@
     }
   }
 
+  // the page's bar changed: computed and drawn again, if drawn already (else the first draw reads the bar)
+  function rebuild() {
+    if (!drawn) return;
+    charts.splice(0).forEach((ch) => { try { ch.destroy(); } catch (e) { /* already gone */ } });
+    figs.length = 0;
+    keys.length = 0;
+    drawn = false;
+    build();
+  }
+
   // (2026-10-26, the owner: "use lazy loading") computed and drawn when the section comes into view, or a few
   // seconds after the data is in, whichever is first; never before insights.js has shown the section
   function start() {
     const got = window.LSR_INS;
     if (!got || !got.DATA || DATA) return;
     DATA = got.DATA; META = got.META || {};
+    if (got.bar) got.bar.on(rebuild, 'equality');   // (with its section: recomputed when near the screen)
     const sec = $('equality');
     let done = false;
     const go = () => {

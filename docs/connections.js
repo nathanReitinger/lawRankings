@@ -11,6 +11,7 @@
   const num = (n) => Number(n).toLocaleString('en-US');
   const pct = (x) => (x == null || !isFinite(x) ? '–' : (x < 0.1 && x > 0 ? (100 * x).toFixed(1) : (100 * x).toFixed(0)) + '%');
   const pct1 = (x) => (x == null || !isFinite(x) ? '–' : (100 * x).toFixed(1) + '%');
+  const yrs = (a, b) => (a === b ? String(a) : a + '–' + b);
   const rankNum = (label) => { const m = /\d+/.exec(label == null ? '' : String(label)); return m ? +m[0] : null; };
   const css = (name, dflt) => getComputedStyle(document.body).getPropertyValue(name).trim() || dflt;
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -52,22 +53,30 @@
 
   ////////////////////////////////////////////////////////////////////////// the numbers
 
-  // One pass over the papers. Every figure counts research articles (short pieces left out) with at least one author on
-  // the faculty of a U.S. law school; "the window" is the ten years ending at meta.default_to (the latest year whose
-  // volumes are mostly in) and the nine before; "twenty years earlier" the same ten years two decades back. (Until
-  // 2026-10-29 this was also the rankings page's default window; that is now twenty years ending this year.)
-  function compute(DATA, META) {
+  // One pass over the papers. Every figure counts articles with at least one author on the faculty of a U.S. law
+  // school, in the years of the page's bar (insights.js; 2026-10-29, the owner: "Add the year range into the
+  // 'insights' ... either asked on all data or that limited range a user selects. And include the optional options
+  // too"): all years, or a range; short pieces left out when that option is on; groups by the U.S. News overall rank
+  // or, with that option, the TaxProf peer rank; with a school's own journals left out, an article does not count for
+  // a school that publishes its journal. "Twenty years earlier" (the subject-area shift) is the last ten of the chosen
+  // years (all of them when there are fewer) and the same years two decades back. Without the bar (an older
+  // insights.js): research articles, the ten years ending at meta.default_to, U.S. News, as before.
+  function compute(DATA, META, B) {
     const P = DATA.papers, C = DATA.credits, S = DATA.schools, J = DATA.journals, people = DATA.people;
     const NP = P.n || P.journal.length, NS = S.length, NJ = J.length;
     let maxYear = 0;
     for (let p = 0; p < NP; p++) if (P.year[p] > maxYear) maxYear = P.year[p];
-    const to = META && META.default_to ? +META.default_to : maxYear;
-    const from = to - 9, eFrom = from - 20, eTo = to - 20;
+    const to = B ? B.to : META && META.default_to ? +META.default_to : maxYear;
+    const from = B ? B.from : to - 9;
+    const lFrom = Math.max(from, to - 9), lTo = to, eFrom = lFrom - 20, eTo = lTo - 20;
+    const minor = B ? B.minor : true;
+    const src = B && B.src === 'peer' ? 'peer' : 'usnews';
+    const own = B && B.noHome && DATA.journal_school ? DATA.journal_school : null;
     // each person's U.S. law school (-1: none on the faculty lists)
     const usOf = Int32Array.from(people, (row) => { const s = (row[1] || []).find((x) => S[x] && S[x][1]); return s == null ? -1 : s; });
-    const sRank = S.map((row) => (row[1] ? rankNum(row[2]) : null));          // U.S. News overall
+    const sRank = S.map((row) => (row[1] ? rankNum(src === 'peer' ? row[3] : row[2]) : null));
     const sBand = sRank.map(bandOf);
-    const jr = (DATA.journal_ranks && DATA.journal_ranks.usnews) || J.map((j) => j[2]);
+    const jr = (DATA.journal_ranks && (DATA.journal_ranks[src] || DATA.journal_ranks.usnews)) || J.map((j) => j[2]);
     // 0..4 flagship review by its school's band, 5 online editions & other general journals, 6 specialty (insights.js journalColumn)
     const col = J.map((j, ji) => {
       if (j[3] && j[3].length) return 6;
@@ -94,7 +103,9 @@
 
     const NA = (DATA.groups || []).length;
     const R = {
-      from, to, eFrom, eTo, sRank, sBand, ownJ, col, NJ,
+      from, to, eFrom, eTo, lFrom, lTo, sRank, sBand, ownJ, col, NJ, src, minor, noHome: !!own,
+      rankCol: src === 'peer' ? 3 : 2, srcShort: src === 'peer' ? 'TaxProf peer' : 'U.S. News', srcName: src === 'peer' ? 'TaxProf peer rank' : 'U.S. News overall rank',
+      art: minor ? 'research articles' : 'articles', Art: minor ? 'Research articles' : 'Articles',
       papers: 0, cross: 0, pairs: new Map(), drivers: new Map(), crossOf: new Int32Array(NS), crossList: [],   // 1. co-authors across schools
       flagTot: new Int32Array(NS), flagHome: new Int32Array(NS),                                      // 2. the school's own review
       tier: BANDS.map(() => new Float64Array(NA)), tierAll: new Float64Array(NA),                     // 3. areas by group of schools
@@ -104,23 +115,25 @@
     };
     const persons = [], schools = [], bands = new Set();
     for (let p = 0; p < NP; p++) {
-      if (P.minor && P.minor[p]) continue;
+      if (minor && P.minor && P.minor[p]) continue;
       const y = P.year[p];
       const inWin = y >= from && y <= to, inEarly = y >= eFrom && y <= eTo;
       if (!inWin && !inEarly) continue;
+      const ji = P.journal[p], a = areaOf[ji], ow = own ? own[ji] : null;
       persons.length = 0; schools.length = 0;
       for (let k = start[p]; k < start[p + 1]; k++) {
         const per = who[k], s = usOf[per];
-        if (s < 0 || persons.includes(per)) continue;
+        if (s < 0 || persons.includes(per) || (ow && ow.includes(s))) continue;
         persons.push(per);
         if (!schools.includes(s)) schools.push(s);
       }
       if (!schools.length) continue;
-      const ji = P.journal[p], a = areaOf[ji];
-      if (inEarly) { if (a >= 0) R.early[a]++; continue; }
+      // (the earlier years of the subject-area shift can overlap the chosen years when those run over thirty years)
+      if (inEarly && a >= 0) R.early[a]++;
+      if (!inWin) continue;
       R.papers++;
       if (a >= 0) {
-        R.late[a]++;
+        if (y >= lFrom && y <= lTo) R.late[a]++;
         R.tierAll[a]++;
         bands.clear();
         schools.forEach((s) => bands.add(sBand[s]));
@@ -259,7 +272,7 @@
     const name = (s) => instLabel(S[s][0], 18);
     const c = card('cnPairs',
       'Co-authored articles across law schools, by pair of schools',
-      'Research articles by current faculty at U.S. law schools, ' + R.from + '–' + R.to + ', with authors at two or more of those schools (' +
+      R.Art + ' by current faculty at U.S. law schools, ' + yrs(R.from, R.to) + ', with authors at two or more of those schools (' +
       num(R.cross) + ' of ' + num(R.papers) + ', ' + pct1(share) + '). The wheel joins the ' + top.length + ' pairs of schools with the most such articles; ' +
       'the wider the ribbon, the more articles. Each author counts at the school where they teach now. Tap a ribbon for the count and the two authors with the most of those articles.');
     // the pairs of schools on the wheel (10 or more articles) with the largest share by one pair of authors, when that
@@ -296,7 +309,7 @@
             t.element.setAttribute('dominant-baseline', 'central');
           });
         } } },
-        accessibility: { description: 'A dependency wheel of the ' + top.length + ' pairs of U.S. law schools whose current faculty wrote the most research articles together, ' + R.from + '–' + R.to + '. The table below the chart lists the pairs.' },
+        accessibility: { description: 'A dependency wheel of the ' + top.length + ' pairs of U.S. law schools whose current faculty wrote the most ' + R.art + ' together, ' + yrs(R.from, R.to) + '. The table below the chart lists the pairs.' },
         tooltip: { formatter() {
           const pt = this.point || this;
           if (pt.isNode) {
@@ -304,7 +317,7 @@
             return '<b>' + esc(S[s][0]) + '</b><br>' + num(R.crossOf[s]) + ' articles with a co-author at another U.S. law school<br>' + num(wheelN[s]) + ' with the schools it is joined to on the wheel';
           }
           const o = pt.custom || {};
-          return '<b>' + esc(name(o.a)) + ' & ' + esc(name(o.b)) + '</b><br>' + num(o.n) + ' article' + (o.n === 1 ? '' : 's') + ' together, ' + R.from + '–' + R.to +
+          return '<b>' + esc(name(o.a)) + ' & ' + esc(name(o.b)) + '</b><br>' + num(o.n) + ' article' + (o.n === 1 ? '' : 's') + ' together, ' + yrs(R.from, R.to) +
             (o.by ? '<br>Most by ' + esc(o.by.join(' & ')) + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '');
         } },
         series: [{
@@ -322,6 +335,7 @@
 
   // ---------------------------------------------------------------- 2. the school's own review
   function figHome() {
+    if (R.noHome) return null;        // (the bar's option leaves those very articles out)
     const S = DATA.schools, J = DATA.journals;
     const rows = [];
     for (let s = 0; s < S.length; s++) {
@@ -342,12 +356,12 @@
     const ownName = (s) => R.ownJ[s].map((ji) => J[ji][0]).join(' or ');
     const c = card('cnHome',
       'Faculty’s flagship-review articles in their school’s own law review',
-      'One dot per U.S. law school with its own flagship review and at least 20 flagship-review articles by its current faculty, ' + R.from + '–' + R.to +
-      ' (' + rows.length + ' schools): across, its U.S. News rank; up, the share of those articles that appeared in its own review. The line is each group of schools with their articles pooled.');
+      'One dot per U.S. law school with its own flagship review and at least 20 flagship-review articles by its current faculty, ' + yrs(R.from, R.to) +
+      ' (' + rows.length + ' schools): across, its ' + R.srcName + '; up, the share of those articles that appeared in its own review. The line is each group of schools with their articles pooled.');
     c.foot.textContent = 'Median school: ' + pct1(mid) + '.' +
       (t14.length ? ' Highest share among the top 14: ' + S[t14[0].s][0] + ', ' + pct(t14[0].share) + ' (' + num(t14[0].home) + ' of ' + num(t14[0].tot) + ') in the ' + ownName(t14[0].s) + '.' : '');
-    table(c.tb, ['School', 'U.S. News', 'In its own review', 'Flagship-review articles', 'Share'],
-      rows.map((r) => [S[r.s][0], S[r.s][2] || 'unranked', num(r.home), num(r.tot), pct1(r.share)])
+    table(c.tb, ['School', R.srcShort, 'In its own review', 'Flagship-review articles', 'Share'],
+      rows.map((r) => [S[r.s][0], S[r.s][R.rankCol] || 'unranked', num(r.home), num(r.tot), pct1(r.share)])
         .concat(pooled.filter((g) => g.tot).map((g) => [BANDS[g.k].label + ' (' + g.n + ' schools, pooled)', '', num(g.home), num(g.tot), pct1(g.share)])));
     if (!has('scatter')) { noChart(c); return { c }; }
     const blue = css('--flagship', '#2a78d6'), ink = css('--ink', '#0b0b0b'), ink2 = css('--ink-2', '#52514e');
@@ -366,13 +380,13 @@
       pooled.forEach((g) => { if (g.share != null) line.push({ x: g.lo, y: 100 * g.share, custom: g }, { x: Math.min(g.hi, maxX), y: 100 * g.share, custom: g }, { x: Math.min(g.hi, maxX) + 0.5, y: null }); });
       makeChart(c.box, {
         chart: { type: 'scatter', height: narrow ? 340 : 400 },
-        accessibility: { description: 'A scatter plot of ' + rows.length + ' U.S. law schools: U.S. News rank across, share of their faculty’s flagship-review articles in their own review up. The table below the chart lists the schools.' },
-        xAxis: { min: 0, max: Math.ceil((maxX + 2) / 10) * 10, tickInterval: narrow ? 50 : 25, startOnTick: false, endOnTick: false, title: { text: 'U.S. News rank (1 = top)' }, gridLineWidth: 0 },
+        accessibility: { description: 'A scatter plot of ' + rows.length + ' U.S. law schools: ' + R.srcName + ' across, share of their faculty’s flagship-review articles in their own review up. The table below the chart lists the schools.' },
+        xAxis: { min: 0, max: Math.ceil((maxX + 2) / 10) * 10, tickInterval: narrow ? 50 : 25, startOnTick: false, endOnTick: false, title: { text: R.srcShort + ' rank (1 = top)' }, gridLineWidth: 0 },
         yAxis: { min: 0, softMax: 50, tickInterval: narrow ? 20 : 10, title: { text: narrow ? null : 'In its own review' }, labels: { format: '{value}%' } },
         tooltip: { formatter() {
           const pt = this.point || this, o = pt.custom || {};
           if (o.k != null) return '<b>Schools ranked ' + esc(BANDS[o.k].label) + '</b><br>' + pct1(o.share) + ' of their flagship-review articles in their own review<br>' + num(o.home) + ' of ' + num(o.tot) + ', ' + o.n + ' schools pooled';
-          return '<b>' + esc(S[o.s][0]) + '</b><br>U.S. News ' + esc(S[o.s][2]) + '<br>' + pct1(o.share) + ' in its own review (' + num(o.home) + ' of ' + num(o.tot) + ')<br><span style="color:#898781">' + esc(ownName(o.s)) + '</span>';
+          return '<b>' + esc(S[o.s][0]) + '</b><br>' + R.srcShort + ' ' + esc(S[o.s][R.rankCol] || 'unranked') + '<br>' + pct1(o.share) + ' in its own review (' + num(o.home) + ' of ' + num(o.tot) + ')<br><span style="color:#898781">' + esc(ownName(o.s)) + '</span>';
         } },
         series: [
           { type: 'line', name: 'Each group of schools, pooled', data: line, color: ink2, lineWidth: 2, marker: { enabled: false }, zIndex: 1, findNearestPointBy: 'xy',
@@ -392,16 +406,18 @@
     const G = DATA.groups || [];
     const areas = G.map((g, a) => a).filter((a) => R.tierAll[a] >= 50);
     if (areas.length < 4) return null;
-    const allN = areas.reduce((x, a) => x + R.tierAll[a], 0);
-    const bandN = BANDS.map((b, k) => areas.reduce((x, a) => x + R.tier[k][a], 0));
+    // (review, 2026-10-29) the totals and each group's count run over every subject area, listed or not: an area with
+    // fewer than 50 articles is not given a row, but its articles stay in the shares' denominators and the bottom row
+    const allN = G.reduce((x, g, a) => x + R.tierAll[a], 0);
+    const bandN = BANDS.map((b, k) => G.reduce((x, g, a) => x + R.tier[k][a], 0));
     const shareAll = (a) => R.tierAll[a] / allN, share = (k, a) => (bandN[k] ? R.tier[k][a] / bandN[k] : null);
     const lr = (k, a) => Math.log2(share(k, a) / shareAll(a));
     // the areas the top leans to first, those below the top 100 lean to last
     areas.sort((x, y) => (lr(0, y) - lr(4, y)) - (lr(0, x) - lr(4, x)));
     const c = card('cnTiers',
       'Specialty-journal articles by subject area and group of schools',
-      'For each group of U.S. law schools (by U.S. News rank; 101+ includes the unranked), the share of its current faculty’s specialty-journal articles, ' + R.from + '–' + R.to +
-      ', in each subject area. Blue cells are above that area’s share in the total, red below; an article with authors in two groups counts in each.');
+      'For each group of U.S. law schools (by ' + R.srcName + '; 101+ includes the unranked), the share of its current faculty’s specialty-journal ' + R.art + ', ' + yrs(R.from, R.to) +
+      ', in each subject area. Blue cells are above that area’s share in the total, red below; an article with authors in two groups counts in each. Subject areas with fewer than 50 articles are not listed (they are in the totals).');
     c.foot.textContent = 'Rows: subject areas, highest ratio of the top-14 share to the 101+ share (unranked included) first.';
     table(c.tb, ['Subject area'].concat(BANDS.map((b) => b.short), ['Total']),
       areas.map((a) => [G[a]].concat(BANDS.map((b, k) => pct1(share(k, a)) + ' (' + num(R.tier[k][a]) + ')'), [pct1(shareAll(a)) + ' (' + num(R.tierAll[a]) + ')']))
@@ -447,11 +463,12 @@
     if (!R.hasAuthors) return null;
     const areas = G.map((g, a) => a).filter((a) => R.teamTot[a] >= 50).sort((x, y) => R.teamMulti[y] / R.teamTot[y] - R.teamMulti[x] / R.teamTot[x]);
     if (areas.length < 4) return null;
-    const tot = areas.reduce((x, a) => x + R.teamTot[a], 0), multi = areas.reduce((x, a) => x + R.teamMulti[a], 0);
+    // (review, 2026-10-29) the total runs over every subject area, listed or not
+    const tot = G.reduce((x, g, a) => x + R.teamTot[a], 0), multi = G.reduce((x, g, a) => x + R.teamMulti[a], 0);
     const sh = (a) => R.teamMulti[a] / R.teamTot[a];
     const c = card('cnTeams',
       'Co-written specialty-journal articles, by subject area',
-      'Of the specialty-journal research articles with an author on a U.S. law faculty, ' + R.from + '–' + R.to + ', the share with two or more authors (authors counted whether or not on a law faculty), by the journal’s subject area.');
+      'Of the specialty-journal ' + R.art + ' with an author on a U.S. law faculty, ' + yrs(R.from, R.to) + ', the share with two or more authors (authors counted whether or not on a law faculty), by the journal’s subject area. Subject areas with fewer than 50 articles are not listed (they are in the total).');
     c.foot.textContent = 'Specialty journals, total: ' + pct(multi / tot) + ' (' + num(multi) + ' of ' + num(tot) + ').';
     table(c.tb, ['Subject area', 'Articles', 'Two or more authors', 'Share'], areas.map((a) => [G[a], num(R.teamTot[a]), num(R.teamMulti[a]), pct1(sh(a))])
       .concat([['Specialty journals, total', num(tot), num(multi), pct1(multi / tot)]]));
@@ -486,10 +503,10 @@
     const areas = G.map((g, a) => a).filter((a) => R.early[a] + R.late[a] >= 50);
     const e = (a) => R.early[a] / eN, l = (a) => R.late[a] / lN, d = (a) => l(a) - e(a);
     areas.sort((x, y) => d(y) - d(x));
-    const ep = R.eFrom + '–' + R.eTo, lp = R.from + '–' + R.to;
+    const ep = yrs(R.eFrom, R.eTo), lp = yrs(R.lFrom, R.lTo);
     const c = card('cnShift',
       'Specialty-journal articles by subject area, ' + ep + ' and ' + lp,
-      'The share of each subject area in the specialty-journal research articles of today’s U.S. law faculty: ' + ep + ' (' + num(eN) + ' articles) and ' + lp +
+      'The share of each subject area in the specialty-journal ' + R.art + ' of today’s U.S. law faculty: ' + ep + ' (' + num(eN) + ' articles) and ' + lp +
       ' (' + num(lN) + '). An area’s share includes journals that opened between the two periods; the earlier years count only the faculty who still teach.');
     table(c.tb, ['Subject area', ep, lp, 'Change'], areas.map((a) => [G[a], pct1(e(a)) + ' (' + num(R.early[a]) + ')', pct1(l(a)) + ' (' + num(R.late[a]) + ')',
       (d(a) >= 0 ? '+' : '−') + Math.abs(100 * d(a)).toFixed(1) + ' pts']));
@@ -536,8 +553,8 @@
     const nTop = DATA.journals.filter((j, ji) => R.col[ji] === 0).length;
     const c = card('cnFew',
       'Share of articles by the most prolific faculty authors',
-      'Current faculty at U.S. law schools with at least one research article ' + R.from + '–' + R.to + ' (' + num(N) + ' people), ranked by their number of articles (each curve ranks them by its own count), and the running share of those articles: ' +
-      'in the journals collected here, and in the ' + nTop + ' flagship reviews of the schools U.S. News ranks in its top 14. ' +
+      'Current faculty at U.S. law schools with at least one ' + R.art.replace(/s$/, '') + ' ' + yrs(R.from, R.to) + ' (' + num(N) + ' people), ranked by their number of articles (each curve ranks them by its own count), and the running share of those articles: ' +
+      'in the journals collected here, and in the ' + nTop + ' flagship reviews of the schools in the top 14 by the ' + R.srcName + '. ' +
       'An article by two of them counts once for each (one author credit each), so the totals in the table run above the number of articles.');
     c.foot.textContent = 'People accounting for half of the top-14-review articles: ' + num(hTop) + ' (' + pct1(hTop / N) + ' of those who published); for half of their articles in the journals collected here: ' + num(hAll) +
       ' (' + pct1(hAll / N) + '). People with at least one top-14-review article: ' + num(topV.length) + ' (' + pct(topV.length / N) + ').';
@@ -602,11 +619,11 @@
       ['home', 'flagship-review articles in the school’s own law review'],
       ['tiers', 'specialty-journal articles by subject area and group of schools'],
       ['teams', 'co-written specialty-journal articles by subject area'],
-      ['shift', 'specialty-journal articles by subject area, ' + R.eFrom + '–' + R.eTo + ' and ' + R.from + '–' + R.to],
+      ['shift', 'specialty-journal articles by subject area, ' + yrs(R.eFrom, R.eTo) + ' and ' + yrs(R.lFrom, R.lTo)],
       ['few', 'the share of articles by the most prolific authors']].filter(([k]) => F[k]).map(([, t]) => t);
     if (!parts.length) return;
-    box.appendChild(document.createTextNode('Research articles by current faculty at U.S. law schools, ' + R.from + '–' + R.to +
-      (F.shift ? ' (one figure also ' + R.eFrom + '–' + R.eTo + ')' : '') + ': ' + parts.join('; ') + '.'));
+    box.appendChild(document.createTextNode(R.Art + ' by current faculty at U.S. law schools, ' + yrs(R.from, R.to) +
+      (F.shift && (R.eFrom < R.from || R.eTo > R.to) ? ' (one figure also ' + yrs(R.eFrom, R.eTo) + ')' : '') + ': ' + parts.join('; ') + '.'));
   }
 
   function drawAll() {
@@ -614,13 +631,24 @@
     figs.forEach((f) => { try { f.box.replaceChildren(); f.draw(); } catch (e) { f.box.replaceChildren(el('p', { class: 'text-muted cn-none' }, 'The chart could not be drawn; the table below lists the numbers.')); } });
   }
 
+  let gen = 0, observed = false;
+  const barOf = () => (window.LSR_INS && LSR_INS.bar ? LSR_INS.bar : null);
+  // the line under the heading: the years and options these figures use
+  function usesLine() {
+    const b = barOf();
+    if (!b || !R) return;
+    b.uses('cnUses', [b.yearsText(R.from, R.to) + (R.eFrom < R.from || R.eTo > R.to || R.lFrom > R.from ? ' (the subject-area shift: ' + yrs(R.eFrom, R.eTo) + ' and ' + yrs(R.lFrom, R.lTo) + ')' : ''),
+      b.shortText(), 'groups by ' + R.srcName, R.noHome ? 'a school’s own journals left out (so the own-review figure is not drawn)' : null]);
+  }
   function build() {
     if (drawn) return;
     drawn = true;
+    const my = ++gen;
     const body = $('connectionsBody');
     if (!body) return;
     try {
-      R = compute(DATA, META);
+      R = compute(DATA, META, barOf() ? barOf().get() : null);
+      usesLine();
     } catch (e) {
       body.replaceChildren(el('p', { class: 'text-muted' }, 'These figures could not be computed from this version of the data.'));
       return;
@@ -632,17 +660,23 @@
       try { F[k] = f(); } catch (e) { F[k] = null; if (window.console) console.warn('connections: ' + k, e); }
     });
     try { lede(F); } catch (e) { /* the lede lists the figures; the cards stand alone */ }
+    if (!Object.keys(F).some((k) => F[k])) {
+      $('cnLede') && $('cnLede').replaceChildren();
+      body.replaceChildren(el('p', { class: 'text-muted' }, 'Too few articles in the years chosen for these figures.'));
+    }
     if (typeof Highcharts === 'undefined') { body.querySelectorAll('details.ins-table').forEach((d) => { d.open = true; }); figs.length = 0; }
-    // one figure per frame, so drawing never holds up scrolling
+    // one figure per frame, so drawing never holds up scrolling (a newer build stops an older one's frames)
     let i = 0;
     const next = () => {
-      if (i >= figs.length) return;
+      if (my !== gen || i >= figs.length) return;
       const f = figs[i++];
       try { f.draw(); } catch (e) { f.box.replaceChildren(el('p', { class: 'text-muted cn-none' }, 'The chart could not be drawn; the table below lists the numbers.')); }
       requestAnimationFrame(next);
     };
     requestAnimationFrame(next);
     // drawn again when the width changes (a phone turned, a window resized)
+    if (observed) return;
+    observed = true;
     let lastW = body.clientWidth, timer = null;
     if ('ResizeObserver' in window) {
       new ResizeObserver(() => {
@@ -655,12 +689,22 @@
     }
   }
 
+  // the page's bar changed: computed and drawn again, if drawn already (else the first draw reads the bar)
+  function rebuild() {
+    if (!drawn) return;
+    charts.splice(0).forEach((ch) => { try { ch.destroy(); } catch (e) { /* already gone */ } });
+    figs.length = 0;
+    drawn = false;
+    build();
+  }
+
   // (2026-10-26, the owner: "use lazy loading") computed and drawn when the section comes into view, or a few
   // seconds after the data is in, whichever is first; never before insights.js has shown the section
   function start() {
     const got = window.LSR_INS;
     if (!got || !got.DATA || DATA) return;
     DATA = got.DATA; META = got.META || {};
+    if (got.bar) got.bar.on(rebuild, 'connections');   // (with its section: recomputed when near the screen)
     const sec = $('connections');
     let done = false;
     const go = () => {

@@ -51,7 +51,8 @@
   const TI_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
 
   let DATA, META, INS;
-  const st = { from: 0, to: 0, src: 'usnews', skipShort: true, band: 0, school: null, journal: null, matrix: 'row',
+  // from, to, src, skipShort and noHome follow the page's bar (below: the bar)
+  const st = { from: 0, to: 0, src: 'usnews', skipShort: false, noHome: false, band: 0, school: null, journal: null, matrix: 'row',
                measure: '2', articles: true, panel: false, tiBy: 'review', tiM: 0 };
   let W1 = null;   // question 1's aggregates for the current filters
   let coDone = false;   // question 2 drawn (lazily)
@@ -179,6 +180,7 @@
     const jr = journalRanks();
     const col = DATA.journals.map((j, ji) => journalColumn(ji, jr));
     const sRank = S.map((s, i) => schoolRank(i));
+    const own = st.noHome ? DATA.journal_school : null;   // the bar's option: an article does not count for the school publishing the journal
     const pair = new Map();
     const seen = new Set();
     const paperBands = new Map();
@@ -190,6 +192,7 @@
       for (let k = 0; k < schools.length; k++) {
         const s = schools[k];
         if (!S[s][1]) continue;
+        if (own && own[P.journal[p]] && own[P.journal[p]].includes(s)) continue;
         const key = p * NS + s;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -271,21 +274,30 @@
       d.appendChild(el('div', { class: 'l' }, l));
       t.appendChild(d);
     };
-    const yrs = st.from + '–' + st.to;
-    tile(pct(a), 'of top-14 faculty\'s flagship-review articles appeared in top-14 law reviews (' + yrs + ')');
-    tile(pct(c), 'of the top-14 reviews\' articles by U.S. law faculty had a top-14 author');
-    tile(pct(outside), 'of the top-14 reviews\' articles by U.S. law faculty had an author from a school ranked below 25');
+    const yl = yrs(st.from, st.to);
+    // (review, 2026-10-29) a share rests on at least 30 articles: with fewer, a dash and the count instead (the tiles
+    // as the lede; the bar can pick the thin early years)
+    const thinA = !(flag(D[0]) >= 30) || a == null, thinT = !(top >= 30);
+    const few = (n, what) => 'fewer than 30 ' + what + ' (' + num(n || 0) + '), ' + yl;
+    tile(thinA ? '–' : pct(a), thinA ? 'share in top-14 law reviews: ' + few(flag(D[0]), 'flagship-review articles by top-14 faculty')
+      : 'of top-14 faculty\'s flagship-review articles appeared in top-14 law reviews (' + yl + ')');
+    tile(thinT ? '–' : pct(c), thinT ? 'share with a top-14 author: ' + few(top, 'top-14-review articles by U.S. law faculty')
+      : 'of the top-14 reviews\' articles by U.S. law faculty had a top-14 author');
+    tile(thinT ? '–' : pct(outside), thinT ? 'share with an author from a school ranked below 25: ' + few(top, 'top-14-review articles by U.S. law faculty')
+      : 'of the top-14 reviews\' articles by U.S. law faculty had an author from a school ranked below 25');
     const lede = $('whereLede');
     lede.replaceChildren();
     // (2026-10-29, the owner: the site describes what is shown and does not state findings) the lede gives the
     // numbers with what they measure; thin years get a count instead
-    if (!(flag(D[0]) >= 30) || a == null) {
-      lede.append('Fewer than 30 flagship-review articles by top-14 faculty, ' + yrs + '.');
+    if (thinA) {
+      lede.append('Fewer than 30 flagship-review articles by top-14 faculty, ' + yl + '.');
       return;
     }
-    lede.append('Share of flagship-review articles in top-14 reviews, ' + yrs + ': ');
+    lede.append('Share of flagship-review articles in top-14 reviews, ' + yl + ': ');
     lede.appendChild(el('b', null, pct(a)));
-    lede.append(' for faculty at top-14 schools' + (b != null ? ', ' + pct(b) + ' for faculty at schools ranked 51–100' : '') + '. Share of the top-14 reviews\' articles by U.S. law faculty with an author from a school ranked below 25: ');
+    lede.append(' for faculty at top-14 schools' + (b != null && flag(D[3]) >= 30 ? ', ' + pct(b) + ' for faculty at schools ranked 51–100' : '') + '. ');
+    if (thinT) { lede.append('Fewer than 30 top-14-review articles by U.S. law faculty (' + num(top || 0) + ').'); return; }
+    lede.append('Share of the top-14 reviews\' articles by U.S. law faculty with an author from a school ranked below 25: ');
     lede.appendChild(el('b', null, pct(outside)));
     lede.append('.');
   }
@@ -304,14 +316,16 @@
     const P = DATA.papers, C = DATA.credits, people = DATA.people;
     const inst = new Map();          // school -> {papers: Set, authors: Map(person -> n)}
     const all = new Set();
+    const own = st.noHome && DATA.journal_school ? DATA.journal_school[jn.journal] || [] : null;
     for (let i = 0; i < C.paper.length; i++) {
       const p = C.paper[i];
       if (P.journal[p] !== jn.journal) continue;
       const y = P.year[p];
       if (y < st.from || y > st.to || (st.skipShort && P.minor[p])) continue;
-      all.add(p);
       const person = C.person[i];
       people[person][1].forEach((s) => {
+        if (own && own.includes(s)) return;        // the bar's option: not for the school publishing the journal
+        all.add(p);
         let o = inst.get(s);
         if (!o) { o = { s: s, papers: new Set(), authors: new Map() }; inst.set(s, o); }
         o.papers.add(p);
@@ -337,7 +351,7 @@
     lede.replaceChildren();
     const jname = DATA.journals[jn.journal][0];
     if (!R.articles) {
-      lede.append('0 articles by current faculty in ' + jname + ', ' + st.from + '–' + st.to + '.');
+      lede.append('0 articles by current faculty in ' + jname + ', ' + yrs(st.from, st.to) + '.');
       clearChart('jnGraph');
       $('jnList').replaceChildren();
       return;
@@ -350,10 +364,10 @@
     for (let i = 0; i < C.paper.length; i++) {
       const p = C.paper[i];
       if (P.journal[p] !== jn.journal || P.year[p] < st.from || P.year[p] > st.to || (st.skipShort && P.minor[p])) continue;
-      if (DATA.people[C.person[i]][1].some((s) => topSet.has(s))) top5papers.add(p);
+      if (DATA.people[C.person[i]][1].some((s) => topSet.has(s))) top5papers.add(p);     // (the top five are credited institutions: never the publisher when that is left out)
     }
     lede.appendChild(el('b', null, jname));
-    lede.append(', ' + st.from + '–' + st.to + ': ' + num(R.articles) + ' article' + (R.articles === 1 ? '' : 's') + ' by current faculty at ' +
+    lede.append(', ' + yrs(st.from, st.to) + ': ' + num(R.articles) + ' article' + (R.articles === 1 ? '' : 's') + ' by current faculty at ' +
       num(R.list.length) + ' institution' + (R.list.length === 1 ? '' : 's') + ' (institutions on the faculty lists, courts and non-US schools included).');
     if (R.list.length > 5) {
       lede.append(' Share with an author from the five institutions with the most articles (' + top5.map((o) => shortName(DATA.schools[o.s][0], 22)).join(', ') + '): ');
@@ -486,7 +500,7 @@
       // the journal's name over the tree, clear of its links
       title: { text: esc(narrow ? shortName(jname, 40) : jname.length > 80 ? jname.slice(0, 79) + '…' : jname), align: 'left', x: 0, y: 14, margin: 0,
         style: { fontSize: '13px', fontWeight: '700', color: INK } },
-      accessibility: { enabled: true, description: 'Institutions and authors publishing in ' + jname + ', ' + st.from + '–' + st.to + '. The list beside the chart lists the institutions and authors.',
+      accessibility: { enabled: true, description: 'Institutions and authors publishing in ' + jname + ', ' + yrs(st.from, st.to) + '. The list beside the chart lists the institutions and authors.',
         point: { descriptionFormatter: describe } },
       tooltip: tooltip,
       series: [{
@@ -630,7 +644,7 @@
     };
     draw('network', {
       chart: { height: wide ? 460 : 420, marginLeft: wide ? 176 : 4, marginRight: wide ? 196 : 4, marginTop: 8, marginBottom: 8 },
-      accessibility: { description: 'Flows of flagship-review articles, ' + st.from + '–' + st.to + ', from groups of law schools by ' + SRC_LABEL[st.src] +
+      accessibility: { description: 'Flows of flagship-review articles, ' + yrs(st.from, st.to) + ', from groups of law schools by ' + SRC_LABEL[st.src] +
         ' rank to the groups of flagship law reviews by their school\'s rank. The table "Each group of schools’ articles, by group of journals" has the shares.' },
       tooltip: { followTouchMove: false, formatter: tip },
       series: [{
@@ -700,7 +714,7 @@
   function renderNetDetail() {
     const d = $('netDetail');
     d.replaceChildren();
-    const yrs = st.from + '–' + st.to;
+    const yl = yrs(st.from, st.to);
     const list = (pairs, name) => {
       const ol = el('ol');
       pairs.forEach(([k, c]) => { const li = el('li'); li.append(name(k) + ' '); li.appendChild(el('span', { class: 'n' }, '(' + num(c) + ')')); ol.appendChild(li); });
@@ -711,8 +725,8 @@
       const v = W1.school.get(st.school);
       const p = el('div');
       p.appendChild(el('b', null, DATA.schools[st.school][0]));
-      if (!v || !v.n) { p.append(' (' + rankLabel(st.school) + '): 0 flagship-review articles, ' + yrs + '.'); d.appendChild(p); return; }
-      p.append(' (' + rankLabel(st.school) + '): ' + num(v.n) + ' flagship-review articles, ' + yrs + '. In reviews of schools ranked ' + bandShares(v.cols, v.n) + '.' + (v.median ? ' Median review rank ' + v.median + '.' : ''));
+      if (!v || !v.n) { p.append(' (' + rankLabel(st.school) + '): 0 flagship-review articles, ' + yl + '.'); d.appendChild(p); return; }
+      p.append(' (' + rankLabel(st.school) + '): ' + num(v.n) + ' flagship-review articles, ' + yl + '. In reviews of schools ranked ' + bandShares(v.cols, v.n) + '.' + (v.median ? ' Median review rank ' + v.median + '.' : ''));
       d.appendChild(p);
       d.appendChild(el('div', { style: 'margin-top:6px' }, 'Most often in:'));
       d.appendChild(list(Array.from(v.journals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6), (ji) => DATA.journals[ji][0]));
@@ -722,8 +736,8 @@
       const v = W1.journal.get(st.journal);
       const p = el('div');
       p.appendChild(el('b', null, DATA.journals[st.journal][0]));
-      if (!v) { p.append(': 0 articles by U.S. law faculty, ' + yrs + '.'); d.appendChild(p); return; }
-      p.append(': ' + num(v.papers.n) + ' articles by U.S. law faculty, ' + yrs + '. With an author from schools ranked ' + bandShares(v.papers.bands, v.papers.n) +
+      if (!v) { p.append(': 0 articles by U.S. law faculty, ' + yl + '.'); d.appendChild(p); return; }
+      p.append(': ' + num(v.papers.n) + ' articles by U.S. law faculty, ' + yl + '. With an author from schools ranked ' + bandShares(v.papers.bands, v.papers.n) +
         ' (an article with authors from two groups counts in both).');
       d.appendChild(p);
       d.appendChild(el('div', { style: 'margin-top:6px' }, 'Most frequent schools:'));
@@ -735,7 +749,7 @@
     const total = sum(cols);
     const p = el('div');
     p.appendChild(el('b', null, st.band >= 0 ? 'Faculty at schools ranked ' + BANDS[st.band].label.toLowerCase() : 'U.S. law faculty'));
-    p.append(': ' + num(total) + ' flagship-review articles, ' + yrs + '. In reviews of schools ranked ' + bandShares(cols, total) + '.');
+    p.append(': ' + num(total) + ' flagship-review articles, ' + yl + '. In reviews of schools ranked ' + bandShares(cols, total) + '.');
     d.appendChild(p);
     d.appendChild(el('div', { class: 'text-muted', style: 'margin-top:4px;font-size:13px' }, 'Tap a group on the left to pick it, a flow for its numbers; pick a school or a law review above to follow its own flows.'));
   }
@@ -787,7 +801,7 @@
     $('matrixNote').textContent = (byRow
       ? 'Each row is a group of law schools; across it, the share of its faculty\'s articles in each group of journals (rows add to 100%).'
       : 'Each column is a group of journals; down it, each group of schools\' share of the author credits there (an article counts once for each school with an author on it; columns add to 100%).') +
-      ' Flagship reviews are grouped by their school\'s ' + SRC_LABEL[st.src] + ' rank; ' + st.from + '–' + st.to + '.';
+      ' Flagship reviews are grouped by their school\'s ' + SRC_LABEL[st.src] + ' rank; ' + yrs(st.from, st.to) + '.';
     // the numbers behind the cells
     const tbl = el('table');
     const hr = el('tr');
@@ -900,7 +914,7 @@
       // the y axis's name sits above the plot, where it reads across
       title: { text: narrow ? '↑ Median review rank (1 = top)' : '↑ Median rank of the reviews its faculty publish in (1 = top)', align: 'left', x: 0, y: 12, margin: 0,
         style: { fontSize: '11.5px', fontWeight: '400', color: MUTED } },
-      accessibility: { description: 'Each school\'s ' + SRC_LABEL[st.src] + ' rank against the median rank of the flagship reviews its faculty publish in, ' + st.from + '–' + st.to + '.' },
+      accessibility: { description: 'Each school\'s ' + SRC_LABEL[st.src] + ' rank against the median rank of the flagship reviews its faculty publish in, ' + yrs(st.from, st.to) + '.' },
       xAxis: { min: 1, max: top, tickPositions: tv, startOnTick: false, endOnTick: false, gridLineWidth: 1, lineWidth: 0, tickLength: 0,
         title: { text: 'School\'s ' + SRC_LABEL[st.src] + ' rank →', align: 'high', margin: 6 } },
       yAxis: { min: 1, max: top, tickPositions: tv, startOnTick: false, endOnTick: false, reversed: true, gridLineWidth: 1 },
@@ -957,34 +971,84 @@
   const measureOf = (r, m) => (!r[0] ? null : m === '3' ? (r[3] + r[4]) / r[0] : m === 'mean' ? r[5] / r[0] : (r[2] + r[3] + r[4]) / r[0]);
   const ALL = ['flagship', 'online', 'specialty'];
 
+  // (2026-10-29) the years question 2 shows follow the page's bar: with all years, 1950 (the spread across schools,
+  // 1980) to the last complete year, as before; a range as picked, the latest year (partial until its volumes are in)
+  // left out unless only it was picked
+  // (review, 2026-10-29) one rule for all years and a range: the years start at the floor (1950; the spread, 1980) in
+  // both, so a range never shows more of the thin early years than all years do; a range that ends before the floor
+  // gives [a, b] with a > b, and the callers say so in place of a chart
+  function coYears(floor) {
+    const end = lastFull(), first = INS.years[0], last = INS.years[INS.years.length - 1];
+    if (bar.all) return [floor, end];
+    const a = Math.max(first, floor, bar.from);
+    if (bar.to < a) return [a, bar.to];
+    return [a, Math.max(a, Math.min(bar.from > end ? Math.min(bar.to, last) : end, bar.to))];
+  }
+  const coNone = (floor, what) => (what || 'This chart') + ' uses years from ' + floor + ' on; the years chosen end in ' + bar.to + '.';
+  // a chart box with a note in place of the chart
+  function noteIn(id, text) {
+    clearChart(id);
+    $(id).replaceChildren(el('p', { class: 'text-muted' }, text));
+  }
+  // a span in a tile: "1950s", "2021–25", "2016"
+  const spanLabel = (a, b) => (a === b ? String(a) : a % 10 === 0 && b === a + 9 ? a + 's' : a + '–' + (Math.floor(a / 100) === Math.floor(b / 100) ? String(b).slice(2) : b));
+  // the first and the last years compared in the tiles and the lede: the first ten and the last five of the years shown
+  // (1950s and the last five complete years under all years), or the two halves of a short range
+  function coEnds(a, b) {
+    const L = b - a + 1;
+    if (L >= 15) return { e: [a, a + 9], l: [b - 4, b] };
+    if (L >= 2) { const h = Math.floor(L / 2); return { e: [a, a + h - 1], l: [b - h + 1, b] }; }
+    return { e: [a, a], l: [a, a], one: true };
+  }
+
   function renderCoText() {
-    const end = lastFull();
-    const early = sumRows(ALL, 1950, 1959), late = sumRows(ALL, end - 4, end), mid = sumRows(ALL, 1950, 1999);
+    const [a, b] = coYears(1950);
+    const [sa, sb] = coYears(1980);
+    // the line under the heading; with a range starting before the floor, the years not used are named
+    const before = !bar.all && bar.from < 1950 && bar.to >= 1950 ? yrs(bar.from, Math.min(1949, bar.to)) + ' not used here (this section starts in 1950)' : null;
+    uses('coUses', [a > b ? yrs(bar.from, bar.to) + ' chosen; this section starts in 1950' : yrs(a, b) + (sa > sb ? ' (the spread across schools: from 1980 on, so not shown)'
+      : sa !== a || sb !== b ? ' (the spread across schools: ' + yrs(sa, sb) + ')' : ''),
+      before, a <= b && bar.to > b ? yrs(b + 1, bar.to) + ' left out as partial' : null, barAPI.shortText(), 'rank and own-journal options not used here']);
+    if (a > b) {
+      $('coTiles').replaceChildren();
+      $('coLede').replaceChildren(coNone(1950, 'This section'));
+      return;
+    }
+    const E = coEnds(a, b);
+    const early = sumRows(ALL, E.e[0], E.e[1]), late = sumRows(ALL, E.l[0], E.l[1]);
+    // the lede's earlier span: from the first year shown to 1999 (1950–1999 under all years), or the tiles' first years
+    let m0 = a, m1 = Math.min(1999, E.l[0] - 1);
+    if (m1 - m0 < 9) { m0 = E.e[0]; m1 = E.e[1]; }
+    const mid = sumRows(ALL, m0, m1);
     const t = $('coTiles');
     t.replaceChildren();
-    const tile = (a, b, l, f) => {
+    const tile = (x, y, l, f) => {
       const d = el('div', { class: 'ins-tile' });
       const v = el('div', { class: 'v' });
-      v.append(f(a));
-      v.appendChild(el('span', { class: 'arrow' }, '→'));
-      v.append(f(b));
+      v.append(f(x));
+      if (!E.one) { v.appendChild(el('span', { class: 'arrow' }, '→')); v.append(f(y)); }
       d.appendChild(v);
       d.appendChild(el('div', { class: 'l' }, l));
       t.appendChild(d);
     };
-    const span = '1950s → ' + (end - 4) + '–' + String(end).slice(2);
-    tile(measureOf(early, '2'), measureOf(late, '2'), 'of articles had two or more authors (' + span + ')', pct);
-    tile(measureOf(early, '3'), measureOf(late, '3'), 'had three or more', pct1);
-    tile(measureOf(early, 'mean'), measureOf(late, 'mean'), 'authors per article, on average', (x) => x.toFixed(2));
-    const f = measureOf(sumRows(['flagship'], end - 4, end), '2'), s = measureOf(sumRows(['specialty'], end - 4, end), '2');
+    const mf = (r, m, f) => { const v = measureOf(r, m); return v == null ? '–' : f(v); };
+    const span = E.one ? String(a) : spanLabel(E.e[0], E.e[1]) + ' → ' + spanLabel(E.l[0], E.l[1]);
+    tile(early, late, 'of articles had two or more authors (' + span + ')', (r) => mf(r, '2', pct));
+    tile(early, late, 'had three or more', (r) => mf(r, '3', pct1));
+    tile(early, late, 'authors per article, on average', (r) => mf(r, 'mean', (x) => x.toFixed(2)));
+    const f = measureOf(sumRows(['flagship'], E.l[0], E.l[1]), '2'), s = measureOf(sumRows(['specialty'], E.l[0], E.l[1]), '2');
     const lede = $('coLede');
     lede.replaceChildren();
     lede.append('Share of articles in the journals collected here with more than one author: ');
-    lede.appendChild(el('b', null, pct(measureOf(mid, '2'))));
-    lede.append(' in 1950–1999 and ');
+    if (!E.one) {
+      lede.appendChild(el('b', null, pct(measureOf(mid, '2'))));
+      lede.append(' in ' + yrs(m0, m1) + ' and ');
+    }
     lede.appendChild(el('b', null, pct(measureOf(late, '2'))));
-    lede.append(' in ' + (end - 4) + '–' + end + ' (' + pct(s) + ' in specialty journals, ' + pct(f) + ' in flagship law reviews).');
+    lede.append(' in ' + yrs(E.l[0], E.l[1]) + ' (' + pct(s) + ' in specialty journals, ' + pct(f) + ' in flagship law reviews).');
     $('cPanelNote').textContent = '(' + INS.panel.journals + ' journals publishing since ' + INS.panel.since + ')';
+    $('trendNote').textContent = bar.minor ? 'Every research article (short pieces left out) in every journal collected here, whoever wrote it, by year of the volume.'
+      : 'Every piece in every journal collected here, whoever wrote it, by year of the volume.';
   }
 
   function renderTrend() {
@@ -992,12 +1056,14 @@
     const W = box.clientWidth;
     const wide = W >= 700;
     const H = wide ? 380 : 300;
-    const end = lastFull();
-    const yrs = INS.years.map((y, i) => [y, i]).filter(([y]) => y >= 1950 && y <= end);
+    const [y0, end] = coYears(1950);
+    if (y0 > end) { noteIn('trend', coNone(1950)); $('trendLegend').replaceChildren(); $('trendTable').replaceChildren(); return; }
+    const span = end - y0;
+    const yrRows = INS.years.map((y, i) => [y, i]).filter(([y]) => y >= y0 && y <= end);
     const kinds = ['flagship', 'specialty'];
     const color = { flagship: css('--flagship'), specialty: css('--specialty') };
     const v = INS[variant()];
-    const series = kinds.map((k) => ({ k: k, pts: yrs.map(([y, i]) => ({ y: y, v: measureOf(v[k][i], st.measure), n: v[k][i][0] })).filter((d) => d.v != null && d.n >= 20) }));
+    const series = kinds.map((k) => ({ k: k, pts: yrRows.map(([y, i]) => ({ y: y, v: measureOf(v[k][i], st.measure), n: v[k][i][0] })).filter((d) => d.v != null && d.n >= 20) }));
     const vmax = max(series, (s) => max(s.pts, (d) => d.v)) || 1;
     const fmt = st.measure === 'mean' ? (d) => d.toFixed(2) : (d) => (100 * d).toFixed(0) + '%';
     $('trendTitle').textContent = st.measure === 'mean' ? 'Authors per article' : st.measure === '3' ? 'Share of articles with three or more authors' : 'Share of articles with more than one author';
@@ -1011,7 +1077,7 @@
     ['Year', 'Flagship: pieces', 'Flagship', 'Specialty: pieces', 'Specialty'].forEach((h) => hr.appendChild(el('th', null, h)));
     tbl.appendChild(el('thead')).appendChild(hr);
     const tb = el('tbody');
-    yrs.slice().reverse().forEach(([yr, i]) => {
+    yrRows.slice().reverse().forEach(([yr, i]) => {
       const tr = el('tr');
       tr.appendChild(el('td', null, String(yr)));
       kinds.forEach((k) => { const r = v[k][i]; tr.appendChild(el('td', null, num(r[0]))); const mv = measureOf(r, st.measure); tr.appendChild(el('td', null, mv == null ? '–' : fmt(mv))); });
@@ -1026,7 +1092,8 @@
         events: { render() { endLabels(this, series.map((s, i) => ({ i: i, text: (wide ? KIND_LABEL[s.k].replace(' law reviews', '') + ' ' : '') +
           (s.pts.length ? fmt(s.pts[s.pts.length - 1].v) : '') }))); } } },
       accessibility: { description: $('trendTitle').textContent + ', by year, flagship law reviews and specialty journals. The table below the chart lists the years.' },
-      xAxis: { min: 1950, max: end, tickInterval: wide ? 10 : 20, tickLength: 4, labels: { formatter() { return String(this.value); } },
+      xAxis: { min: span ? y0 : y0 - 1, max: span ? end : end + 1, tickLength: 4, labels: { formatter() { return String(this.value); } },
+        tickInterval: span > 50 ? (wide ? 10 : 20) : span > 24 ? (wide ? 5 : 10) : span > 10 ? (wide ? 2 : 5) : (wide ? 1 : 2),
         crosshair: { color: alpha(INK2, 0.5), width: 1 } },
       yAxis: { min: st.measure === 'mean' ? 1 : 0, softMax: st.measure === 'mean' ? Math.max(1.1, vmax) : vmax, tickAmount: 6, gridLineWidth: 1,
         labels: { formatter() { return fmt(this.value); } } },
@@ -1044,14 +1111,16 @@
     const box = $('teams');
     const W = box.clientWidth;
     const wide = W >= 700;
-    const end = lastFull();
-    const decades = range(1950, end + 1, 10).map((d) => ({ label: d + 's', a: d, b: Math.min(d + 9, end) }));
+    const [y0, end] = coYears(1950);
+    if (y0 > end) { noteIn('teams', coNone(1950)); $('teamsLegend').replaceChildren(); return; }
+    // the decades within the years shown; one cut short by them is named by its years
+    const decades = range(Math.floor(y0 / 10) * 10, end + 1, 10).map((d) => ({ label: d + 's', a: Math.max(d, y0), b: Math.min(d + 9, end) }));
     decades.forEach((d) => {
       const r = sumRows(ALL, d.a, d.b);
       d.co = r[2] + r[3] + r[4];
       d.counts = [r[2], r[3], r[4]];
-      // the current decade is partial: named by its years
-      d.name = d.label === (Math.floor(end / 10) * 10) + 's' && d.b < d.a + 9 ? d.a + '–' + String(d.b).slice(2) : d.label;
+      d.full = d.a % 10 === 0 && d.b === d.a + 9;
+      d.name = d.full ? d.label : spanLabel(d.a, d.b);
     });
     const colors = [css('--seq-1'), css('--seq-2'), css('--seq-3')];
     const names = ['2 authors', '3 authors', '4 or more'];
@@ -1062,14 +1131,14 @@
     // share is written inside a segment only where it fits (the tooltip has every one)
     draw('teams', {
       chart: { type: 'bar', height: decades.length * 34 + 16, marginLeft: 66, marginRight: wide ? 118 : 50, spacing: [4, 4, 4, 4] },
-      accessibility: { description: 'Co-authored articles by number of authors, by decade.' },
+      accessibility: { description: 'Co-authored articles by number of authors, by decade, ' + yrs(y0, end) + '.' },
       xAxis: [{ categories: decades.map((d) => d.name), lineWidth: 0, tickLength: 0, labels: { style: { color: INK2, fontSize: '12px', whiteSpace: 'nowrap' } } },
         { linkedTo: 0, opposite: true, categories: decades.map((d) => num(d.co) + (wide ? ' co-authored' : '')), lineWidth: 0, tickLength: 0,
           labels: { align: 'left', x: 6, style: { color: MUTED, fontSize: wide ? '11.5px' : '10.5px', whiteSpace: 'nowrap' } } }],
       yAxis: { min: 0, max: 100, visible: false, reversedStacks: false },
       tooltip: { followTouchMove: false, formatter() {
         const d = decades[this.point.index], k = this.series.index;
-        return tipHTML({ value: pct(this.percentage / 100, 1), lines: ['of co-authored articles in the ' + d.label + ' had ' + names[k].replace('4 or more', 'four or more authors')],
+        return tipHTML({ value: pct(this.percentage / 100, 1), lines: ['of co-authored articles in ' + (d.full ? 'the ' + d.label : d.name) + ' had ' + names[k].replace('4 or more', 'four or more authors')],
           note: num(this.y) + ' of ' + num(d.co) });
       } },
       plotOptions: { bar: { stacking: 'percent', pointWidth: 22, borderWidth: 1, borderColor: '#ffffff',
@@ -1097,10 +1166,11 @@
     const W = box.clientWidth;
     const wide = W >= 700;
     const H = wide ? 420 : 340;
-    const end = lastFull();
-    const periods = range(1980, end + 1, 5).map((a) => ({ a: a, b: a + 4 >= end - 1 ? end : a + 4 }))
+    const [y0, end] = coYears(1980);
+    if (y0 > end) { noteIn('spread', coNone(1980)); $('spreadLegend').replaceChildren(); $('spreadTable').replaceChildren(); return; }
+    const periods = range(y0, end + 1, 5).map((a) => ({ a: a, b: a + 4 >= end - 1 ? end : a + 4 }))
       .filter((p, i, all) => !(i > 0 && all[i - 1].b === end));
-    periods.forEach((p) => { p.label = p.a + '–' + String(p.b).slice(2); });
+    periods.forEach((p) => { p.label = spanLabel(p.a, p.b); });
     const P = DATA.papers, C = DATA.credits, S = DATA.schools, people = DATA.people;
     const panel = st.panel && INS.panel.names ? new Set(INS.panel.names) : null;
     const jName = DATA.journals.map((j) => j[0]);
@@ -1110,7 +1180,7 @@
     for (let i = 0; i < C.paper.length; i++) {
       const p = C.paper[i];
       const yr = P.year[p];
-      if (yr < 1980 || yr > end || (st.articles && P.minor[p])) continue;
+      if (yr < y0 || yr > end || (st.articles && P.minor[p])) continue;
       if (panel && !panel.has(jName[P.journal[p]])) continue;
       let k = 0;
       while (k < periods.length && yr > periods[k].b) k++;
@@ -1186,7 +1256,7 @@
     };
     const chart = draw('spread', {
       chart: { height: H, marginRight: pick != null ? (wide ? 12 : 8) : 8 },
-      accessibility: { description: 'For each period since 1980, U.S. law schools with at least 15 articles by their current faculty, each at the share of those articles that were co-authored, with the median school and the middle half of schools. The table below the chart has the numbers.' },
+      accessibility: { description: 'For each period, ' + yrs(y0, end) + ', U.S. law schools with at least 15 articles by their current faculty, each at the share of those articles that were co-authored, with the median school and the middle half of schools. The table below the chart has the numbers.' },
       xAxis: { min: -0.5, max: periods.length - 0.5, tickPositions: periods.map((p, i) => i), lineWidth: 1, tickLength: 0, startOnTick: false, endOnTick: false,
         labels: { autoRotation: false, formatter() { const p = periods[this.value]; return p ? (wide ? p.label : String(p.a)) : ''; } } },
       yAxis: { min: 0, max: top, tickInterval: 0.1, startOnTick: false, endOnTick: false, gridLineWidth: 1, labels: { formatter() { return pct(this.value); } } },
@@ -1225,39 +1295,73 @@
   const tiFmt = (m) => (m === 3 ? (v) => Math.round(100 * v) + '%' : (v) => String(Math.round(v)));
   const tiSpan = (w) => w[0] + '–' + String(w[1]).slice(2);
 
+  // (2026-10-29) the years question 3 shows follow the page's bar (the titles start in 1980); the short-piece and rank
+  // options do not apply (insights.json has research articles only, grouped by U.S. News overall rank)
+  // (review, 2026-10-29) a range ends at the last full year, as in section 2 (the latest year is partial until its
+  // volumes are in), unless only that year is picked; all years keep it on the chart (the tiles use the build's windows)
+  function tiYears() {
+    const T = INS.titles, first = T.years[0], last = T.years[T.years.length - 1];
+    if (bar.all) return [first, last];
+    const a = Math.max(first, bar.from), b = Math.min(last, bar.to), end = Math.min(lastFull(), last);
+    if (a > b) return [a, b];
+    return [a, Math.max(a, bar.from > end ? b : Math.min(end, b))];
+  }
   function renderTitlesText() {
-    const T = INS.titles, [w0, w1] = T.windows;
-    const R = T.review_summary, S = T.school_summary;
+    const T = INS.titles;
+    const [ya, yb] = tiYears();
+    // the tiles and the lede compare the build's two five-year windows when the years shown hold both (all years);
+    // otherwise the first and the last year shown, each pooled with the years either side, as on the chart
+    const inWin = T.windows.every((w) => w[0] >= ya && w[1] <= yb);
+    const [w0, w1] = inWin ? T.windows : [[ya, ya], [yb, yb]];
+    const pooled = (by) => {
+      const out = {};
+      T.bands.forEach((b) => { const i0 = T.years.indexOf(ya), i1 = T.years.indexOf(yb); out[b] = [T[by][b].p[i0] || null, T[by][b].p[i1] || null]; });
+      return out;
+    };
+    const R = inWin ? T.review_summary : pooled('review'), S = inWin ? T.school_summary : pooled('school');
     const low = T.bands[T.bands.length - 1];
     const val = (s, k, c) => (s[k] && s[k][c] && s[k][c][0] != null ? s[k][c] : null);
+    const wl = (w) => (w[0] === w[1] ? String(w[0]) : w[0] + '–' + w[1]);
+    const one = ya === yb;
+    const lastY = T.years[T.years.length - 1], part = lastY > lastFull(), edge = part && yb === lastY;   // the partial latest year shown
+    uses('tiUses', [ya > yb ? 'no title-length data in the years chosen (titles are counted from ' + T.years[0] + ' on)'
+      : yrs(ya, yb) + (edge && bar.all ? ' (' + lastY + ' in part; tiles and summary: ' + wl(T.windows[0]) + ' and ' + wl(T.windows[1]) + ')'
+        : inWin ? '' : ' (tiles and summary: ' + (one ? ya : ya + ' and ' + yb) + (edge ? '; ' + lastY + ' in part, pooled with the year before)' : ', each pooled with the years either side)')),
+      ya <= yb && !bar.all && bar.to > yb ? yrs(yb + 1, bar.to) + ' left out as partial' : null,
+      'research articles (short pieces left out) and U.S. News overall rank, whatever the options above', 'own-journal option not used here']);
     const t = $('tiTiles');
     t.replaceChildren();
+    const lede = $('tiLede');
+    lede.replaceChildren();
+    if (ya > yb) return;
     const tile = (a, b, l, f) => {
       if (a == null || b == null) return;
       const d = el('div', { class: 'ins-tile' });
       const v = el('div', { class: 'v' });
       v.append(f(a));
-      v.appendChild(el('span', { class: 'arrow' }, '→'));
-      v.append(f(b));
+      if (!one) { v.appendChild(el('span', { class: 'arrow' }, '→')); v.append(f(b)); }
       d.appendChild(v);
       d.appendChild(el('div', { class: 'l' }, l));
       t.appendChild(d);
     };
-    const span = tiSpan(w0) + ' → ' + tiSpan(w1);
+    const span = one ? String(ya) : inWin ? tiSpan(w0) + ' → ' + tiSpan(w1) : ya + ' → ' + yb;
     const chars = (x) => String(Math.round(x));
     tile(R['Top 14'][0] && R['Top 14'][0][0], R['Top 14'][1] && R['Top 14'][1][0], 'characters in the median title, Top 14 law reviews (' + span + ')', chars);
     tile(R[low][0] && R[low][0][0], R[low][1] && R[low][1][0], 'in reviews ranked 101 and below, or unranked', chars);
     tile(R['Top 14'][0] && R['Top 14'][0][3], R['Top 14'][1] && R['Top 14'][1][3], 'of Top 14 review titles had a subtitle (a colon)', pct);
     const a = val(R, 'Top 14', 0), b = val(R, 'Top 14', 1), c = val(R, low, 0), d = val(R, low, 1);
     const fa = val(S, 'Top 14', 0), fb = val(S, 'Top 14', 1), fc = val(S, low, 0), fd = val(S, low, 1);
-    const lede = $('tiLede');
-    lede.replaceChildren();
     if (!a || !b || !c || !d) return;
     lede.append('Median research-article title length in the Top 14 law reviews: ');
     lede.appendChild(el('b', null, Math.round(a[0]) + ' characters'));
-    lede.append(' in ' + w0[0] + '–' + w0[1] + ' and ');
+    if (one) {
+      lede.append(' in ' + wl(w0) + (edge ? ' (in part, with the year before)' : ' (with the years either side)') + '; in reviews ranked 101 and below, or unranked, ' + Math.round(c[0]) + '.');
+      if (fa && fc) lede.append(' By the author\'s school: ' + Math.round(fa[0]) + ' characters for current faculty at Top 14 schools, ' + Math.round(fc[0]) + ' at schools ranked 101 and below, or unranked.');
+      return;
+    }
+    lede.append(' in ' + wl(w0) + ' and ');
     lede.appendChild(el('b', null, String(Math.round(b[0]))));
-    lede.append(' in ' + w1[0] + '–' + w1[1] + '; in reviews ranked 101 and below, or unranked, ' + Math.round(c[0]) + ' and ' + Math.round(d[0]) + '.');
+    lede.append(' in ' + wl(w1) + (inWin ? '' : ' (each with the years either side)') + '; in reviews ranked 101 and below, or unranked, ' + Math.round(c[0]) + ' and ' + Math.round(d[0]) + '.');
     if (fa && fb && fc && fd) {
       lede.append(' By the author\'s school: ' + Math.round(fa[0]) + ' and ' + Math.round(fb[0]) +
         ' characters for current faculty at Top 14 schools, ' + Math.round(fc[0]) + ' and ' + Math.round(fd[0]) + ' at schools ranked 101 and below, or unranked.');
@@ -1266,6 +1370,11 @@
 
   function renderTitlesChart() {
     const T = INS.titles;
+    { // no titles in the years chosen: the card is hidden
+      const [ya, yb] = tiYears();
+      $('figTitles').hidden = ya > yb;
+      if (ya > yb) { clearChart('tiChart'); $('tiLegend').replaceChildren(); $('tiTable').replaceChildren(); return; }
+    }
     const box = $('tiChart');
     const W = box.clientWidth;
     if (W < 160) return;          // not laid out yet (a hidden tab): the ResizeObserver draws it once it has a width
@@ -1273,11 +1382,13 @@
     const H = wide ? 380 : 300;
     const by = st.tiBy, mi = st.tiM, fmt = tiFmt(mi);
     const first = T.years[0], last = T.years[T.years.length - 1];
+    const [ya, yb] = tiYears();
+    const span = yb - ya;
     $('tiTitle').textContent = mi === 3 ? 'Share of titles with a subtitle (a colon)' : 'Median title length, in characters';
     $('tiNote').textContent = by === 'review'
       ? 'Research articles in each school\'s main law review, grouped by the U.S. News rank of the school that publishes it, whoever wrote them (pieces labelled as student work left out). Each point pools the year with the years either side.'
       : 'Research articles by current faculty in the journals collected here, grouped by the U.S. News rank of the author\'s school (an article by authors in two groups counts in both). Each point pools the year with the years either side.';
-    const series = T.bands.map((b, k) => ({ b: b, k: k, pts: T[by][b].p.map((r, i) => (r ? { y: T.years[i], v: r[mi], n: r[2] } : null)).filter(Boolean) }));
+    const series = T.bands.map((b, k) => ({ b: b, k: k, pts: T[by][b].p.map((r, i) => (r && T.years[i] >= ya && T.years[i] <= yb ? { y: T.years[i], v: r[mi], n: r[2] } : null)).filter(Boolean) }));
     const all = series.flatMap((s) => s.pts.map((d) => d.v));
     const lg = $('tiLegend');
     lg.replaceChildren();
@@ -1290,7 +1401,7 @@
     T.bands.forEach((b) => hr.appendChild(el('th', null, tiShort(b))));
     tbl.appendChild(el('thead')).appendChild(hr);
     const tb = el('tbody');
-    T.years.slice().reverse().forEach((yr) => {
+    T.years.filter((yr) => yr >= ya && yr <= yb).reverse().forEach((yr) => {
       const i = T.years.indexOf(yr);
       const tr = el('tr');
       tr.appendChild(el('td', null, String(yr)));
@@ -1311,7 +1422,8 @@
       chart: { type: 'line', height: H, marginRight: wide ? 120 : 84,
         events: { render() { endLabels(this, series.map((s, i) => ({ i: i, text: s.pts.length ? tiShort(s.b) + ' ' + fmt(s.pts[s.pts.length - 1].v) : '' }))); } } },
       accessibility: { description: $('tiTitle').textContent + ', by year, by ' + (by === 'review' ? 'the law review\'s rank' : 'the author\'s school\'s rank') + '. The table below the chart lists the years.' },
-      xAxis: { min: first, max: last, tickInterval: wide ? 5 : 10, tickLength: 4, labels: { formatter() { return String(this.value); } },
+      xAxis: { min: span ? ya : ya - 1, max: span ? yb : yb + 1, tickLength: 4, labels: { formatter() { return String(this.value); } },
+        tickInterval: span > 24 ? (wide ? 5 : 10) : span > 10 ? (wide ? 2 : 5) : (wide ? 1 : 2),
         crosshair: { color: alpha(INK2, 0.5), width: 1 } },
       yAxis: mi === 3 ? { min: 0, softMax: Math.max(0.1, max(all) || 1), tickAmount: 6, gridLineWidth: 1, labels: { formatter() { return fmt(this.value); } } }
         : { min: Math.max(0, Math.floor(((min(all) || 0) - 5) / 10) * 10), softMax: (max(all) || 100) + 5, gridLineWidth: 1, labels: { formatter() { return fmt(this.value); } } },
@@ -1344,6 +1456,300 @@
     renderTitlesChart();
   }
 
+  ////////////////////////////////////////////////////////////////////////// the page's bar: years and options
+
+  // (2026-10-29, the owner: "Add the year range into the 'insights' to populate them dynamically. Make it so that they
+  // are either asked on all data or that limited range a user selects. And include the optional options too like the
+  // short piece exclusion selector") one bar for every section that can follow it: all years (the default: every year
+  // in the data) or a range picked from / to, and the rankings page's options that mean something here, each off by
+  // default as there (app.js defaultState): skip short pieces, leave out a school's own journals, TaxProf peer rank. The
+  // state is in the URL hash with the rankings page's keys (#y=2007-2026&m=1&o=1&k=peer; all years: no y), never in
+  // localStorage; a section's anchor can sit beside it (#coauthor&y=2007-2026). A change recomputes, behind the
+  // spinner, every section already drawn: each section reads the bar when it is first drawn and asks to be told of
+  // changes (window.LSR_INS.bar.on), and says under its heading which years and options it uses (bar.uses).
+  const bar = { all: true, from: 0, to: 0, minor: false, noHome: false, src: 'usnews' };
+  let yMin = 0, yMax = 0;
+  const barFns = [];
+  const SRC_NAME = { usnews: 'U.S. News overall rank', peer: 'TaxProf peer rank' };
+  const barSources = () => (DATA.rank_sources || [['usnews']]).map((s) => s[0]);
+  const clampY = (y) => Math.max(yMin, Math.min(yMax, y));
+  const yrs = (a, b) => (a === b ? String(a) : a + '–' + b);
+
+  function readBarHash() {
+    const parts = location.hash.replace(/^#/, '').split('&').filter(Boolean);
+    const anchor = parts.find((x) => !x.includes('=')) || null;
+    let h;
+    try { h = new URLSearchParams(parts.filter((x) => x.includes('=')).join('&')); } catch (e) { h = new URLSearchParams(); }
+    const s = { all: true, from: yMin, to: yMax, minor: h.get('m') === '1', noHome: h.get('o') === '1' && !!DATA.journal_school,
+      src: h.get('k') === 'peer' && barSources().includes('peer') ? 'peer' : 'usnews' };
+    const y = /^(\d{4})-(\d{4})$/.exec(h.get('y') || '');
+    if (y) {
+      let a = clampY(+y[1]), b = clampY(+y[2]);
+      if (a > b) [a, b] = [b, a];
+      if (a !== yMin || b !== yMax) { s.all = false; s.from = a; s.to = b; }
+    }
+    return { anchor: anchor && /^[A-Za-z][\w-]*$/.test(anchor) ? anchor : null, state: s };
+  }
+  function barQuery() {
+    const h = [];
+    if (!bar.all) h.push('y=' + bar.from + '-' + bar.to);
+    if (bar.minor) h.push('m=1');
+    if (bar.noHome) h.push('o=1');
+    if (bar.src !== 'usnews') h.push('k=' + bar.src);
+    return h.join('&');
+  }
+  let barAnchor = null, rebaseBar = () => {};
+  function writeBarHash() {
+    const h = [barAnchor, barQuery()].filter(Boolean).join('&');
+    history.replaceState(history.state, '', h ? '#' + h : location.pathname + location.search);
+  }
+  // section 1 keeps its state in st (the rest of this file reads st.from, st.to, st.src, st.skipShort, st.noHome)
+  function barToSt() {
+    st.from = bar.from; st.to = bar.to; st.src = bar.src; st.skipShort = bar.minor; st.noHome = bar.noHome;
+    st.articles = bar.minor;          // question 2: the 'articles' series of insights.json leave out the same short pieces
+  }
+  function barSummary() {
+    return [bar.all ? 'All years' : yrs(bar.from, bar.to), bar.minor ? 'short pieces left out' : null, bar.noHome ? 'own journals left out' : null,
+      bar.src === 'peer' ? 'TaxProf peer rank' : null].filter(Boolean).join(' · ');
+  }
+  function syncBar() {
+    $('bAll').checked = bar.all;
+    $('bFrom').value = String(bar.from);
+    $('bTo').value = String(bar.to);
+    $('bShort').checked = bar.minor;
+    $('bOwn').checked = bar.noHome;
+    $('bPeer').checked = bar.src === 'peer';
+    $('barSum').textContent = barSummary();
+    $('bReset').hidden = !barQuery();
+  }
+  // the line under a section's heading: which years and options it uses
+  function uses(id, parts) {
+    const e = $(id);
+    if (!e) return;
+    e.replaceChildren(el('b', null, 'This section: '));
+    e.append(parts.filter(Boolean).join(' · ') + '.');
+  }
+  const barAPI = {
+    get: () => ({ all: bar.all, from: bar.from, to: bar.to, minor: bar.minor, noHome: bar.noHome, src: bar.src, yMin: yMin, yMax: yMax }),
+    // a section's fn, with its section's id: recomputed at once when near the screen, else when it comes near
+    on: (fn, sec) => { barFns.push({ fn: fn, sec: sec || null, dirty: false }); },
+    uses: uses,
+    years: yrs,
+    // a section's years, "all years, 1884–2026" when the bar is on all years and the section uses them all
+    yearsText: (a, b) => (bar.all && a === yMin && b === yMax ? 'all years, ' : '') + yrs(a, b),
+    srcName: (src) => SRC_NAME[src || bar.src],
+    shortText: () => (bar.minor ? 'short pieces left out' : 'short pieces included'),
+    ownText: () => (bar.noHome ? 'a school’s own journals left out' : null),
+  };
+  // (review, 2026-10-29: one change held a phone for seconds, the spinner frozen too) the sections within about a
+  // screen of the reader recompute at once, behind the spinner, one at a time with a pause between (so the spinner
+  // moves); the others are marked and recompute when they come near (an IntersectionObserver), with the bar's state
+  // of that moment. A newer change stops an older one's queue.
+  let barGen = 0, barIO = null;
+  const near = (id) => {
+    const e = id && document.getElementById(id);
+    if (!e) return true;
+    const r = e.getBoundingClientRect(), h = window.innerHeight || 800;
+    return r.bottom > -h && r.top < 2 * h;
+  };
+  const pause = () => new Promise((res) => setTimeout(res, 0));
+  async function runFns(list, my) {
+    for (const f of list) {
+      if (my !== barGen) return;
+      f.dirty = false;
+      try { await f.fn(barAPI.get()); } catch (e) { if (window.console) console.error(e); }
+      await pause();
+    }
+  }
+  function crunchRun(list) {
+    const my = barGen, c = window.LSR && LSR.crunch;
+    if (!list.length) return Promise.resolve();
+    if (c) c.show('Crunching numbers');
+    // two frames, so the veil is painted before the first piece of work
+    return new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)))
+      .then(() => runFns(list, my))
+      .finally(() => { if (c) c.hide(380); rebaseBar(); });
+  }
+  function watchDirty() {
+    if (!('IntersectionObserver' in window)) return;
+    if (!barIO) {
+      barIO = new IntersectionObserver((es) => {
+        const ids = es.filter((e) => e.isIntersecting).map((e) => { barIO.unobserve(e.target); return e.target.id; });
+        const list = barFns.filter((f) => f.dirty && ids.includes(f.sec));
+        list.forEach((f) => { f.dirty = false; });
+        crunchRun(list).then(repin);
+      }, { rootMargin: '400px 0px' });
+    }
+    barFns.forEach((f) => { if (f.dirty && f.sec && document.getElementById(f.sec)) barIO.observe(document.getElementById(f.sec)); });
+  }
+  function barChanged() {
+    barToSt();
+    writeBarHash();
+    syncBar();
+    barGen++;
+    const now = [];
+    barFns.forEach((f) => { if (!f.sec || !('IntersectionObserver' in window) || near(f.sec)) now.push(f); else f.dirty = true; });
+    if (barIO) barIO.disconnect();
+    watchDirty();
+    crunchRun(now).then(repin);
+  }
+  function initBar() {
+    yMin = META.years.min; yMax = META.years.max;
+    const r = readBarHash();
+    Object.assign(bar, r.state);
+    barAnchor = r.anchor;
+    if (bar.all) { bar.from = yMin; bar.to = yMax; }
+    barToSt();
+    // this entry is the page's own too: Back to it leaves the scrolling to the browser (setupBar, popstate)
+    try { if (!history.state) history.replaceState({ lsr: 1 }, ''); } catch (e) { /* a sandboxed frame */ }
+  }
+  function setupBar() {
+    const box = $('insBar');
+    for (let y = yMax; y >= yMin; y--) { $('bFrom').add(new Option(y, y)); $('bTo').add(new Option(y, y)); }
+    if (barSources().includes('peer')) $('bPeerRow').hidden = false;
+    if (!DATA.journal_school) $('bOwn').closest('label').hidden = true;
+    box.hidden = false;
+    syncBar();
+    $('bAll').addEventListener('change', () => {
+      if ($('bAll').checked) { bar.all = true; bar.from = yMin; bar.to = yMax; }
+      else {
+        // a range to start from: the rankings page's default, the twenty years ending this year (or the data's last)
+        bar.all = false; bar.to = clampY(Math.min(new Date().getFullYear(), yMax)); bar.from = clampY(bar.to - 19);
+      }
+      barChanged();
+    });
+    const yearChange = () => {
+      let a = +$('bFrom').value, b = +$('bTo').value;
+      if (a > b) [a, b] = [b, a];
+      bar.from = a; bar.to = b; bar.all = a === yMin && b === yMax;
+      barChanged();
+    };
+    $('bFrom').addEventListener('change', yearChange);
+    $('bTo').addEventListener('change', yearChange);
+    $('bShort').addEventListener('change', () => { bar.minor = $('bShort').checked; barChanged(); });
+    $('bOwn').addEventListener('change', () => { bar.noHome = $('bOwn').checked; barChanged(); });
+    $('bPeer').addEventListener('change', () => { bar.src = $('bPeer').checked ? 'peer' : 'usnews'; barChanged(); });
+    $('bReset').addEventListener('click', () => { Object.assign(bar, { all: true, from: yMin, to: yMax, minor: false, noHome: false, src: 'usnews' }); barChanged(); });
+    // a phone: the bar is one line, its controls behind it. (review, 2026-10-29) wider, the controls always show, so
+    // the toggle is no Tab stop and not announced as a collapsed button (insights.css: the phone layout below 768px)
+    const tg = $('barToggle');
+    const mq = window.matchMedia ? window.matchMedia('(max-width: 767px)') : { matches: false };
+    const syncToggle = () => {
+      if (mq.matches) {
+        tg.tabIndex = 0;
+        tg.setAttribute('aria-controls', 'barControls');
+        tg.setAttribute('aria-expanded', String(box.classList.contains('open')));
+      } else {
+        box.classList.remove('open');
+        tg.tabIndex = -1;
+        tg.removeAttribute('aria-expanded');
+        tg.removeAttribute('aria-controls');
+      }
+    };
+    syncToggle();
+    if (mq.addEventListener) mq.addEventListener('change', syncToggle); else if (mq.addListener) mq.addListener(syncToggle);
+    tg.addEventListener('click', () => {
+      if (!mq.matches) return;   // wide: always open
+      const open = !box.classList.contains('open');
+      box.classList.toggle('open', open);
+      tg.setAttribute('aria-expanded', String(open));
+    });
+    // the bar's height, for the sticky section controls and the anchors' scroll margin (insights.css --bar-h)
+    const setH = () => { document.documentElement.style.setProperty('--bar-h', box.offsetHeight + 'px'); };
+    setH();
+    if ('ResizeObserver' in window) new ResizeObserver(setH).observe(box);
+    // a soft shadow once it sticks; on a phone, the controls fold away again once the reader scrolls on. (review,
+    // 2026-10-29) only the reader's own scrolling folds them: a recompute moves the page by itself (sections empty and
+    // are drawn again), and that move only sets a new starting point
+    let raf = 0, openedAt = 0, userAt = 0;
+    const SCROLL_KEYS = ['PageUp', 'PageDown', ' ', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+    const byUser = () => { userAt = performance.now(); };
+    window.addEventListener('wheel', byUser, { passive: true });
+    window.addEventListener('touchmove', byUser, { passive: true });
+    window.addEventListener('keydown', (e) => { if (SCROLL_KEYS.includes(e.key) && !box.contains(e.target)) byUser(); }, { passive: true });
+    tg.addEventListener('click', () => { openedAt = window.scrollY; userAt = 0; });
+    rebaseBar = () => { openedAt = window.scrollY; };
+    window.addEventListener('scroll', () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        box.classList.toggle('stuck', box.getBoundingClientRect().top <= 0.5 && window.scrollY > 0);
+        if (!box.classList.contains('open')) return;
+        if (performance.now() - userAt > 600) { openedAt = window.scrollY; return; }
+        if (Math.abs(window.scrollY - openedAt) > 120) {
+          if (box.contains(document.activeElement)) document.activeElement.blur();
+          box.classList.remove('open');
+          tg.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }, { passive: true });
+    // in-page links (the contents) keep the bar's state in the URL: #coauthor&y=2007-2026
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest && e.target.closest('a[href^="#"]');
+      if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const id = a.getAttribute('href').slice(1), t = id && document.getElementById(id);
+      if (!t) return;
+      e.preventDefault();
+      barAnchor = id;
+      // (review, 2026-10-29) a new history entry, as a plain anchor makes, so Back returns to where the reader was
+      const h = [id, barQuery()].filter(Boolean).join('&');
+      history.pushState({ lsr: 1 }, '', '#' + h);
+      t.scrollIntoView();
+    });
+    // a hash typed or pasted into the address bar (scrolled to its section), or Back and Forward between the
+    // contents' entries, marked { lsr: 1 } (the browser puts the page back where it was; not scrolled here)
+    let popped = null;
+    const onHash = (scroll) => {
+      const r = readBarHash();
+      barAnchor = r.anchor;
+      const changed = ['all', 'from', 'to', 'minor', 'noHome', 'src'].some((k) => r.state[k] !== bar[k]);
+      if (changed) { Object.assign(bar, r.state); barChanged(); }
+      const t = scroll && r.anchor && document.getElementById(r.anchor);
+      if (t) t.scrollIntoView();
+    };
+    window.addEventListener('popstate', (e) => { const back = !!(e.state && e.state.lsr); popped = back ? location.href : null; onHash(!back); });
+    window.addEventListener('hashchange', () => { const p = popped === location.href; popped = null; onHash(!p); });
+  }
+  // section 6 (anonymous review) is a study with fixed years and counting: it does not follow the bar
+  function anonUses() {
+    const A = INS && INS.anon;
+    if (!A || !$('anUses')) return;
+    uses('anUses', ['volume years ' + yrs(A.since, A.last) + ', research articles (short pieces left out), groups by U.S. News overall rank: fixed by the study’s design, so the years and options above do not change it']);
+  }
+  // section 7 (words in titles) uses the build's fixed windows (insights.json title_words has no counts by year), so it
+  // does not follow the bar either
+  // a section in the URL at load: kept in view while the sections above it are drawn
+  let pinning = false;
+  function repin() {
+    if (!pinning || !barAnchor) return;
+    const t = document.getElementById(barAnchor);
+    if (t && Math.abs(t.getBoundingClientRect().top) > 2) t.scrollIntoView();
+  }
+  function pinAnchor() {
+    if (!barAnchor || !document.getElementById(barAnchor)) return;
+    pinning = true;
+    repin();
+    let ro = null;
+    const stop = () => {
+      if (!pinning) return;
+      pinning = false;
+      if (ro) ro.disconnect();
+      ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach((t) => window.removeEventListener(t, stop, true));
+    };
+    ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach((t) => window.addEventListener(t, stop, { capture: true, passive: true }));
+    if ('ResizeObserver' in window) { ro = new ResizeObserver(() => requestAnimationFrame(repin)); ro.observe(document.body); }
+    setTimeout(stop, 8000);
+  }
+  function twUses() {
+    const W = INS && INS.title_words;
+    if (!W || !$('twUses')) return;
+    uses('twUses', [yrs(W.since, W.last) + (W.full && W.last > W.full ? ' (' + W.last + ' in part)' : ''), 'research articles (short pieces left out)',
+      'tiers by U.S. News overall rank: fixed here, so the years and options above do not change it']);
+  }
+  function whereUses() {
+    uses('whereUses', [barAPI.yearsText(st.from, st.to), barAPI.shortText(), SRC_NAME[st.src], barAPI.ownText()]);
+  }
+
   ////////////////////////////////////////////////////////////////////////// controls
 
   // (2026-10-25, the owner: "add in a spinner for crunching numbers") the years, rank source or short-piece switch
@@ -1352,6 +1758,7 @@
     if (window.LSR && LSR.crunch) LSR.crunch.run(renderWhereNow); else renderWhereNow();
   }
   function renderWhereNow() {
+    whereUses();
     W1 = computeWhere();
     renderWhereText();
     renderJournal();
@@ -1388,25 +1795,9 @@
   }
 
   function setup() {
-    const maxY = Math.min(new Date().getFullYear(), META.years.max);
-    // the same default window as the rankings page (2026-10-29): twenty year labels ending at the current year
-    st.to = maxY;
-    st.from = Math.max(META.years.min, st.to - 19);
-    for (let y = maxY; y >= Math.max(META.years.min, 1950); y--) { $('wFrom').add(new Option(y, y)); $('wTo').add(new Option(y, y)); }
-    $('wFrom').value = st.from;
-    $('wTo').value = st.to;
-    (DATA.rank_sources || [['usnews', 'U.S. News overall rank']]).forEach((s) => $('wSrc').add(new Option(s[0] === 'peer' ? 'TaxProf peer rank' : 'U.S. News overall rank', s[0])));
-    $('wSrc').value = st.src;
-    const yearChange = () => {
-      let a = +$('wFrom').value, b = +$('wTo').value;
-      if (a > b) { const t = a; a = b; b = t; $('wFrom').value = a; $('wTo').value = b; }
-      st.from = a; st.to = b;
-      renderWhere();
-    };
-    $('wFrom').addEventListener('change', yearChange);
-    $('wTo').addEventListener('change', yearChange);
-    $('wSrc').addEventListener('change', () => { st.src = $('wSrc').value; fillSchoolSelect('netSchool'); fillSchoolSelect('coSchool'); fillJournalSelect(); fillJournalPicker(); renderWhere(); });
-    $('wShort').addEventListener('change', () => { st.skipShort = $('wShort').checked; renderWhere(); });
+    // (2026-10-29) section 1's years, rank source and short-piece switch moved to the page's bar (above): st follows it
+    barToSt();
+    setupBar();
 
     const chips = $('netChips');
     [['Groups together', -1]].concat(BANDS.map((b, k) => [b.label === 'Top 14' ? 'Top 14' : b.label.replace('101 & below, unranked', '101+ & unranked'), k])).forEach(([label, k]) => {
@@ -1443,7 +1834,6 @@
         renderTitlesChart();
       }));
     });
-    $('cArticles').addEventListener('change', () => { st.articles = $('cArticles').checked; renderCo(); });
     $('cPanel').addEventListener('change', () => { st.panel = $('cPanel').checked; renderCo(); });
 
     $('mPieces').textContent = num(INS.pieces);
@@ -1469,15 +1859,33 @@
     return r.json();
   }))).then(([data, meta, ins]) => {
     DATA = LSR.unpack(data); META = meta; INS = ins;      // (2026-10-26) packed core; homepages come after
-    // the data for connections.js (section 4), which draws its own figures from it
-    window.LSR_INS = { DATA: DATA, META: META, INS: INS };
+    initBar();                                             // the bar's state from the URL, before any section reads it
+    // the data for connections.js (section 4) and the sections after it, which draw their own figures from it, and the
+    // page's bar of years and options (each section reads it and registers for its changes)
+    window.LSR_INS = { DATA: DATA, META: META, INS: INS, bar: barAPI };
     document.dispatchEvent(new CustomEvent('lsr-insights-data'));
     LSR.stampMasthead(meta);
     $('footer').innerHTML = LSR.siteFooter(meta);
     $('loading').remove();
     document.querySelectorAll('.ins-section').forEach((s) => { s.hidden = false; });
     setup();
+    anonUses();
+    twUses();
     renderWhere();
+    // the bar's changes: section 1 always (it is drawn first), 2 and 3 once drawn; (review, 2026-10-29) in pieces, so
+    // the page answers between them, each with its section (recomputed when near the screen)
+    st.lastSrc = st.src;
+    barAPI.on(() => {
+      if (st.lastSrc !== st.src) { st.lastSrc = st.src; fillSchoolSelect('netSchool'); fillSchoolSelect('coSchool'); fillJournalSelect(); fillJournalPicker(); }
+      whereUses();
+      W1 = computeWhere();
+      renderWhereText();
+    }, 'where');
+    barAPI.on(() => { renderJournal(); renderNetwork(); renderNetDetail(); }, 'where');
+    barAPI.on(() => { renderMatrix(); renderScatter(); }, 'where');
+    barAPI.on(() => { if (coDone) { renderCoText(); renderTrend(); } }, 'coauthor');
+    barAPI.on(() => { if (coDone) { renderTeams(); renderSpread(); } }, 'coauthor');
+    barAPI.on(() => { if (tiDone) renderTitles(); }, 'titles');
     // (2026-10-26, the owner: "use lazy loading") the co-authorship and title sections are computed when they come
     // into view (or a few seconds after the first section is up, whichever comes first)
     const lazy = (id, render, wait) => {
@@ -1495,7 +1903,10 @@
     else $('titles').remove();
     LSR.people(DATA).then(() => { if (jn.journal != null) renderJournal(); });   // authors' faculty pages in the journal view
     if (LSR.crunch) LSR.crunch.hide();
-    if (location.hash) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }
+    // (the hash may also hold the bar's state: only a section's id is scrolled to) (review, 2026-10-29) the sections
+    // above it are still being drawn and move it down, so it is kept in view until the page settles (8 s at most) or
+    // the reader scrolls, clicks or types
+    pinAnchor();
   }).catch((e) => {
     if (LSR.crunch) LSR.crunch.hide(0);
     $('loading').textContent = 'The data could not be loaded (' + e.message + '). Try reloading the page.';
