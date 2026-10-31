@@ -19,7 +19,6 @@
   const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
   const STORAGE_KEY = 'lawRankings.v4';
   const DEFAULT_YEARS = 20;          // the default window's year labels (2026-10-29)
-  const MAINTAINER_EMAIL = 'nathan.reitinger@law.northwestern.edu';   // the owner asked for an email button (2026-10-24)
   const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers
   const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
 
