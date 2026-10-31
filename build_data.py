@@ -2493,7 +2493,10 @@ def title_words(papers, is_short, journals, paper_keys, credit_paper, credit_per
     return out
 
 
-ANON_FILE =os.path.join(SOURCE_DIR, 'anonymous_review_policies.csv')   # the reviews' own anonymous-review statements, dated
+# (2026-10-31) the list updated by the date research of that day (Yale dated by archived pages; Arizona State's 2025
+# switch; WashU and Tennessee anonymous with no start; current pages of the other flagship reviews); the earlier
+# anonymous_review_policies.csv stays as it was
+ANON_FILE = os.path.join(SOURCE_DIR, 'anonymous_review_policies_2026-10-31.csv')   # the reviews' own anonymous-review statements, dated
 ANON_SINCE = 2008      # the panel's first volume year: ten years before the first dated switch
 ANON_BIN = 6           # the event study's leads and lags, binned at six years and more either side
 ANON_DRAWS = 1000      # placebo draws for the randomization p-values
