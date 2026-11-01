@@ -365,6 +365,19 @@
     if (stamp) { line.insertBefore(box, stamp); box.appendChild(stamp); }
     else line.appendChild(box);
     box.appendChild(b);
+    // (2026-11-01, themes) "theme" beside it, in the same quiet style: the Theme window (theme.js)
+    if (window.LSRTheme) {
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.className = 'mast-pick theme-pick';
+      t.setAttribute('data-theme-open', '');
+      t.setAttribute('aria-haspopup', 'dialog');
+      t.setAttribute('aria-expanded', 'false');
+      t.title = 'Colors of the site: Automatic, White, Paper, Solarized, Dark and others';
+      t.textContent = 'theme';
+      t.addEventListener('click', () => window.LSRTheme.open(t));
+      box.appendChild(t);
+    }
   }
   // each letter of the wordmark in its own span (--i: its place; data-c: the letter itself, which variant 12 swaps for
   // passing characters and puts back), for the masthead variants that move, weigh or light letters one by one
