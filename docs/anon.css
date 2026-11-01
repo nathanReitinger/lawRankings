@@ -71,3 +71,17 @@
   .an-main tbody th small, .an-rob tbody th small { display: none; }
   .an-main tbody th { min-width: 0; }
 }
+
+/* (2026-10-31) each switching review in its own window: small multiples, two across on a wide screen */
+.an-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px 18px; margin: 4px 0 6px; }
+.an-panel { min-width: 0; border-top: 1px solid var(--grid); padding-top: 8px; }
+.an-panel h4 { font-family: var(--serif); font-size: 16px; font-weight: 400; line-height: 1.25; margin: 0; color: var(--ink-2); }
+.an-panel h4 b { font-weight: 700; color: var(--ink); }
+.an-panel-s { font-family: var(--sans); font-size: 12.5px; line-height: 1.4; color: var(--ink-2); margin: 3px 0 2px; font-variant-numeric: tabular-nums; }
+.an-panel-c { min-height: 200px; }
+.an-panel-c .highcharts-container { margin: 0 auto; }
+.an-panel-c svg { display: block; font-family: var(--sans); }
+.an-legend i.an-hline { width: 14px; height: 0; border-top: 2.5px solid; background: none !important; border-color: #104281; border-radius: 0; }
+.an-legend i.dot-line { width: 0; height: 12px; border-left: 1.5px dotted var(--ink-2); background: none !important; border-radius: 0; }
+.an-each tbody th { min-width: 11em; }
+@media (max-width: 420px) { .an-grid { grid-template-columns: 1fr; } }
