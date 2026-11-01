@@ -2503,7 +2503,8 @@ ANON_DRAWS = 1000      # placebo draws for the randomization p-values
 ANON_PLACEBO_TOP = 100 # placebo switches go to comparison reviews of the U.S. News top 100 (the switchers' schools rank 9-85)
 # a dated policy counts as a switch when its year comes from the review's own announcement, its editors' account, or
 # a pair of archived pages (absent, then present); an "earliest documented" year is only an upper bound on when the
-# policy began (Harvard 1999, Yale 2004, Stanford 2012), not a switch. (review, 2026-10-29) UC Law Journal's 2020 is
+# policy began (Harvard 1998, Stanford 2012, Tennessee 2024), not a switch; Yale's 2004 is bracketed by archived pages
+# (2026-10-31), so it is a switch. (review, 2026-10-29) UC Law Journal's 2020 is
 # bracketed by its own archived pages (Dec 2019: a CV with every submission, no anonymous route; Feb 2020: the track)
 ANON_DATED_BASIS = ('announced', 'reported', 'bracketed')
 ANON_OUTCOMES = [      # the primary outcome first (chosen before any estimate was looked at)
@@ -2540,9 +2541,8 @@ def fe_absorb(M, codes, W, tol=1e-10, it=1000):
 
 def anonymous_review_analysis(data, last_year):
     '''insights.json['anon'] (2026-10-29, the owner: "research when journals went anonymous and show trends in
-    publication around that time. some of the top law journals say they are anonymous. i think it is fake news. help
-    me prove that with the data ... look at where people are publishing from in those years (diff in diff) between
-    anon. and non-anon. years. run a stat test"). A test of the claim, not of the owner's hunch: did the flagship law
+    publication around that time ... look at where people are publishing from in those years (diff in diff) between
+    anon. and non-anon. years. run a stat test"). A test of the claim either way: did the flagship law
     reviews that switched to anonymous (or partly anonymous) review in a dated year publish a different mix of
     authors afterwards, compared with the flagship reviews that did not switch?
 
@@ -2556,10 +2556,11 @@ def anonymous_review_analysis(data, last_year):
 
     Switchers: the reviews in ANON_FILE with an anonymous or partly anonymous policy, confidence high or medium, and a
     dated switch (ANON_DATED_BASIS); the first volume chosen under it is the year after the switch (after = year >=
-    switch + 1; the switch year itself counts as before). A switch with under two such volumes in the data (NYU,
-    2025) is a comparison review through its switch year and left out after. Anonymous reviews with no switch date
-    (only the earliest record: Harvard 1999, Yale 2004, Stanford 2012; none at all: Arizona State) are left out of the
-    test. Comparison: every other flagship review.
+    switch + 1; the switch year itself counts as before). A switch with under two such volumes in the data (NYU and
+    Arizona State, 2025) is a comparison review through its switch year and left out after; a switch with under
+    ANON_BIN panel years before it (Yale, 2004) is tested only in its own window (below) and left out of the panel.
+    Anonymous reviews with no switch date (only the earliest record: Harvard 1998, Stanford 2012, Tennessee 2024;
+    none at all: WashU) are left out of the test. Comparison: every other flagship review.
 
     Estimates, each journal-year weighted by its articles: two-way fixed effects (journal and year) with standard
     errors clustered by journal; a randomization p-value (the switch years given to ANON_DRAWS random sets of
@@ -2596,7 +2597,8 @@ def anonymous_review_analysis(data, last_year):
         if ji is None:
             continue
         row_of[ji] = r._asdict()
-        anon = r.policy.endswith(('anonymous review', 'anonymous track')) and not r.policy.startswith('not ')
+        # (2026-10-31) 'anonymous review (stages not stated)': a review that states anonymous review without its stages
+        anon = ('anonymous review' in r.policy or r.policy.endswith('anonymous track')) and not r.policy.startswith('not ')
         dated = bool(r.adopted) and r.confidence in ('high', 'medium') and r.adopted_basis.startswith(ANON_DATED_BASIS)
         if anon and dated:
             role[ji] = 'switched'
@@ -2826,8 +2828,8 @@ def anonymous_review_analysis(data, last_year):
         recent = ', '.join(f'{J[j][0]} through its {adopt[j]} switch year' for j in sorted(too_recent))
         add('evidence', 'Comparison: only reviews on record as naming authors or with no anonymity statement' + (f' (and {recent})' if recent else ''),
             panel(keep=lambda ji: ji in adopt or role.get(ji) in ('named', 'no statement')))
-        add('fully', 'Switchers: only the fully anonymous policies',
-            panel(keep=lambda ji: ji not in treated or row_of[ji]['policy'] == 'fully anonymous review'))
+        add('fully', 'Switchers: only the policies with no stage named as open (fully anonymous, or stages not stated)',
+            panel(keep=lambda ji: ji not in treated or row_of[ji]['policy'] in ('fully anonymous review', 'anonymous review (stages not stated)')))
         add('unweighted', 'Unweighted: each journal-year with 5 or more articles counts once', base, wcol='one_rank' if key == 'rank' else 'one')
         add('since2000', 'A longer panel, from 2000', panel(since=ANON_SINCE - 8))
         for ji in treated:     # (UC Law Journal's row is also the check without its optional anonymous track)
@@ -2859,20 +2861,36 @@ def anonymous_review_analysis(data, last_year):
     # ---- (2026-10-31) each dated switch in its own window, and all of them stacked. The review's journal-years from
     # switch - ANON_EACH to switch + ANON_EACH against the comparison reviews (flagship reviews with no anonymous
     # policy on record) over the same years, review and year fixed effects, journal-years weighted by their articles.
-    # Two changes: the level ('level': the review's change from before to after, minus the comparison reviews') and
-    # the yearly trend ('trend': the change in the review's slope, minus theirs; the two fitted together). One
-    # switching review has one cluster, so its p-values are placebo-in-space: the same switch year given to each
-    # comparison review with 3+ volume years before it and 2+ after (the real review left out), counting how often
-    # the placebo change is as large. For the shares, also the plain 2x2 difference of the four article proportions
-    # with binomial variances ('p_articles': it treats articles as independent, so it is the least cautious). The
-    # stacked estimate pools the windows (fixed effects within each window, errors clustered by review) with a
-    # randomization p-value: each window's switch given to one of its comparison reviews at random, ANON_EACH_DRAWS times.
+    # Two changes: the level ('level': the review's change from before to after, minus the comparison reviews'), and
+    # (review of 2026-10-31) the change in the yearly slope ('trend': fitted with the level change and the review's
+    # own straight-line trend across its whole window, so it is the slope after minus the slope before, minus the
+    # comparison reviews' change). One switching review has one cluster, so its p-values are placebo-in-space: the
+    # same switch year given to each comparison review with 3+ volume years before it and 2+ after (the real review
+    # left out), counting how often the placebo is as large; (review) studentized, each estimate over its own
+    # heteroskedasticity-robust standard error, because the comparison reviews are mostly smaller and noisier than
+    # the switching ones ('p_level_raw' / 'p_trend_raw' compare the plain estimates). 'counterfactual': the review's
+    # fitted value each year without the change (its own fixed effect plus the year effect), so its weighted gap from
+    # the review over the years after the switch is 'level' exactly. The stacked estimate pools the windows (fixed
+    # effects within each window, errors clustered by review) with a randomization p-value: each window's switch
+    # given to one of its comparison reviews at random, ANON_EACH_DRAWS times.
     anon_any = {ji for ji, v in role.items() if v in ('switched', 'before', 'undated')}
     ea = art_all[art_all['year'] >= ANON_EACH_FROM]
     g = ea.groupby(['j', 'year'])
     jy_all = pd.DataFrame({'n': g.size(), 't14': g['t14'].mean(), 't25': g['t25'].mean(), 'own': g['own'].mean(),
                            'rank': g['rank'].mean(), 'n_rank': g['rank'].count()}).reset_index()
     comparison = set(jy_all['j'].unique()) - anon_any
+
+    def coef_t(y, X, i):
+        """coefficient i of y on the columns of X (both already fixed-effect residuals, weight-scaled) and its
+        estimate over its heteroskedasticity-robust (HC0) standard error"""
+        G = X.T @ X
+        if abs(np.linalg.det(G)) < 1e-12:
+            return np.nan, np.nan
+        Gi = np.linalg.inv(G)
+        b = Gi @ (X.T @ y)
+        e = y - X @ b
+        V = Gi @ ((X * (e ** 2)[:, None]).T @ X) @ Gi
+        return float(b[i]), float(b[i] / np.sqrt(V[i, i])) if V[i, i] > 0 else np.nan
 
     def window(ji, a, key, w):
         lo, hi = max(a - ANON_EACH, ANON_EACH_FROM), min(a + ANON_EACH, int(last_year))
@@ -2884,40 +2902,46 @@ def anonymous_review_analysis(data, last_year):
             return None
         W = d[w].values.astype(float)
         post = (mine & (yr >= a + 1)).astype(float)
-        R = fe_absorb(np.column_stack([d[key].values, post, post * (yr - a)]), [pd.factorize(d['j'])[0], pd.factorize(d['year'])[0]], W)
-        ry, X = R[:, 0], R[:, 1:]
-        level = float(X[:, 0] @ ry / (X[:, 0] @ X[:, 0]))
-        trend = float(np.linalg.lstsq(X, ry, rcond=None)[0][1])
+        codes = [pd.factorize(d['j'])[0], pd.factorize(d['year'])[0]]
+        R = fe_absorb(np.column_stack([d[key].values, post, post * (yr - a), mine * (yr - a)]), codes, W)
+        level, t_level = coef_t(R[:, 0], R[:, 1:2], 0)
+        trend, t_trend = coef_t(R[:, 0], R[:, 1:4], 1)
+        # the counterfactual: the level model solved with a dummy per review and per year (the window is small)
+        jc, yc = codes
+        Xd = np.column_stack([np.eye(jc.max() + 1)[jc], np.eye(yc.max() + 1)[yc][:, 1:], post])
+        sw = np.sqrt(W)
+        beta = np.linalg.lstsq(Xd * sw[:, None], d[key].values * sw, rcond=None)[0]
+        jj = jc[np.argmax(mine)]
+        ycode = {int(y): c for y, c in zip(yr, yc)}
+        yeff = lambda y: 0.0 if ycode[y] == 0 else beta[jc.max() + ycode[y]]
         # the placebos: each pooled comparison review given the switch, the real review left out
         c = d[~mine].reset_index(drop=True)
         cy = c['year'].values
-        pool = [j for j, s in c.groupby('j')['year'] if (s <= a).sum() >= 3 and (s >= a + 1).sum() >= 2]
+        pool = [j for j, s_ in c.groupby('j')['year'] if (s_ <= a).sum() >= 3 and (s_ >= a + 1).sum() >= 2]
         cols = [c[key].values]
         for j in pool:
-            p = ((c['j'] == j).values & (cy >= a + 1)).astype(float)
-            cols += [p, p * (cy - a)]
+            one = (c['j'] == j).values
+            p_ = (one & (cy >= a + 1)).astype(float)
+            cols += [p_, p_ * (cy - a), one * (cy - a)]
         Rc = fe_absorb(np.column_stack(cols), [pd.factorize(c['j'])[0], pd.factorize(c['year'])[0]], c[w].values.astype(float))
         rc = Rc[:, 0]
-        num_ = np.array([Rc[:, 1 + 2 * i] @ rc for i in range(len(pool))])
-        den_ = np.array([Rc[:, 1 + 2 * i] @ Rc[:, 1 + 2 * i] for i in range(len(pool))])
-        plc_t = np.array([np.linalg.lstsq(Rc[:, 1 + 2 * i:3 + 2 * i], rc, rcond=None)[0][1] for i in range(len(pool))])
-        plc_l = num_ / den_
-        perm = lambda x, b: round(float((1 + np.sum(np.abs(x) >= abs(b))) / (1 + len(x))), 4)
+        num_ = np.array([Rc[:, 1 + 3 * i] @ rc for i in range(len(pool))])
+        den_ = np.array([Rc[:, 1 + 3 * i] @ Rc[:, 1 + 3 * i] for i in range(len(pool))])
+        plc_l = [coef_t(rc, Rc[:, 1 + 3 * i:2 + 3 * i], 0) for i in range(len(pool))]
+        plc_t = [coef_t(rc, Rc[:, 1 + 3 * i:4 + 3 * i], 1) for i in range(len(pool))]
+
+        def perm(x, b):
+            x = np.array([v for v in x if v == v])
+            return round(float((1 + np.sum(np.abs(x) >= abs(b))) / (1 + len(x))), 4) if len(x) and b == b else None
         wmean = lambda x: float(np.average(x[key], weights=x[w])) if len(x) and x[w].sum() > 0 else None
         me, cm = d[mine], d[~mine]
         pre, aft = (lambda x: x[x['year'] <= a]), (lambda x: x[x['year'] >= a + 1])
         b0, b1, c0, c1 = wmean(pre(me)), wmean(aft(me)), wmean(pre(cm)), wmean(aft(cm))
-        p_art = None
-        if unit_of[key] == 'share':
-            ns = [pre(me)[w].sum(), aft(me)[w].sum(), pre(cm)[w].sum(), aft(cm)[w].sum()]
-            v = sum(p * (1 - p) / k for p, k in zip([b0, b1, c0, c1], ns) if k)
-            if v > 0:
-                p_art = round(float(math.erfc(abs((b1 - b0) - (c1 - c0)) / math.sqrt(2 * v))), 4)
         years_ = list(range(lo, hi + 1))
 
         def series(x):
-            s = {y: [round(float(np.average(v[key], weights=v[w])), 5), int(v[w].sum())] for y, v in x.groupby('year')}
-            return [s.get(y) for y in years_]
+            s_ = {y: [round(float(np.average(v[key], weights=v[w])), 5), int(v[w].sum())] for y, v in x.groupby('year')}
+            return [s_.get(y) for y in years_]
 
         def line(x):         # the weighted least-squares line through the review's years on one side of the switch
             if len(x) < 3:
@@ -2926,9 +2950,12 @@ def anonymous_review_analysis(data, last_year):
             x0, x1 = int(x['year'].min()), int(x['year'].max())
             return [x0, round(float(ic + sl * x0), 5), x1, round(float(ic + sl * x1), 5)]
         r = {'j': int(ji), 'adopted': int(a), 'window': [lo, hi], 'years': years_, 'review': series(me), 'comparison': series(cm),
+             'counterfactual': [round(float(beta[jj] + yeff(y)), 5) if y in ycode else None for y in years_],
              'n_comparison': int(cm['j'].nunique()), 'level': round(level, 5), 'trend': round(trend, 5),
-             'p_level': perm(plc_l, level), 'p_trend': perm(plc_t, trend), 'placebo_n': len(pool), 'placebo_sd': round(float(plc_l.std()), 5),
-             'p_articles': p_art, 'before': b0, 'after': b1, 'cmp_before': c0, 'cmp_after': c1,
+             'p_level': perm([t for _, t in plc_l], t_level), 'p_trend': perm([t for _, t in plc_t], t_trend),
+             'p_level_raw': perm([b for b, _ in plc_l], level), 'p_trend_raw': perm([b for b, _ in plc_t], trend),
+             'placebo_n': len(pool), 'placebo_sd': round(float(np.nanstd([b for b, _ in plc_l])), 5),
+             'before': b0, 'after': b1, 'cmp_before': c0, 'cmp_after': c1,
              'articles': [int(pre(me)[w].sum()), int(aft(me)[w].sum())], 'line_before': line(pre(me)), 'line_after': line(aft(me))}
         for k in ('before', 'after', 'cmp_before', 'cmp_after'):
             r[k] = None if r[k] is None else round(r[k], 5)
@@ -2945,7 +2972,7 @@ def anonymous_review_analysis(data, last_year):
         G = int(cl.max()) + 1
         s = np.zeros(G)
         np.add.at(s, cl, x * (ry - x * b))
-        n, k = len(d), sum(int(c.max()) + 1 for c in codes)
+        n, k = len(d), sum(int(c.max()) + 1 for c in codes) - len(panels) + 1   # (review) the design's rank
         se = float(np.sqrt((s @ s) / (x @ x) ** 2 * (G / (G - 1)) * ((n - 1) / max(n - k, 1))))
         # each draw: one comparison review per window gets that window's switch; the windows are separate blocks,
         # so the pooled placebo estimate is the sum of the chosen numerators over the sum of the chosen denominators
@@ -2954,10 +2981,11 @@ def anonymous_review_analysis(data, last_year):
         return {'est': round(b, 5), 'se': round(se, 5), 'lo': round(b - 1.96 * se, 5), 'hi': round(b + 1.96 * se, 5),
                 'p': round(float(math.erfc(abs(b / se) / math.sqrt(2))), 4),
                 'p_perm': round(float((1 + np.sum(np.abs(est) >= abs(b))) / (1 + ANON_EACH_DRAWS)), 4), 'placebo_sd': round(float(est.std()), 5),
-                'windows': len(panels), 'n_obs': int(n), 'articles': int(d[w].sum()), 'reviews': int(d.loc[d['D'] > 0, 'j'].nunique())}
+                'windows': len(panels), 'n_obs': int(n), 'reviews': int(d.loc[d['D'] > 0, 'j'].nunique()),
+                # (review) a comparison journal-year sits in every window that covers it: counted once here
+                'articles': int(d.drop_duplicates(['j', 'year'])[w].sum()), 'switching_articles': int(d.loc[d['j'] == d['exp'], w].sum())}
 
     rng_each = np.random.default_rng(20261031)
-    unit_of = {k: u for k, _, u in ANON_OUTCOMES}
     out['each'], out['stacked_all'] = {}, {}
     for key, _, _ in ANON_OUTCOMES:
         w = 'n_rank' if key == 'rank' else 'n'

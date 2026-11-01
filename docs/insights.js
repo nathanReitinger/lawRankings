@@ -1722,7 +1722,9 @@
   function anonUses() {
     const A = INS && INS.anon;
     if (!A || !$('anUses')) return;
-    uses('anUses', ['volume years ' + yrs(A.since, A.last), 'research articles (short pieces left out)',
+    // (2026-10-31) the per-review windows reach back before the main comparison's first year
+    const lo = A.each && A.each.t14 && A.each.t14.length ? Math.min.apply(null, [A.since].concat(A.each.t14.map((r) => r.window[0]))) : A.since;
+    uses('anUses', ['volume years ' + yrs(lo, A.last) + (lo < A.since ? ' (the main comparison ' + yrs(A.since, A.last) + ')' : ''), 'research articles (short pieces left out)',
       'groups by U.S. News overall rank: fixed by the study’s design, so the years and options above do not change it']);
   }
   // section 7 (words in titles) uses the build's fixed windows (insights.json title_words has no counts by year), so it
