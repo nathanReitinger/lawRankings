@@ -15,8 +15,7 @@
   const num = (n) => Number(n).toLocaleString('en-US');
   const MINUS = '−';
   const signed = (x, d) => (x > 0 ? '+' : x < 0 ? MINUS : '') + Math.abs(x).toFixed(d);
-  const css = (name, dflt) => getComputedStyle(document.body).getPropertyValue(name).trim() || dflt;
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const esc =(s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const el = (tag, attrs, text) => {
     const e = document.createElement(tag);
     if (attrs) Object.keys(attrs).forEach((k) => e.setAttribute(k, attrs[k]));
@@ -49,16 +48,34 @@
 
   // colors: the switching reviews in the page's flagship blue, the comparison reviews in its second ink (a pair with
   // ample contrast for every kind of color vision); the policy groups of the last card in the same family
-  const C_SW = '#2a78d6', C_CMP = '#52514e';
+  // (2026-11-01, themes) each color is a token of the theme in use (theme.css, or anon.css :root), with its White value:
+  // tc() reads it for a chart when the chart is drawn, tv() gives it as CSS for the page's own keys, which follow a
+  // theme change by themselves
+  const COLOR = {
+    sw: ['--s1', '#2a78d6'], cmp: ['--chart-ink-2', '#52514e'], ink: ['--chart-ink', '#0b0b0b'], muted: ['--chart-muted', '#898781'],
+    grid: ['--chart-grid', '#e8e7e1'], axis: ['--chart-axis', '#c3c2b7'], tip: ['--chart-tooltip', 'rgba(255,255,255,0.97)'], tipRule: ['--chart-ring', 'rgba(11,11,11,0.10)'],
+    band: ['--an-band', '#f7f7f5'], fit: ['--an-fit', '#104281'],
+    anon: ['--an-anon', '#104281'], switched: ['--an-switched', '#86b6ef'], named: ['--an-named', '#eb6834'], nostmt: ['--an-nostmt', '#f2a27f'], unknown: ['--an-unknown', '#c9c8c0'],
+  };
+  const tc = (k) => (window.LSRTheme ? LSRTheme.color(COLOR[k][0], COLOR[k][1]) : COLOR[k][1]);
+  const tv = (k) => 'var(' + COLOR[k][0] + ', ' + COLOR[k][1] + ')';
+  // the card's own color behind a chart: the outline that sets a dot off from its line, and the inside of a ring
+  const hole = (node) => {
+    for (let n = node; n && n.nodeType === 1; n = n.parentElement) {
+      const b = getComputedStyle(n).backgroundColor;
+      if (b && b !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(b)) return b;
+    }
+    return window.LSRTheme ? LSRTheme.color('--bg', '#ffffff') : '#ffffff';
+  };
   const ROLE = {
-    'before': { label: 'Anonymous, no known start', color: '#104281' },
-    'switched': { label: 'Switched (dated)', color: '#86b6ef' },
-    'too recent': { label: 'Switched 2025', color: '#86b6ef' },
-    'early': { label: 'Switched (dated, own window only)', color: '#86b6ef' },
-    'named': { label: 'Not anonymous (stated or inferred)', color: '#eb6834' },
-    'no statement': { label: 'No anonymity statement found', color: '#f2a27f' },
-    'unknown': { label: 'Article policy not found', color: '#c9c8c0' },     // (2026-10-31: Florida and Villanova)
-    'undated': { label: 'Anonymous or partly anonymous, undated', color: '#104281' },
+    'before': { label: 'Anonymous, no known start', color: 'anon' },
+    'switched': { label: 'Switched (dated)', color: 'switched' },
+    'too recent': { label: 'Switched 2025', color: 'switched' },
+    'early': { label: 'Switched (dated, own window only)', color: 'switched' },
+    'named': { label: 'Not anonymous (stated or inferred)', color: 'named' },
+    'no statement': { label: 'No anonymity statement found', color: 'nostmt' },
+    'unknown': { label: 'Article policy not found', color: 'unknown' },     // (2026-10-31: Florida and Villanova)
+    'undated': { label: 'Anonymous or partly anonymous, undated', color: 'anon' },
   };
   // a policy as the per-review panels and the lede name it
   const polShort = (p) => (/^partially/.test(p || '') ? 'partly anonymous' : /track$/.test(p || '') ? 'optional anonymous track' :
@@ -68,7 +85,7 @@
 
   const font = { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' };
   function base(W) {
-    const ink2 = css('--ink-2', '#52514e'), muted = css('--muted', '#898781'), grid = css('--grid', '#e8e7e1'), axis = css('--axis', '#c3c2b7');
+    const ink2 = tc('cmp'), muted = tc('muted'), grid = tc('grid'), axis = tc('axis');
     const axisStyle = { color: muted, fontSize: '11.5px', fontVariantNumeric: 'tabular-nums' };
     return {
       chart: { backgroundColor: 'transparent', style: font, spacing: [8, 4, 6, 2], animation: false },
@@ -78,7 +95,7 @@
       legend: { enabled: false },           // each figure's key is the page's own, above the chart
       // (2026-10-26, the owner on the journal tree: "my cursor gets stuck in it"): a tap shows the tooltip, a swipe
       // always scrolls the page
-      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)',
+      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: tc('tip'), borderColor: tc('tipRule'),
         borderRadius: 8, borderWidth: 1, shadow: { opacity: 0.08 }, padding: 9, style: { fontSize: '12.5px', color: ink2, whiteSpace: 'normal', width: Math.min(300, W - 40) + 'px' } },
       xAxis: { lineColor: axis, tickColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
       yAxis: { lineColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
@@ -87,6 +104,7 @@
     };
   }
   function makeChart(box, opts, W) {
+    if (window.LSRTheme) LSRTheme.highcharts(Highcharts);      // (2026-11-01, themes) Highcharts' own text and rules
     const c = Highcharts.chart(box, Highcharts.merge(base(W), opts));
     charts.push(c);
     return c;

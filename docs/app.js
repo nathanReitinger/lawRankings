@@ -20,7 +20,14 @@
   const STORAGE_KEY = 'lawRankings.v4';
   const DEFAULT_YEARS = 20;          // the default window's year labels (2026-10-29)
   const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers
-  const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
+  // (2026-11-01, themes) colors are read from the theme in use (theme.css) when they are drawn: T(token, the literal the
+  // page had before themes); TW for a color with no token of the same White value: White keeps the literal, the other
+  // themes take the token
+  const T = (n, f) => (window.LSRTheme ? window.LSRTheme.color(n, f) : f);
+  const themed = () => !!(window.LSRTheme && window.LSRTheme.get().theme !== 'light');
+  const TW = (n, f) => (themed() ? T(n, f) : f);
+  // flagship blue, specialty orange (CSrankings Set1), in each theme's own steps
+  const COLORS = { get general() { return T('--general', '#377eb8'); }, get specialty() { return T('--specialty', '#ff7f00'); } };
 
   let DATA, META, state, groupSubjects;
   let journalCats, personPapers;   // journal -> [0 = flagship, 1+g = specialty group g]; person -> their papers
@@ -655,6 +662,12 @@
   // the owner: "when you select a year it should only display info for that year"; it used to reach back twenty years
   // with the selected ones shaded). Highcharts is loaded the first time one is opened, not with the page.
   const TREND_COLORS = ['#377eb8', '#ff7f00', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+  // (2026-11-01, themes) the lines' colors in the theme in use: White as above; the other themes Flagship blue and
+  // specialty orange in their steps for lines and text, then the categorical slots, violet before amber (amber sits
+  // next to the orange)
+  const TREND_TOKENS = [['--general-text', '#377eb8'], ['--specialty-text', '#ff7f00'], ['--s3', '#1baf7a'], ['--s7', '#6250d6'],
+    ['--s5', '#e87ba4'], ['--s4', '#eda100'], ['--s6', '#008300'], ['--s8', '#e34948']];
+  const trendColors = () => (themed() ? TREND_TOKENS.map(([n, f]) => T(n, f)) : TREND_COLORS);
   const trendCharts = new Set();
   let trendSeq = 0, hcLoad = null;
   // the chart's first year: the window's start
@@ -736,10 +749,21 @@
   function destroyTrends(root) {
     trendCharts.forEach((c) => { if (!root || root.contains(c.renderTo)) { c.destroy(); trendCharts.delete(c); } });
   }
+  // (2026-11-01, themes) a theme chosen while charts are open draws them again in its colors
+  document.addEventListener('lsr-theme', () => {
+    const boxes = [...trendCharts].map((c) => c.renderTo);
+    destroyTrends();
+    boxes.forEach((box) => { box.innerHTML = ''; delete box.dataset.drawn; });
+    if (boxes.length) drawPending($('rankingWindow'));
+  });
   function drawPending(root) {
     const boxes = [...root.querySelectorAll('.trend-chart:not([data-drawn])')];
     if (!boxes.length || !current.jAreas) return;
-    highcharts().then((H) => boxes.forEach((box) => {
+    highcharts().then((H) => {
+      // (2026-11-01, themes) the theme's text, axis, grid and tooltip colors for the charts drawn now
+      if (window.LSRTheme) window.LSRTheme.highcharts(H);
+      return H;
+    }).then((H) => boxes.forEach((box) => {
       if (!box.isConnected || box.dataset.drawn) return;
       box.dataset.drawn = '1';
       const who = JSON.parse(box.dataset.trend);
@@ -759,37 +783,42 @@
         const first = lines[0].name === 'Flagship' ? 1 : 0;
         const big = new Set(lines.slice(first).sort((a, b) => sum(b) - sum(a)).slice(0, MAX_LINES - 1 - first));
         const rest = lines.filter((x, j) => j >= first && !big.has(x));
-        shown = lines.filter((x, j) => j < first || big.has(x)).concat([{ name: rest.length + ' other selected groups', color: '#999',
+        shown = lines.filter((x, j) => j < first || big.has(x)).concat([{ name: rest.length + ' other selected groups', color: TW('--chart-muted', '#999'),
           raw: years.map((_, k) => rest.reduce((t, x) => t + x.raw[k], 0)) }]);
       }
-      const series = shown.map((x, i) => ({ name: x.name, color: x.color || TREND_COLORS[i], data: [...x.raw].map(r1) }));
+      const lineColors = trendColors();
+      const series = shown.map((x, i) => ({ name: x.name, color: x.color || lineColors[i], data: [...x.raw].map(r1) }));
       // (the owner, 2026-10-28: "line chart not bar") one line per selected area, and their total when there are several:
       // each article once, as in the By year strip
-      if (series.length > 1) series.unshift({ name: 'Total', color: '#333', lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
+      if (series.length > 1) series.unshift({ name: 'Total', color: TW('--chart-ink', '#333'), lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
       box.innerHTML = '';
       if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + yearsText(y0, y1) + '.</p>'; return; }
       // the trend line of the total (each article once) over the years shown, from five years on
       if (years.length >= 5) {
         const t = senLine([...counts.total]), last = years.length - 1;
         const per = Math.round(t.slope * 10) / 10;
-        series.push({ name: 'Trend line (Theil–Sen): ' + (per > 0 ? '+' : per < 0 ? '−' : '') + Math.abs(per).toFixed(1) + ' a year', color: '#111', dashStyle: 'Dash',
+        series.push({ name: 'Trend line (Theil–Sen): ' + (per > 0 ? '+' : per < 0 ? '−' : '') + Math.abs(per).toFixed(1) + ' a year', color: TW('--chart-ink', '#111'), dashStyle: 'Dash',
           lineWidth: 1.5, marker: { enabled: false }, enableMouseTracking: false, zIndex: 3, data: [[0, t.at0], [last, t.at0 + t.slope * last]] });
       }
       // (review) the legend gets its own room (a row per line on a phone, two to a row wider), so the plot keeps its height
       const legendRows = series.length > 1 ? (box.clientWidth < 500 ? series.length : Math.ceil(series.length / 2)) : 0;
       trendCharts.add(H.chart(box, {
         chart: { type: 'line', height: 190 + 18 * legendRows, spacing: [6, 12, 4, 0], backgroundColor: 'transparent' },
-        title: { text: (y0 === y1 ? 'Counted articles, ' : 'Counted articles per year, ') + yearsText(y0, y1), align: 'left', style: { fontSize: '12px', fontWeight: '600', color: '#333' } },
+        title: { text: (y0 === y1 ? 'Counted articles, ' : 'Counted articles per year, ') + yearsText(y0, y1), align: 'left', style: { fontSize: '12px', fontWeight: '600', color: T('--text', '#333') } },
         subtitle: y1 < state.to ? { text: (y1 + 1 === state.to ? state.to : (y1 + 1) + '–' + state.to) + ' left out: volumes still coming out', align: 'left',
-          style: { fontSize: '10.5px', color: '#777' } } : undefined,
-        accessibility: { description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + yearsText(y0, y1) + '.' },
-        xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: '#666' } } },
-        yAxis: { title: { text: null }, min: 0, allowDecimals: true, gridLineColor: '#eee', labels: { style: { fontSize: '10px', color: '#666' } } },
-        legend: { enabled: series.length > 1, itemStyle: { fontSize: '11px', fontWeight: '400', color: '#333' }, margin: 4, padding: 2 },
+          style: { fontSize: '10.5px', color: T('--muted', '#777') } } : undefined,
+        // (2026-11-01, themes) the keyboard focus ring in the theme's focus color (White: Highcharts' own)
+        accessibility: Object.assign({ description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + yearsText(y0, y1) + '.' },
+          themed() ? { keyboardNavigation: { focusBorder: { style: { color: T('--focus', '#1f64d6') } } } } : {}),
+        xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: TW('--chart-ink-2', '#666') } } },
+        yAxis: { title: { text: null }, min: 0, allowDecimals: true, gridLineColor: TW('--chart-grid', '#eee'), labels: { style: { fontSize: '10px', color: TW('--chart-ink-2', '#666') } } },
+        legend: { enabled: series.length > 1, itemStyle: { fontSize: '11px', fontWeight: '400', color: T('--text', '#333') }, margin: 4, padding: 2 },
         // (review) only the lines with articles that year, so the tooltip stays short
         tooltip: { shared: true, headerFormat: '<b>{point.key}</b><br>', pointFormatter: function () {
           return this.y ? '<span style="color:' + this.color + '">●</span> ' + esc(this.series.name) + ': <b>' + this.y.toFixed(1) + '</b><br/>' : ''; } },
-        plotOptions: { line: { lineWidth: 2, marker: { enabled: true, radius: years.length <= 3 ? 4.5 : 2.5, symbol: 'circle' }, states: { hover: { lineWidth: 2.5 } } } },
+        // (2026-11-01, themes) a marker under the pointer is ringed in the page's color (Highcharts' own is white)
+        plotOptions: { line: { lineWidth: 2, marker: { enabled: true, radius: years.length <= 3 ? 4.5 : 2.5, symbol: 'circle', lineColor: TW('--bg', '#ffffff') },
+          states: { hover: { lineWidth: 2.5 } } } },
         series: series,
       }));
     })).catch(() => boxes.forEach((box) => { box.innerHTML = '<p class="detail-note">The chart could not be loaded.</p>'; }));

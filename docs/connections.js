@@ -13,8 +13,21 @@
   const pct1 = (x) => (x == null || !isFinite(x) ? '–' : (100 * x).toFixed(1) + '%');
   const yrs = (a, b) => (a === b ? String(a) : a + '–' + b);
   const rankNum = (label) => { const m = /\d+/.exec(label == null ? '' : String(label)); return m ? +m[0] : null; };
-  const css = (name, dflt) => getComputedStyle(document.body).getPropertyValue(name).trim() || dflt;
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // (2026-11-01, themes) a color of the theme in use, read when a chart is drawn: theme.css's chart colors, and this
+  // section's own in connections.css (--cn-*); the literal is White's, for a page without theme.js
+  const T = (name, dflt) => (window.LSRTheme ? LSRTheme.color(name, dflt) : dflt);
+  // the color behind a chart (its card's), as #rrggbb: the rings round the dots, the outline round a label, the seams
+  // between the heat map's cells
+  const hex = (c) => {
+    const m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:\s*[,/]\s*([\d.]+%?))?/.exec(c || '');
+    if (!m || (m[4] != null && parseFloat(m[4]) === 0)) return null;
+    return '#' + [m[1], m[2], m[3]].map((x) => (+x).toString(16).padStart(2, '0')).join('');
+  };
+  const behind = (node) => {
+    for (let e = node; e && e.nodeType === 1; e = e.parentElement) { const h = hex(getComputedStyle(e).backgroundColor); if (h) return h; }
+    return '#ffffff';
+  };
+  const esc =(s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const el = (tag, attrs, text) => {
     const e = document.createElement(tag);
     if (attrs) Object.keys(attrs).forEach((k) => e.setAttribute(k, attrs[k]));
@@ -175,29 +188,31 @@
   const figs = [];      // { box, draw } for each figure, redrawn on resize
 
   const font = { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' };
-  function base(W) {
-    const ink2 = css('--ink-2', '#52514e'), muted = css('--muted', '#898781'), grid = css('--grid', '#e8e7e1'), axis = css('--axis', '#c3c2b7');
+  function base(W, bg) {
+    const ink2 = T('--chart-ink-2', '#52514e'), muted = T('--chart-muted', '#898781'), grid = T('--chart-grid', '#e8e7e1'), axis = T('--chart-axis', '#c3c2b7');
     const axisStyle = { color: muted, fontSize: '11.5px', fontVariantNumeric: 'tabular-nums' };
     return {
       chart: { backgroundColor: 'transparent', style: font, spacing: [8, 4, 6, 2], animation: false },
       title: { text: null }, subtitle: { text: null },
       credits: { enabled: false },          // (2026-10-26, the owner: "drop the highcharts logo")
       exporting: { enabled: false },
-      legend: { enabled: false, itemStyle: { color: ink2, fontWeight: '400', fontSize: '12.5px' }, itemHoverStyle: { color: css('--ink', '#0b0b0b') },
+      legend: { enabled: false, itemStyle: { color: ink2, fontWeight: '400', fontSize: '12.5px' }, itemHoverStyle: { color: T('--chart-ink', '#0b0b0b') },
         symbolRadius: 2, margin: 6, padding: 4 },
       // (2026-10-26, the owner on the journal tree: "my cursor gets stuck in it"): a tap shows the tooltip, a swipe
       // always scrolls the page
       // (SVG text, whatever the page's other figures set: it wraps at the width given here)
-      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)',
+      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: T('--chart-tooltip', 'rgba(255,255,255,0.97)'), borderColor: T('--chart-ring', 'rgba(11,11,11,0.10)'),
         borderRadius: 8, borderWidth: 1, shadow: { opacity: 0.08 }, padding: 9, style: { fontSize: '12.5px', color: ink2, whiteSpace: 'normal', width: Math.min(300, W - 40) + 'px' } },
       xAxis: { lineColor: axis, tickColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
       yAxis: { lineColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
-      plotOptions: { series: { animation: false, states: { inactive: { opacity: 0.35 } } } },
+      // (2026-11-01, themes) the ring round a point under the pointer in the card's color (Highcharts' own is white)
+      plotOptions: { series: { animation: false, states: { inactive: { opacity: 0.35 } }, marker: { lineColor: bg } } },
       accessibility: { enabled: true },
     };
   }
   function makeChart(box, opts, W) {
-    const c = Highcharts.chart(box, Highcharts.merge(base(W), opts));
+    if (window.LSRTheme) LSRTheme.highcharts(Highcharts);      // (2026-11-01, themes) Highcharts' own text and rules
+    const c = Highcharts.chart(box, Highcharts.merge(base(W, behind(box)), opts));
     charts.push(c);
     return c;
   }
