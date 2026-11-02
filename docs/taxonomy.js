@@ -157,8 +157,11 @@
       ul.appendChild(li);
     });
     box.appendChild(ul);
-    box.appendChild(el('p', { class: 'text-muted tx-from-note' }, 'These journals are marked in black in the tree and in their groups\' lists below.'));
+    box.appendChild(el('p', { class: 'text-muted tx-from-note' }, markNote()));
   }
+  // (2026-11-01, themes) the marks are in the theme's ink: black on a light page, white on a dark one
+  const markNote = () => 'These journals are marked in ' + (window.LSRTheme && window.LSRTheme.get().mode === 'dark' ? 'white' : 'black') +
+    ' in the tree and in their groups\' lists below.';
 
   // the groups of this higher-level group, each a drop-down (2026-10-28, audit R50; the owner, 2026-10-23: "drop-down
   // classifications on where each jouranl fits into the higher level category"): "group · n journals", opening to its
@@ -216,7 +219,35 @@
   // ---- the trees (Highcharts treegraph). (2026-10-28, audit R39/R41; the owner, 2026-10-26, of the Insights tree: "my
   // cursor gets stuck in it" and "the lines are too thick it makes the chart seem toy looking") thin links, and the
   // tooltip does not follow a moving finger, so a swipe over a tree scrolls the page; a tap shows the tooltip.
-  const INK = '#0b0b0b', TOP = '#104281', FIELD = '#2770cb', JOUR = '#5f9be3';
+  // (2026-11-01, themes) the colors come from the theme in use, read each time a tree is drawn (theme.css, and the
+  // --tx-* colors in taxonomy.html): ink for the one-group tree's higher-level group and for marked journals, then blues
+  // from the strongest (higher-level group) to the faintest (journal). Under White, the colors used before themes.
+  let INK, INK2, TOP, FIELD, JOUR, LINK, DIM, LABEL_BG, HALO, WHITE = true;
+  const tc = (n, f) => (window.LSRTheme ? window.LSRTheme.color(n, f) : f);
+  // the color behind the tree (the card's, else the page's), composited the way the browser paints it
+  function ground() {
+    const layers = [];
+    for (let e = $('txChart'); e; e = e.parentElement) {
+      const m = /rgba?\(([^)]+)\)/.exec(getComputedStyle(e).backgroundColor);
+      if (!m) continue;
+      const p = m[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+      const a = p.length > 3 ? p[3] : 1;
+      if (a > 0) { layers.push([p[0], p[1], p[2], a]); if (a >= 1) break; }
+    }
+    let c = [255, 255, 255];
+    for (let i = layers.length - 1; i >= 0; i--) { const [r, g, b, a] = layers[i]; c = [r * a + c[0] * (1 - a), g * a + c[1] * (1 - a), b * a + c[2] * (1 - a)]; }
+    return 'rgb(' + c.map(Math.round).join(', ') + ')';
+  }
+  function colors() {
+    WHITE = !window.LSRTheme || window.LSRTheme.get().theme === 'light';
+    INK = tc('--chart-ink', '#0b0b0b'); INK2 = tc('--chart-ink-2', '#52514e');
+    TOP = tc('--tx-top', '#104281'); FIELD = tc('--tx-field', '#2770cb'); JOUR = tc('--tx-jour', '#5f9be3');
+    LINK = tc('--tx-link', '#b9cfe9'); DIM = tc('--tx-dim', '#9a9893');
+    // the labels' ground (it keeps the links from striking through a label) and the ring round each node: under White
+    // white, the ground a little clear, as before; in another theme the color behind the tree, solid
+    HALO = WHITE ? '#ffffff' : ground();
+    LABEL_BG = WHITE ? 'rgba(255,255,255,0.92)' : HALO;
+  }
   let lastTouch = 0, armed = null;   // a tap shows the tooltip; a second tap on the same node follows it
 
   function tipHTML(p, all) {
@@ -256,19 +287,24 @@
   // the options both trees share
   function treeChart(box, opts) {
     box.ontouchstart = () => { lastTouch = Date.now(); };
+    if (window.LSRTheme) window.LSRTheme.highcharts(Highcharts);
+    // (2026-11-01, themes) the keyboard's focus ring in the theme's focus color (under White, Highcharts' own)
+    const a11y = { enabled: true, description: opts.label };
+    if (!WHITE) a11y.keyboardNavigation = { focusBorder: { style: { color: tc('--focus', '#1f64d6') } } };
     return Highcharts.chart(box, {
       chart: { events: { render() { if (opts.onRender) { try { opts.onRender(this); } catch (e) { /* the marks are an extra */ } } } },
         height: opts.height, width: opts.width || null, backgroundColor: 'transparent', spacing: [8, 4, 8, 4], marginLeft: opts.narrow ? 6 : 16,
         marginRight: opts.marginRight || (opts.narrow ? 150 : 360), style: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' } },
       title: { text: null }, credits: { enabled: false }, exporting: { enabled: false },
-      accessibility: { enabled: true, description: opts.label },
-      tooltip: { useHTML: true, outside: false, followTouchMove: false, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)', borderRadius: 8,
-        shadow: { opacity: 0.08 }, style: { fontSize: '12.5px', color: '#52514e' }, formatter() { return tipHTML(this.point || this, opts.all); } },
+      accessibility: a11y,
+      tooltip: { useHTML: true, outside: false, followTouchMove: false, backgroundColor: tc('--chart-tooltip', 'rgba(255,255,255,0.97)'),
+        borderColor: tc('--chart-ring', 'rgba(11,11,11,0.10)'), borderRadius: 8,
+        shadow: { opacity: 0.08 }, style: { fontSize: '12.5px', color: INK2 }, formatter() { return tipHTML(this.point || this, opts.all); } },
       series: [Object.assign({
         type: 'treegraph', data: opts.data, turboThreshold: 0, cursor: 'pointer', animation: { duration: reducedMotion() ? 0 : 300 },
         fillSpace: true, reversed: true, collapseButton: { enabled: false },
-        marker: { symbol: 'circle', lineWidth: 1.5, lineColor: '#ffffff' },
-        link: { type: 'curved', color: '#b9cfe9', lineWidth: 1 },
+        marker: { symbol: 'circle', lineWidth: 1.5, lineColor: HALO },
+        link: { type: 'curved', color: LINK, lineWidth: 1 },
         states: { hover: { link: { color: FIELD } }, inactive: { opacity: 0.4, link: { opacity: 0.3 } } },
         point: { events: { click: onNodeClick } },
       }, opts.series)],
@@ -279,6 +315,7 @@
     const box = $('txChart');
     if (chart) { chart.destroy(); chart = null; }
     if (typeof Highcharts === 'undefined') { box.replaceChildren(el('p', { class: 'tx-none' }, 'The chart library did not load; the table below lists the journals.')); return; }
+    colors();
     const W = box.clientWidth || 700;
     const narrow = W < 560;
     const pts = [{ id: 'c', name: a.n, color: INK, marker: { radius: narrow ? 8 : 10, fillColor: INK }, custom: { kind: 'category', a: a } }];
@@ -292,7 +329,7 @@
         rows++;
         const m = marked(ji);
         pts.push({ id: 'j' + ji, parent: 'f' + fi, name: jname(ji), color: m ? INK : JOUR, marker: { radius: m ? 5 : 3.5, fillColor: m ? INK : JOUR },
-          dataLabels: m ? { style: { fontWeight: '700', color: INK } } : any ? { style: { color: '#9a9893' } } : undefined,
+          dataLabels: m ? { style: { fontWeight: '700', color: INK } } : any ? { style: { color: DIM } } : undefined,
           custom: { kind: 'journal', ji: ji, c: [papers, since, faculty], cnt: cnt, up: f.n, cat: a.n, hit: m } });
       });
     });
@@ -305,7 +342,7 @@
       label: a.n + ': its groups and their specialty journals. The groups under the chart and the table below list the same journals with the basis of each placement.',
       series: {
         dataLabels: { enabled: true, crop: false, overflow: 'allow', align: 'left', x: 8, useHTML: false,
-          style: { fontSize: narrow ? '10.5px' : '12px', fontWeight: '400', color: '#52514e', textOutline: '3px #ffffff', whiteSpace: 'nowrap' },
+          style: { fontSize: narrow ? '10.5px' : '12px', fontWeight: '400', color: INK2, textOutline: '3px ' + HALO, whiteSpace: 'nowrap' },
           formatter() {
             const c = this.point.custom || {};
             if (c.kind === 'category') return '';
@@ -313,14 +350,14 @@
             return clip(this.point.name, narrow ? 24 : 52);
           } },
         levels: [
-          { level: 1, dataLabels: { enabled: true, align: 'left', x: -6, y: -16, verticalAlign: 'bottom', backgroundColor: 'rgba(255,255,255,0.92)', padding: 0,
+          { level: 1, dataLabels: { enabled: true, align: 'left', x: -6, y: -16, verticalAlign: 'bottom', backgroundColor: LABEL_BG, padding: 0,
             formatter() { return clip(a.n, narrow ? 18 : 40); },
-            style: { fontSize: '13px', fontWeight: '700', color: INK, textOutline: '3px #ffffff' } } },
-          // (2026-10-30, release audit) a group's label sits on a white ground so the links leaving its node do not
-          // strike through it; on a phone it is centered above its node, inside its own column
+            style: { fontSize: '13px', fontWeight: '700', color: INK, textOutline: '3px ' + HALO } } },
+          // (2026-10-30, release audit) a group's label sits on a ground of the page's color so the links leaving its
+          // node do not strike through it; on a phone it is centered above its node, inside its own column
           { level: 2, dataLabels: narrow
-            ? { align: 'center', verticalAlign: 'bottom', x: 0, y: -10, backgroundColor: 'rgba(255,255,255,0.92)', padding: 0, style: { fontWeight: '600', color: INK } }
-            : { backgroundColor: 'rgba(255,255,255,0.92)', padding: 0, x: 14, style: { fontWeight: '600', color: INK } } },
+            ? { align: 'center', verticalAlign: 'bottom', x: 0, y: -10, backgroundColor: LABEL_BG, padding: 0, style: { fontWeight: '600', color: INK } }
+            : { backgroundColor: LABEL_BG, padding: 0, x: 14, style: { fontWeight: '600', color: INK } } },
         ],
       },
     });
@@ -359,6 +396,7 @@
     const box = $('txChart');
     if (chart) { chart.destroy(); chart = null; }
     if (typeof Highcharts === 'undefined') { box.replaceChildren(el('p', { class: 'tx-none' }, 'The chart library did not load; the groups below and the table list the journals.')); return; }
+    colors();
     const W = box.clientWidth || 700;
     const narrow = W < 560;
     const pts = [];
@@ -369,7 +407,7 @@
     // the fold button sits on the node itself (+ folded, - open on hover); set by level, since a point's own
     // collapseButton option would overwrite the button Highcharts keeps under the same name
     const btn = (r, color) => ({ collapseButton: { enabled: true, onlyOnHover: true, x: -r, y: 0, width: 14, height: 14, lineWidth: 1, lineColor: color,
-      fillColor: '#ffffff', style: { color: color, fontSize: '11px', fontWeight: '600' } } });
+      fillColor: HALO, style: { color: color, fontSize: '11px', fontWeight: '600' } } });
     const lv = narrow ? 0 : 1;   // the root's level, when it is drawn
     // a phone with a group open: three columns do not fit in 375px, so the tree is drawn 600px wide and scrolls
     // sideways inside its box (the page itself does not), starting at the groups' column
@@ -397,7 +435,7 @@
       label: 'Higher-level groups and their groups; each group opens to its specialty journals. The groups under the chart and the table below list the journals.',
       series: {
         dataLabels: { enabled: true, crop: false, overflow: 'allow', align: 'left', x: 9, useHTML: false,
-          style: { fontSize: narrow ? '10.5px' : '12px', fontWeight: '400', color: '#52514e', textOutline: '3px #ffffff', whiteSpace: 'nowrap' },
+          style: { fontSize: narrow ? '10.5px' : '12px', fontWeight: '400', color: INK2, textOutline: '3px ' + HALO, whiteSpace: 'nowrap' },
           formatter() {
             const c = this.point.custom || {};
             const deep = anyOpen();   // a fourth column (the journals) is showing: the inner labels get shorter
@@ -407,7 +445,7 @@
             return clip(this.point.name, narrow ? 30 : 52);
           } },
         levels: (narrow ? [] : [{ level: 1, collapseButton: { enabled: false }, dataLabels: { align: 'left', x: -6, y: -14, verticalAlign: 'bottom',
-          style: { fontSize: '13px', fontWeight: '700', color: INK, textOutline: '3px #ffffff' } } }]).concat(
+          style: { fontSize: '13px', fontWeight: '700', color: INK, textOutline: '3px ' + HALO } } }]).concat(
           [Object.assign({ level: lv + 1 }, btn(6, TOP)), Object.assign({ level: lv + 2 }, btn(5, FIELD))]),
       },
     });
@@ -597,6 +635,12 @@
     renderTable();
     renderSources(tree.sources || []);
     window.addEventListener('resize', onResize);
+    // (2026-11-01, themes) a theme chosen while the page is open: the tree is drawn again in its colors
+    document.addEventListener('lsr-theme', () => {
+      try { if (current === ALL) drawAll(); else drawTree(T.areas[current]); } catch (e) { /* the tree stays as it was */ }
+      const n = document.querySelector('#txFrom .tx-from-note');
+      if (n) n.textContent = markNote();
+    });
     if (want && at < 0 && !isAll && !['tree', 'mapping', 'how', 'sources'].includes(want)) { $('find').value = want; $('find').dispatchEvent(new Event('input')); $('mapping').scrollIntoView(); }
     else if (location.hash && at < 0 && !isAll) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }
     if (FROM && FROM.area === current) $('txFrom').scrollIntoView({ block: 'start' });

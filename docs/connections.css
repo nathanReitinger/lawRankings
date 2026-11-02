@@ -1,6 +1,39 @@
 /* Law School Rankings: the Insights page, section 4 "Connections in the data" (connections.js). The cards, legends and
    tables are the page's own (insights.css .ins-card, .ins-legend, .ins-table); this adds what the six figures need. */
 
+/* (2026-11-01, themes) this section's own colors, which connections.js reads when it draws (theme.css has the rest):
+   the schools on the wheel, and the heat map's five stops, from a quarter of the total's share (0) through the same
+   share (2) to four times it (4), with the text on its cells (light on a dark cell, dark on a light one). White's are
+   the colors from before themes. On a dark page the stops turn round: "the same" sinks toward the card and the far
+   ends stand out, each cell dark enough for light text; the wheel's schools are a light blue. */
+:root {
+  --cn-wheel-node: #104281;
+  --cn-heat-0: #c23b3a; --cn-heat-1: #f0a29f; --cn-heat-2: #f0efec; --cn-heat-3: #86b6ef; --cn-heat-4: #1c5cab;
+  --cn-heat-on-dark: #ffffff; --cn-heat-on-light: #0b0b0b;
+}
+:root[data-theme="paper"] {
+  --cn-heat-0: #b8403d; --cn-heat-1: #eba79f; --cn-heat-2: #ece6d9; --cn-heat-3: #8db5e2; --cn-heat-4: #1f5c9e; --cn-heat-on-light: #000;
+}
+:root[data-theme="solarized-light"] {
+  --cn-heat-0: #b8312c; --cn-heat-1: #eeaa98; --cn-heat-2: #eee8d5; --cn-heat-3: #8ebde0; --cn-heat-4: #1a6399; --cn-heat-on-light: #000;
+}
+:root[data-theme="contrast-light"] {
+  --cn-heat-0: #a80000; --cn-heat-1: #f2a7a3; --cn-heat-2: #f0f0f0; --cn-heat-3: #8fbcef; --cn-heat-4: #0b4f9c; --cn-heat-on-light: #000;
+}
+:root[data-mode="dark"] {
+  --cn-wheel-node: #86b6ef;
+  --cn-heat-0: #c23b3a; --cn-heat-1: #5e2a28; --cn-heat-2: #262624; --cn-heat-3: #1d3d63; --cn-heat-4: #256abf;
+  --cn-heat-on-dark: #f0efec; --cn-heat-on-light: #000;
+}
+:root[data-theme="black"] { --cn-heat-2: #1c1c1c; }
+:root[data-theme="solarized-dark"] {
+  --cn-heat-0: #b3342c; --cn-heat-1: #56332f; --cn-heat-2: #0b3d4a; --cn-heat-3: #174a6e; --cn-heat-4: #1d64a3; --cn-heat-on-dark: #eee8d5;
+}
+:root[data-theme="contrast-dark"] {
+  --cn-wheel-node: #cde2fb;
+  --cn-heat-0: #c41e2a; --cn-heat-1: #6e1218; --cn-heat-2: #1f1f1f; --cn-heat-3: #123d73; --cn-heat-4: #1d5fc4; --cn-heat-on-dark: #fff;
+}
+
 .cn-card { overflow: hidden; }
 .cn-chart { min-height: 120px; }
 .cn-chart .highcharts-container { margin: 0 auto; }
@@ -9,7 +42,7 @@
 .cn-legend { margin-bottom: 2px; }
 /* legend swatches that mirror the marks: a dot for dots, a dashed rule for the reference line */
 .cn-legend i.dot { width: 9px; height: 9px; border-radius: 50%; }
-.cn-legend i.dash { height: 0; border-top: 1.5px dashed var(--axis); background: none !important; }
+.cn-legend i.dash { height: 0; border-top: 1.5px dashed var(--chart-axis); background: none !important; }   /* (2026-11-01, themes) the chart's own rule color */
 .cn-foot { color: var(--ink-2); font-size: 14px; line-height: 1.45; max-width: 820px; }
 .cn-none { font-family: var(--sans); font-size: 13.5px; padding: 12px 0; margin: 0; }
 .cn-card .ins-table td { overflow-wrap: break-word; }

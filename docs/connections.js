@@ -13,7 +13,30 @@
   const pct1 = (x) => (x == null || !isFinite(x) ? '–' : (100 * x).toFixed(1) + '%');
   const yrs = (a, b) => (a === b ? String(a) : a + '–' + b);
   const rankNum = (label) => { const m = /\d+/.exec(label == null ? '' : String(label)); return m ? +m[0] : null; };
-  const css = (name, dflt) => getComputedStyle(document.body).getPropertyValue(name).trim() || dflt;
+  // (2026-11-01, themes) a color of the theme in use, read when a chart is drawn: theme.css's chart colors and this
+  // section's own (connections.css, --cn-*); the literal is White's, for a page without theme.js. V: the same color
+  // for a swatch in a key above a chart, which then follows a change of theme by itself
+  const T = (name, dflt) => (window.LSRTheme ? LSRTheme.color(name, dflt) : dflt);
+  const V = (name, dflt) => 'var(' + name + ', ' + dflt + ')';
+  const white = () => !window.LSRTheme || LSRTheme.get().theme === 'light';
+  const pal = () => ({ ink: T('--chart-ink', '#0b0b0b'), ink2: T('--chart-ink-2', '#52514e'), muted: T('--chart-muted', '#898781'),
+    rule: T('--chart-axis', '#c3c2b7'), blue: T('--s1', '#2a78d6'), orange: T('--s2', '#eb6834') });
+  // the color behind a chart (its card's), as #rrggbb: the rings round the dots, the outline round a label, the seams
+  // between the heat map's cells (White: #ffffff, as before)
+  const hex = (c) => {
+    let m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:\s*[,/]\s*([\d.]+)(%?))?/.exec(c || ''), v;
+    if (m) v = [+m[1], +m[2], +m[3]];
+    else if ((m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+)(%?))?/.exec(c || ''))) v = [m[1], m[2], m[3]].map((x) => Math.round(255 * x));
+    if (!v || (m[4] != null && parseFloat(m[4]) === 0)) return null;
+    return '#' + v.map((x) => x.toString(16).padStart(2, '0')).join('');
+  };
+  const behind = (node) => {
+    for (let e = node; e && e.nodeType === 1; e = e.parentElement) { const h = hex(getComputedStyle(e).backgroundColor); if (h) return h; }
+    return '#ffffff';
+  };
+  // contrast between two colors (WCAG), for the text on the heat map's cells
+  const lum = (c) => { const x = Highcharts.color(c).rgba; return [0, 1, 2].reduce((s, i) => { const v = x[i] / 255; return s + [0.2126, 0.7152, 0.0722][i] * (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); }, 0); };
+  const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const el = (tag, attrs, text) => {
     const e = document.createElement(tag);
@@ -175,29 +198,33 @@
   const figs = [];      // { box, draw } for each figure, redrawn on resize
 
   const font = { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' };
-  function base(W) {
-    const ink2 = css('--ink-2', '#52514e'), muted = css('--muted', '#898781'), grid = css('--grid', '#e8e7e1'), axis = css('--axis', '#c3c2b7');
+  function base(W, bg) {
+    const ink2 = T('--chart-ink-2', '#52514e'), muted = T('--chart-muted', '#898781'), grid = T('--chart-grid', '#e8e7e1'), axis = T('--chart-axis', '#c3c2b7');
     const axisStyle = { color: muted, fontSize: '11.5px', fontVariantNumeric: 'tabular-nums' };
+    // (2026-11-01, themes) the keyboard's focus ring in the theme's focus color (White: Highcharts' own, as before)
+    const a11y = white() ? { enabled: true } : { enabled: true, keyboardNavigation: { focusBorder: { style: { color: T('--focus', '#1f64d6') } } } };
     return {
       chart: { backgroundColor: 'transparent', style: font, spacing: [8, 4, 6, 2], animation: false },
       title: { text: null }, subtitle: { text: null },
       credits: { enabled: false },          // (2026-10-26, the owner: "drop the highcharts logo")
       exporting: { enabled: false },
-      legend: { enabled: false, itemStyle: { color: ink2, fontWeight: '400', fontSize: '12.5px' }, itemHoverStyle: { color: css('--ink', '#0b0b0b') },
+      legend: { enabled: false, itemStyle: { color: ink2, fontWeight: '400', fontSize: '12.5px' }, itemHoverStyle: { color: T('--chart-ink', '#0b0b0b') },
         symbolRadius: 2, margin: 6, padding: 4 },
       // (2026-10-26, the owner on the journal tree: "my cursor gets stuck in it"): a tap shows the tooltip, a swipe
       // always scrolls the page
       // (SVG text, whatever the page's other figures set: it wraps at the width given here)
-      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)',
+      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: T('--chart-tooltip', 'rgba(255,255,255,0.97)'), borderColor: T('--chart-ring', 'rgba(11,11,11,0.10)'),
         borderRadius: 8, borderWidth: 1, shadow: { opacity: 0.08 }, padding: 9, style: { fontSize: '12.5px', color: ink2, whiteSpace: 'normal', width: Math.min(300, W - 40) + 'px' } },
       xAxis: { lineColor: axis, tickColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
       yAxis: { lineColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
-      plotOptions: { series: { animation: false, states: { inactive: { opacity: 0.35 } } } },
-      accessibility: { enabled: true },
+      // (2026-11-01, themes) the ring round a point under the pointer in the card's color (Highcharts' own is white)
+      plotOptions: { series: { animation: false, states: { inactive: { opacity: 0.35 } }, marker: { lineColor: bg } } },
+      accessibility: a11y,
     };
   }
-  function makeChart(box, opts, W) {
-    const c = Highcharts.chart(box, Highcharts.merge(base(W), opts));
+  function makeChart(box, opts, W, bg) {
+    if (window.LSRTheme) LSRTheme.highcharts(Highcharts);      // (2026-11-01, themes) Highcharts' own text and rules
+    const c = Highcharts.chart(box, Highcharts.merge(base(W, bg || behind(box)), opts));
     charts.push(c);
     return c;
   }
@@ -290,7 +317,8 @@
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
       const nodes = [...new Set(top.flatMap((o) => [o.a, o.b]))].sort((x, y) => (R.sRank[x] || 999) - (R.sRank[y] || 999) || S[x][0].localeCompare(S[y][0]));
-      const dark = css('--seq-3', '#104281'), blue = css('--flagship', '#2a78d6'), ink2 = css('--ink-2', '#52514e');
+      // (2026-11-01, themes) the schools in the theme's own blue for them: dark on a light page, light on a dark one
+      const node = T('--cn-wheel-node', '#104281'), { blue, ink2 } = pal();
       // the schools' names run out from the ring (a name along a small arc would be cut short); the wheel leaves
       // room for the longest
       const lab = (s) => instLabel(S[s][0], narrow ? 14 : 18);
@@ -327,7 +355,7 @@
         } },
         series: [{
           type: 'dependencywheel', name: 'Articles together', keys: ['from', 'to', 'weight'],
-          nodes: nodes.map((s) => ({ id: 's' + s, name: lab(s), color: dark, custom: { s } })),
+          nodes: nodes.map((s) => ({ id: 's' + s, name: lab(s), color: node, custom: { s } })),
           data: top.map((o) => ({ from: 's' + o.a, to: 's' + o.b, weight: o.n, color: blue, custom: o })),
           size: diam, center: ['50%', '50%'], nodeWidth: narrow ? 7 : 9, nodePadding: 3, borderWidth: 0, linkOpacity: 0.32, curveFactor: 0.55,
           states: { hover: { linkOpacity: 0.85 }, inactive: { linkOpacity: 0.08, opacity: 0.3 } },
@@ -369,10 +397,10 @@
       rows.map((r) => [S[r.s][0], S[r.s][R.rankCol] || 'unranked', num(r.home), num(r.tot), pct1(r.share)])
         .concat(pooled.filter((g) => g.tot).map((g) => [BANDS[g.k].label + ' (' + num(g.n) + ' school' + (g.n === 1 ? '' : 's') + ', pooled)', '', num(g.home), num(g.tot), pct1(g.share)])));
     if (!has('scatter')) { noChart(c); return { c }; }
-    const blue = css('--flagship', '#2a78d6'), ink = css('--ink', '#0b0b0b'), ink2 = css('--ink-2', '#52514e');
-    legendKey(c, [['Each school', blue, 'dot'], ['Each group of schools, pooled', ink2, '']]);
+    legendKey(c, [['Each school', V('--s1', '#2a78d6'), 'dot'], ['Each group of schools, pooled', V('--chart-ink-2', '#52514e'), '']]);
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
+      const { blue, ink, ink2, muted } = pal(), bg = behind(c.box);
       const label = new Set(rows.slice(0, narrow ? 3 : 5).map((r) => r.s));
       if (t14.length) label.add(t14[0].s);
       const ranked = rows.filter((r) => r.rank != null);
@@ -391,17 +419,17 @@
         tooltip: { formatter() {
           const pt = this.point || this, o = pt.custom || {};
           if (o.k != null) return '<b>Schools ranked ' + esc(bandProse(o.k)) + '</b><br>' + pct1(o.share) + ' of their flagship-review articles in their own review<br>' + num(o.home) + ' of ' + num(o.tot) + ', ' + num(o.n) + ' school' + (o.n === 1 ? '' : 's') + ' pooled';
-          return '<b>' + esc(S[o.s][0]) + '</b><br>' + R.srcShort + ' ' + esc(S[o.s][R.rankCol] || 'unranked') + '<br>' + pct1(o.share) + ' in its own review (' + num(o.home) + ' of ' + num(o.tot) + ')<br><span style="color:#898781">' + esc(ownName(o.s)) + '</span>';
+          return '<b>' + esc(S[o.s][0]) + '</b><br>' + R.srcShort + ' ' + esc(S[o.s][R.rankCol] || 'unranked') + '<br>' + pct1(o.share) + ' in its own review (' + num(o.home) + ' of ' + num(o.tot) + ')<br><span style="color:' + muted + '">' + esc(ownName(o.s)) + '</span>';
         } },
         series: [
           { type: 'line', name: 'Each group of schools, pooled', data: line, color: ink2, lineWidth: 2, marker: { enabled: false }, zIndex: 1, findNearestPointBy: 'xy',
             states: { hover: { lineWidthPlus: 0 } } },
-          { type: 'scatter', name: 'Each school', zIndex: 2, color: blue, marker: { symbol: 'circle', radius: narrow ? 3.5 : 4.5, lineWidth: 1, lineColor: '#ffffff' },
+          { type: 'scatter', name: 'Each school', zIndex: 2, color: blue, marker: { symbol: 'circle', radius: narrow ? 3.5 : 4.5, lineWidth: 1, lineColor: bg },
             data: ranked.map((r) => ({ x: r.rank, y: 100 * r.share, custom: r,
               dataLabels: label.has(r.s) ? { enabled: true, format: instLabel(S[r.s][0], narrow ? 18 : 24), align: r.rank > maxX * 0.7 ? 'right' : 'left',
-                x: r.rank > maxX * 0.7 ? -7 : 7, y: under.has(r.s) ? 22 : 9, crop: false, overflow: 'allow', style: { fontSize: '11.5px', fontWeight: '500', color: ink, textOutline: '3px #ffffff' } } : undefined })) },
+                x: r.rank > maxX * 0.7 ? -7 : 7, y: under.has(r.s) ? 22 : 9, crop: false, overflow: 'allow', style: { fontSize: '11.5px', fontWeight: '500', color: ink, textOutline: '3px ' + bg } } : undefined })) },
         ],
-      }, W);
+      }, W, bg);
     } });
     return { c };
   }
@@ -430,11 +458,24 @@
     if (!has('heatmap')) { noChart(c); return { c }; }
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
-      const ink = css('--ink', '#0b0b0b');
+      const { ink2, muted } = pal(), bg = behind(c.box);
+      // (2026-11-01, themes) the five stops and the text on the cells from the theme (connections.css --cn-heat-*):
+      // under White as before, light text past 1.15 either way; in the other themes whichever of the two reads better
+      // on the cell's own color (Highcharts' blend between the stops)
+      const stops = [[0, T('--cn-heat-0', '#c23b3a')], [0.25, T('--cn-heat-1', '#f0a29f')], [0.5, T('--cn-heat-2', '#f0efec')], [0.75, T('--cn-heat-3', '#86b6ef')], [1, T('--cn-heat-4', '#1c5cab')]];
+      const onDark = T('--cn-heat-on-dark', '#ffffff'), onLight = T('--cn-heat-on-light', T('--chart-ink', '#0b0b0b'));
+      const cell = (v) => {
+        const p = (v + 2) / 4;
+        let i = stops.length - 2;
+        while (i > 0 && p < stops[i][0]) i--;
+        return Highcharts.color(stops[i][1]).tweenTo(Highcharts.color(stops[i + 1][1]), (p - stops[i][0]) / (stops[i + 1][0] - stops[i][0]));
+      };
+      const textOn = white() ? (v) => (Math.abs(v) > 1.15 ? onDark : onLight)
+        : (v) => { const c = cell(v); return contrast(c, onDark) >= contrast(c, onLight) ? onDark : onLight; };
       const data = [];
       areas.forEach((a, y) => BANDS.forEach((b, k) => {
         const v = Math.max(-2, Math.min(2, lr(k, a)));
-        data.push({ x: k, y, value: v, custom: { a, k }, dataLabels: { color: Math.abs(v) > 1.15 ? '#ffffff' : ink } });
+        data.push({ x: k, y, value: v, custom: { a, k }, dataLabels: { color: textOn(v) } });
       }));
       makeChart(c.box, {
         // (on a phone the ranges take two lines, "26–" over "50", so the column heads do not run together)
@@ -442,22 +483,23 @@
         accessibility: { description: 'A table-like heat map: subject areas down, groups of law schools across, each cell the share of that group’s specialty-journal articles in that area.' },
         xAxis: { categories: BANDS.map((b) => b.short), opposite: true, lineWidth: 0, tickLength: 0,
           labels: { autoRotation: false, overflow: 'allow', formatter() { const t = String(this.value); return narrow && t.length > 4 ? t.replace('–', '–<br>') : t; },
-            style: { color: css('--ink-2', '#52514e'), fontSize: narrow ? '10px' : '12px', fontWeight: '600', textOverflow: 'none' } } },
+            style: { color: ink2, fontSize: narrow ? '10px' : '12px', fontWeight: '600', textOverflow: 'none' } } },
         yAxis: { categories: areas.map((a) => areaLabel(G[a], narrow)), reversed: true, title: { text: null }, gridLineWidth: 0, lineWidth: 0,
-          labels: { style: { color: css('--ink-2', '#52514e'), fontSize: narrow ? '11px' : '12px', textOverflow: 'none', whiteSpace: 'nowrap' } } },
-        colorAxis: { min: -2, max: 2, tickPositions: [-2, -1, 0, 1, 2],
-          stops: [[0, '#c23b3a'], [0.25, '#f0a29f'], [0.5, '#f0efec'], [0.75, '#86b6ef'], [1, '#1c5cab']],
-          labels: { formatter() { return ({ '-2': '¼×', '-1': '½×', 0: 'same', 1: '2×', 2: '4×' })[this.value]; }, style: { color: css('--muted', '#898781'), fontSize: '11px' } } },
+          labels: { style: { color: ink2, fontSize: narrow ? '11px' : '12px', textOverflow: 'none', whiteSpace: 'nowrap' } } },
+        // (the rules across the key's bar at its marks: the card's color, as Highcharts' own white was on White)
+        colorAxis: { min: -2, max: 2, tickPositions: [-2, -1, 0, 1, 2], gridLineColor: bg,
+          stops,
+          labels: { formatter() { return ({ '-2': '¼×', '-1': '½×', 0: 'same', 1: '2×', 2: '4×' })[this.value]; }, style: { color: muted, fontSize: '11px' } } },
         legend: { enabled: true, align: 'left', verticalAlign: 'bottom', layout: 'horizontal', symbolWidth: Math.min(260, W - 40), symbolHeight: 8,
-          title: { text: 'Share compared with the total', style: { color: css('--ink-2', '#52514e'), fontSize: '12px', fontWeight: '400' } } },
+          title: { text: 'Share compared with the total', style: { color: ink2, fontSize: '12px', fontWeight: '400' } } },
         tooltip: { formatter() {
           const pt = this.point || this, o = pt.custom || {};
           return '<b>' + esc(G[o.a]) + '</b><br>Schools ranked ' + esc(bandProse(o.k)) + ': ' + pct1(share(o.k, o.a)) + ' of their specialty-journal articles (' + num(R.tier[o.k][o.a]) + ')<br>Total: ' + pct1(shareAll(o.a));
         } },
-        series: [{ name: 'Share of specialty-journal articles', data, borderWidth: 2, borderColor: '#ffffff', borderRadius: 3, colsize: 1, rowsize: 1,
+        series: [{ name: 'Share of specialty-journal articles', data, borderWidth: 2, borderColor: T('--cn-heat-seam', bg), borderRadius: 3, colsize: 1, rowsize: 1,
           dataLabels: { enabled: true, formatter() { const o = (this.point || this).custom; return pct(share(o.k, o.a)); },
             style: { fontSize: narrow ? '11px' : '12px', fontWeight: '500', textOutline: 'none', fontVariantNumeric: 'tabular-nums' } } }],
-      }, W);
+      }, W, bg);
     } });
     return { c };
   }
@@ -480,22 +522,22 @@
     if (!has('bar')) { noChart(c); return { c }; }
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
-      const orange = css('--specialty', '#eb6834'), ink = css('--ink', '#0b0b0b'), ink2 = css('--ink-2', '#52514e');
+      const { orange, ink, ink2 } = pal(), bg = behind(c.box);
       makeChart(c.box, {
         chart: { type: 'bar', height: areas.length * (narrow ? 26 : 28) + 64, marginRight: narrow ? 20 : 26 },
         accessibility: { description: 'Bars: the share of co-written specialty-journal articles in each subject area, most first.' },
         xAxis: { categories: areas.map((a) => areaLabel(G[a], narrow)), lineWidth: 1, tickLength: 0, labels: { style: { color: ink2, fontSize: narrow ? '11px' : '12px', textOverflow: 'none', whiteSpace: 'nowrap' } } },
         yAxis: { min: 0, max: 100, tickInterval: 25, title: { text: null }, labels: { format: '{value}%' },
           plotLines: [{ value: 100 * multi / tot, color: ink, width: 1, dashStyle: 'ShortDash', zIndex: 4,
-            label: { text: 'Total: ' + pct(multi / tot), rotation: 0, align: 'left', x: 5, y: -4, verticalAlign: 'bottom', style: { color: ink, fontSize: '11.5px', textOutline: '3px #ffffff' } } }] },
+            label: { text: 'Total: ' + pct(multi / tot), rotation: 0, align: 'left', x: 5, y: -4, verticalAlign: 'bottom', style: { color: ink, fontSize: '11.5px', textOutline: '3px ' + bg } } }] },
         tooltip: { formatter() {
           const pt = this.point || this, a = pt.custom;
           return '<b>' + esc(G[a]) + '</b><br>' + pct1(sh(a)) + ' co-written: ' + num(R.teamMulti[a]) + ' of ' + num(R.teamTot[a]) + ' articles';
         } },
         series: [{ name: 'Share co-written', color: orange, borderRadius: 3, pointPadding: 0.18, groupPadding: 0, borderWidth: 0,
           data: areas.map((a) => ({ y: 100 * sh(a), custom: a })),
-          dataLabels: { enabled: true, formatter() { return pct((this.point || this).y / 100); }, style: { color: ink2, fontSize: '11.5px', fontWeight: '500', textOutline: '3px #ffffff' } } }],
-      }, W);
+          dataLabels: { enabled: true, formatter() { return pct((this.point || this).y / 100); }, style: { color: ink2, fontSize: '11.5px', fontWeight: '500', textOutline: '3px ' + bg } } }],
+      }, W, bg);
     } });
     return { c };
   }
@@ -516,20 +558,19 @@
     table(c.tb, ['Subject area', ep, lp, 'Change'], areas.map((a) => [G[a], pct1(e(a)) + ' (' + num(R.early[a]) + ')', pct1(l(a)) + ' (' + num(R.late[a]) + ')',
       (d(a) >= 0 ? '+' : '−') + Math.abs(100 * d(a)).toFixed(1) + ' pts']));
     if (!has('scatter')) { noChart(c); return { c }; }
-    const orange = css('--specialty', '#eb6834'), grey = css('--muted', '#898781'), rule = css('--axis', '#c3c2b7');
-    legendKey(c, [[ep, grey, 'dot'], [lp, orange, 'dot']]);
+    legendKey(c, [[ep, V('--chart-muted', '#898781'), 'dot'], [lp, V('--s2', '#eb6834'), 'dot']]);
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
-      const ink2 = css('--ink-2', '#52514e');
+      const { orange, muted: grey, rule, ink2 } = pal(), bg = behind(c.box);
       const tip = function () {
         const pt = this.point || this, a = pt.custom;
         return '<b>' + esc(G[a]) + '</b><br>' + ep + ': ' + pct1(e(a)) + ' (' + num(R.early[a]) + ')<br>' + lp + ': ' + pct1(l(a)) + ' (' + num(R.late[a]) + ')';
       };
       const series = areas.map((a, i) => ({ type: 'line', data: [{ x: i, y: 100 * e(a) }, { x: i, y: 100 * l(a) }], color: rule, lineWidth: 2,
         marker: { enabled: false }, enableMouseTracking: false, showInLegend: false, zIndex: 1, accessibility: { enabled: false } }));
-      series.push({ type: 'scatter', name: ep, color: grey, zIndex: 2, marker: { symbol: 'circle', radius: 5, lineWidth: 1, lineColor: '#ffffff' },
+      series.push({ type: 'scatter', name: ep, color: grey, zIndex: 2, marker: { symbol: 'circle', radius: 5, lineWidth: 1, lineColor: bg },
         data: areas.map((a, i) => ({ x: i, y: 100 * e(a), custom: a })) });
-      series.push({ type: 'scatter', name: lp, color: orange, zIndex: 3, marker: { symbol: 'circle', radius: 5, lineWidth: 1, lineColor: '#ffffff' },
+      series.push({ type: 'scatter', name: lp, color: orange, zIndex: 3, marker: { symbol: 'circle', radius: 5, lineWidth: 1, lineColor: bg },
         data: areas.map((a, i) => ({ x: i, y: 100 * l(a), custom: a })) });
       makeChart(c.box, {
         chart: { inverted: true, height: areas.length * (narrow ? 26 : 28) + 56 },
@@ -539,7 +580,7 @@
         yAxis: { min: 0, title: { text: null }, labels: { format: '{value}%' }, tickAmount: narrow ? 4 : 6 },
         tooltip: { formatter: tip },
         series,
-      }, W);
+      }, W, bg);
     } });
     return { c };
   }
@@ -568,21 +609,20 @@
       marks.map((f) => { const k = Math.round(f * N); return [pct(f), num(k), pct1(cum(topV, k) / Tt), pct1(cum(allV, k) / T)]; })
         .concat([['Total', num(N), '100% (' + num(Tt) + ' author credits)', '100% (' + num(T) + ' author credits)']]));
     if (!has('line')) { noChart(c); return { c }; }
-    const blue = css('--flagship', '#2a78d6'), ink2 = css('--ink-2', '#52514e'), rule = css('--axis', '#c3c2b7');
-    legendKey(c, [['Top-14 law reviews', blue, ''], ['Journals collected here', ink2, ''], ['Equal shares', rule, 'dash']]);
+    legendKey(c, [['Top-14 law reviews', V('--s1', '#2a78d6'), ''], ['Journals collected here', V('--chart-ink-2', '#52514e'), ''], ['Equal shares', V('--chart-axis', '#c3c2b7'), 'dash']]);
     // the curves at every half percent of people, and at the halfway mark (both curves, for the shared tooltip)
     const ks = [...new Set(Array.from({ length: 201 }, (x, q) => Math.round(q / 200 * N)).concat([hTop]))].sort((x, y) => x - y);
     const curve = (v, tot) => ks.map((k) => ({ x: 100 * k / N, y: 100 * cum(v, k) / tot, custom: k }));
     const topC = curve(topV, Tt), allC = curve(allV, T);
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
-      const ink = css('--ink', '#0b0b0b');
+      const { blue, ink, ink2, rule } = pal(), bg = behind(c.box);
       const at = (arr, x) => arr.reduce((m, p) => (Math.abs(p.x - x) < Math.abs(m.x - x) ? p : m), arr[0]);
       const topData = topC.map((p) => (p.custom !== hTop ? p : Object.assign({}, p, {
-        marker: { enabled: true, symbol: 'circle', radius: 4.5, fillColor: blue, lineColor: '#ffffff', lineWidth: 1 },
-        dataLabels: { enabled: true, align: 'left', x: 8, y: 14, format: num(hTop) + ' people: half', style: { color: ink, fontSize: '11.5px', fontWeight: '600', textOutline: '3px #ffffff' } } })));
+        marker: { enabled: true, symbol: 'circle', radius: 4.5, fillColor: blue, lineColor: bg, lineWidth: 1 },
+        dataLabels: { enabled: true, align: 'left', x: 8, y: 14, format: num(hTop) + ' people: half', style: { color: ink, fontSize: '11.5px', fontWeight: '600', textOutline: '3px ' + bg } } })));
       const allData = allC.slice();
-      const lab = (p, text, y) => Object.assign({}, p, { dataLabels: { enabled: true, format: text, align: 'left', x: 6, y, style: { color: ink2, fontSize: '11.5px', fontWeight: '500', textOutline: '3px #ffffff' } } });
+      const lab = (p, text, y) => Object.assign({}, p, { dataLabels: { enabled: true, format: text, align: 'left', x: 6, y, style: { color: ink2, fontSize: '11.5px', fontWeight: '500', textOutline: '3px ' + bg } } });
       // each curve named just below its bend where there is room (on a phone the legend above names the top-14 curve)
       const allL = at(allData, narrow ? 38 : 30);
       if (!narrow) { const topL = at(topData, 9.5); topData[topData.indexOf(topL)] = lab(topL, 'Top-14 law reviews', 15); }
@@ -608,7 +648,7 @@
           { name: 'Journals collected here', data: allData, color: ink2, lineWidth: 2, zIndex: 1 },
           { name: 'Top-14 law reviews', data: topData, color: blue, lineWidth: 2, zIndex: 2 },
         ],
-      }, W);
+      }, W, bg);
     } });
     return { c };
   }
@@ -732,4 +772,11 @@
   }
   document.addEventListener('lsr-insights-data', () => setTimeout(start, 0));
   if (window.LSR_INS) setTimeout(start, 0);
+  // (2026-11-01, themes) another theme chosen: the figures drawn again in its colors, all at once (a first drawing
+  // still under way stops); the keys above them follow by themselves; figures not drawn yet take it when they draw
+  document.addEventListener('lsr-theme', () => {
+    if (!drawn || !figs.length) return;
+    gen++;
+    drawAll();
+  });
 })();

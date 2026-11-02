@@ -1,370 +1,39 @@
 /* Law School Rankings: CSrankings.org look (values from csrankings.css / csrankings-extra.css, Oct 2026)
    with a Harvard Law Review-style masthead. Shared by index.html, faq.html and history.html. */
 
+/* (2026-11-01, themes) the colors come from theme.css; these few have no shared name there (White: the colors before
+   themes) */
+:root {
+  --style-about-shadow: rgba(51, 122, 183, 0.3);     /* under "Close" (.btn-about) on hover */
+  --style-area-underline: rgba(255, 127, 0, 0.55);   /* a subject-area link's underline */
+  --style-ico-axis: #aaa; --style-ico-3: #4daf4a; --style-ico-4: #984ea3;   /* the chart icon (index.html, #i-chart) */
+}
+:root[data-theme="paper"] { --style-about-shadow: rgba(53, 103, 156, 0.3); --style-area-underline: rgba(173, 90, 6, 0.55); }
+:root[data-theme="solarized-light"] { --style-about-shadow: rgba(31, 111, 168, 0.3); --style-area-underline: rgba(184, 65, 15, 0.55); }
+:root[data-mode="dark"] { --style-about-shadow: rgba(0, 0, 0, 0.5); --style-area-underline: rgba(255, 160, 77, 0.6);
+  --style-ico-axis: #8a8884; --style-ico-3: var(--s3); --style-ico-4: var(--s7); }
+:root[data-theme="solarized-dark"] { --style-area-underline: rgba(232, 116, 59, 0.7); }
+:root[data-theme^="contrast"] { --style-about-shadow: transparent; --style-area-underline: var(--specialty-text);
+  --style-ico-axis: var(--text); --style-ico-3: var(--s3); --style-ico-4: var(--s7); }
+/* the dark themes' shade over a group button that is partly on (the page's color, see the end of this file) */
+:root[data-mode="dark"] { --style-dim: rgba(21, 21, 21, 0.45); }
+:root[data-theme="black"] { --style-dim: rgba(0, 0, 0, 0.45); }
+:root[data-theme="solarized-dark"] { --style-dim: rgba(0, 43, 54, 0.45); }
+
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; font-family: Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.42857; color: #333; background: #fff; }
-a { color: blue; text-decoration: none; }
-a:hover, a:focus { color: #23527c; text-decoration: underline; }
+body { margin: 0; font-family: Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.42857; color: var(--text); background: var(--bg); }
+a { color: var(--link); text-decoration: none; }
+a:hover, a:focus { color: var(--link-hover); text-decoration: underline; }
 p { margin: 0 0 10px; }
 small { font-size: 85%; }
-.text-muted { color: #777; }
-abbr[title] { cursor: help; border-bottom: 1px dotted #777; text-decoration: none; }
+.text-muted { color: var(--muted); }
+abbr[title] { cursor: help; border-bottom: 1px dotted var(--muted); text-decoration: none; }
 button, select, input { font: inherit; color: inherit; }
 table { border-collapse: collapse; border-spacing: 0; font-size: 16px; line-height: normal; }
 td, th { padding: 0; text-align: left; vertical-align: top; }
 
 .container { margin: 0 auto; padding: 0 15px; max-width: 1170px; }
-
-/* ---------- masthead: professional wordmarks, a different one on each visit (2026-10-25; 25 of them since 2026-10-26) ----------
-   The owner: "come up with 10 different versions of the header logo. Cycle through them. None should be cyberpunk.
-   All should look very professional. A user gets a different one on each visit." A one-line script in each page's
-   <head> sets [data-mast="1".."10"] (one per visit, the next one on the next visit) and loads only that
-   variant's font. All keep the law-review layout measured from 139 Harv. L. Rev. 1: the version line above, the
-   framed wordmark, the About button below; sizes scale with the wordmark, --k fits wider faces to the same width. */
-.lsr-mast-wrap { container-type: inline-size; display: flex; justify-content: center; padding: 22px 0 16px; overflow-x: hidden; overflow-x: clip; }
-.lsr-mast {
-  --ink: #000; --paper: #fff; --fi: max(11px, calc(0.486em / var(--k))); --k: 1; --ls: 0.170em; --face: 'Alegreya', 'Libre Caslon Text', Georgia, serif; --weight: 450;
-  font-size: clamp(15px, calc(var(--k) * 5.4vw), calc(var(--k) * 3rem));   /* (review) without container units */
-  font-size: clamp(15px, calc(var(--k) * 100cqi / 16.4), calc(var(--k) * 3rem));
-  display: inline-grid; grid-template-columns: minmax(0, max-content); max-width: 100%; margin: 0; color: var(--ink);
-}
-.lsr-issue {
-  display: flex; justify-content: space-between; align-items: baseline; gap: 0.6em; margin: 0;
-  font-family: 'Noto Serif', 'Century Schoolbook', 'New Century Schoolbook', Georgia, serif; font-weight: 700;
-  font-size: var(--fi); line-height: 1; letter-spacing: 0; word-spacing: 0.15em; text-transform: uppercase; white-space: nowrap;
-}
-.lsr-issue a { color: inherit; }
-.lsr-issue a:hover { text-decoration: underline; }
-/* (2026-10-26) the build hash: a little extra information, small, light and in a code face, not a headline */
-.lsr-stamp { align-self: center; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; font-weight: 400;
-  font-size: max(9.5px, 0.62em); letter-spacing: 0.04em; word-spacing: 0; text-transform: none; color: #9b978f; cursor: help; }
-.build-hash { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.92em; color: #9b978f; }
-.lsr-mark {
-  margin: calc(0.4315em - 0.112 * var(--fi)) 0 0;
-  padding: 0.256em 0.855em 0.261em 0.833em;
-  border: max(1.5px, 0.069em) solid var(--ink); background: var(--paper); color: var(--ink);
-  font-family: var(--face); font-weight: var(--weight); font-style: normal;
-  font-size: 1em; line-height: 1; letter-spacing: var(--ls); word-spacing: 0.015em; text-transform: uppercase;
-  font-kerning: normal; font-variant-ligatures: none; text-align: center; white-space: nowrap;
-}
-.lsr-mark > a { display: inline-block; margin-right: calc(-1 * var(--ls)); color: inherit; }
-.lsr-mark > a:hover, .lsr-mark > a:focus { text-decoration: none; }
-/* (2026-10-29) keyboard focus: one solid rectangle round the link's own box (Chrome's 'auto' ring took in 17's lens and
-   notched round 23's words), and no site-wide link underline through the wordmark */
-.lsr-mark > a:focus-visible { outline: max(2px, 0.04em) solid #1f64d6; outline-offset: 0.1em; }
-/* 2. double rule, Garamond */
-:is(html[data-mast="2"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="2"]) .lsr-mast { --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.16em; }
-:is(html[data-mast="2"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="2"]) .lsr-mark { border: max(3px, 0.11em) double var(--ink); }
-/* 3. Oxford blue: rules above and below, no sides */
-:is(html[data-mast="3"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="3"]) .lsr-mast { --ink: #14213d; --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --k: 0.99; --ls: 0.15em; }
-:is(html[data-mast="3"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="3"]) .lsr-mark { border-width: max(2px, 0.08em) 0; box-shadow: inset 0 0.07em 0 var(--paper), inset 0 0.1em 0 var(--ink), inset 0 -0.07em 0 var(--paper), inset 0 -0.1em 0 var(--ink); }
-/* 4. cardinal, a fine frame */
-:is(html[data-mast="4"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="4"]) .lsr-mast { --ink: #8c1515; --face: 'Crimson Pro', Georgia, serif; --weight: 500; --k: 1.07; --ls: 0.15em; }
-:is(html[data-mast="4"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="4"]) .lsr-mark { border-width: max(1px, 0.04em); }
-/* 5. ink panel, letters reversed out */
-:is(html[data-mast="5"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="5"]) .lsr-mast { --ink: #1f2a37; --face: 'Libre Caslon Text', Georgia, serif; --weight: 400; --k: 0.9; --ls: 0.16em; }
-:is(html[data-mast="5"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="5"]) .lsr-mark { background: var(--ink); color: #fff; }
-/* 6. small caps with an inner hairline */
-:is(html[data-mast="6"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="6"]) .lsr-mast { --face: 'Playfair Display SC', Georgia, serif; --weight: 400; --k: 1.03; --ls: 0.12em; }
-:is(html[data-mast="6"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="6"]) .lsr-mark { outline: 1px solid var(--ink); outline-offset: calc(-1 * max(5px, 0.2em)); }
-/* 7. engraved capitals, bronze ink, frame within a frame */
-:is(html[data-mast="7"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="7"]) .lsr-mast { --ink: #5b4520; --face: 'Cinzel', 'Trajan Pro', Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.14em; }
-:is(html[data-mast="7"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="7"]) .lsr-mark { border-width: max(1px, 0.04em); box-shadow: inset 0 0 0 max(3px, 0.12em) var(--paper), inset 0 0 0 max(4px, 0.16em) var(--ink); }
-/* 8. slab serif, heavy frame */
-:is(html[data-mast="8"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="8"]) .lsr-mast { --ink: #26282b; --face: 'Zilla Slab', Rockwell, Georgia, serif; --weight: 600; --k: 1.04; --ls: 0.11em; }
-:is(html[data-mast="8"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="8"]) .lsr-mark { border-width: max(2.5px, 0.1em); }
-/* 9. Garamond italic, title case, burgundy */
-:is(html[data-mast="9"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="9"]) .lsr-mast { --ink: #6d1a2b; --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 1.35; --ls: 0.02em; }
-:is(html[data-mast="9"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="9"]) .lsr-mark { font-style: italic; text-transform: none; }
-/* 10. modern serif, small capitals between a hairline and a heavy rule */
-:is(html[data-mast="10"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="10"]) .lsr-mast { --face: 'Source Serif 4', Georgia, serif; --weight: 600; --k: 0.98; --ls: 0.14em; }
-:is(html[data-mast="10"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="10"]) .lsr-mark { border-width: max(1px, 0.04em) 0 max(4px, 0.15em); }
-
-.lsr-mark > a > span { display: inline; }
-
-/* ---------- 11-25 answer the pointer (2026-10-29, the owner: "improve the titles again. use a bunch of reactive titles
-   from the two css links i shared. i want the title to feel professional but futuristic"; then: "the new title logos do
-   not look like they should"; before: "do not use 3D spin", no Gaussian blur, "very very professional", none
-   cyberpunk). Each is ONE method from prismic.io/blog/css-text-animations (P#) or freefrontend.com/css-text-animations
-   (FF#), the demo's own CSS mechanism set in the site's inks, with a look of its own at rest and the pointer (or a
-   finger) driving it:
-   type  11 weight field (P37: the wght axis by the pointer, letters in fixed cells so nothing reflows; Roboto Flex) ·
-         12 typewriter (P21/P22: typed in steps behind a caret; a block cursor inverts the character under the pointer;
-         IBM Plex Mono) · 13 split-flap board (FF16/FF42 "Text Roller", made a flap: two half-cards per tile fold with
-         scaleY about the split; a tile flips as the pointer crosses it; Space Grotesk) · 14 width swap (P39 "Work/Life": the
-         word under the pointer goes wide and heavy while the others condense; Archivo's wdth and wght axes) · 15 wave
-         lift (P9 "Wavy text": letters near the pointer rise off a ruled baseline on stems, like a chart; Inter Tight)
-   light 16 specular sheen (FF57/FF8: a hard glint band clipped to steel letters on a dark plate; Saira Expanded) ·
-         17 lens (P35 "Rainbow spotlight": a clip-path circle at the pointer shows the name magnified on blueprint
-         paper; Instrument Sans) · 18 extrusion (P12 "HEY": stacked hard text-shadows, cast away from the pointer;
-         Outfit) · 19 Houdini colour (FF13: registered colours that interpolate; the gradient's bright centre and hue
-         follow the pointer; Manrope) · 20 drafted outlines (FF33/FF50: SVG text, stroke-dashoffset draws the
-         contours, dashes run round them with the pointer; Syncopate; masthead.js strokeMark)
-   ink   21 gauges (P28 "Text hover transition": outline letters whose ink fill is clipped to the text; near the pointer
-         the ink level drops to the pointer's height; Archivo Black) · 22 engraved hatching (FF23: stripes clipped to
-         the text inside an outline, turned by the pointer; Red Hat Display) · 23 ink-plate wipe (P33 "but I'm being
-         extra": per word an accent copy wipes down and the ink copy across; replayed for the word under the pointer;
-         Geist) · 24 contour lines (FF37 "Text Animation": stroked copies of each letter at three weights, spreading
-         apart near the pointer; Figtree) · 25 sliced plate (P29 "Believe" and P27: two copies clipped above and below a
-         cut, two inks; the word under the pointer parts by a hair; Sora).
-   The pointer layer in masthead.js writes, on the mark, --pa (how present the pointer is, 0-1, eased), --mx/--my (the
-   pointer from the link's top left), --ux/--uy (from the mark's), --u (across the link, 0-1), --cx/--cw (12's cell);
-   on each letter --d (closeness, 0-1), --dx/--dy (where it sits from the pointer, -1 to 1), --w (11's cell width);
-   data-hotw on the mark and data-hot on the word under the pointer (14, 25), --aw the name's resting width (14), data-k to replay a word (23), data-r to roll a
-   tile (13). The defaults are the resting state: what a touch screen shows until a finger crosses the mark, and all
-   that prefers-reduced-motion shows (no animation, no pointer layer). */
-:is(html:is([data-mast="11"], [data-mast="12"], [data-mast="13"], [data-mast="14"], [data-mast="15"], [data-mast="16"], [data-mast="17"], [data-mast="18"], [data-mast="19"], [data-mast="20"], [data-mast="21"], [data-mast="22"], [data-mast="23"], [data-mast="24"], [data-mast="25"]) .lsr-mast-wrap:not(.mast-preview), .mast-preview:is([data-mast="11"], [data-mast="12"], [data-mast="13"], [data-mast="14"], [data-mast="15"], [data-mast="16"], [data-mast="17"], [data-mast="18"], [data-mast="19"], [data-mast="20"], [data-mast="21"], [data-mast="22"], [data-mast="23"], [data-mast="24"], [data-mast="25"])) .lsr-mark { --pa: 0; --mx: 50%; --my: 50%; --ux: 50%; --uy: 50%; --u: 0.5; --d: 0; --dx: 0; --dy: 0; }
-/* (masthead.js) every letter at home for one measurement, never painted; and a hidden copy to measure 11's cells */
-.lsr-mark.mx-measure .ch, .lsr-mark.mx-measure .w1, .lsr-mark.mx-measure .w2, .lsr-mark.mx-measure .w3 { position: static !important; transform: none !important; translate: none !important; left: auto !important; }
-.lsr-mark .ch { display: inline; white-space: pre; }
-.lsr-mark .mx-probe { position: absolute !important; left: 0; top: 0; visibility: hidden !important; pointer-events: none; }
-.lsr-mark .mx-probe, .lsr-mark .mx-probe * { animation: none !important; transition: none !important; }
-.lsr-mark .mx-probe .ch { --d: 0 !important; display: inline !important; width: auto !important; }
-
-/* 11. type: a weight field (P37 "Variable font transition on hover", P36 "Breathe"): light capitals between hairlines;
-   each letter's weight follows its closeness to the pointer, up to black, inside a cell as wide as the letter at rest
-   (so nothing reflows); one wave of weight runs through on load */
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mast { --ink: #0d1b2a; --face: 'Roboto Flex', 'Helvetica Neue', Arial, sans-serif; --weight: 300; --ls: 0.1em; --k: 0.98; }
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark { border: 0; border-top: max(1px, 0.025em) solid var(--ink); border-bottom: max(1px, 0.025em) solid var(--ink); padding: 0.27em 0.12em 0.29em; }
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark .ch { font-weight: calc(300 + 420 * var(--d)); font-variation-settings: 'opsz' 40;
-  animation: v11-wave 1.4s cubic-bezier(.45,0,.3,1) backwards; animation-delay: calc(0.3s + var(--i) * 55ms); }
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark[data-fw] .ch { display: inline-flex; justify-content: center; width: var(--w, auto); }
-@keyframes v11-wave { 40% { font-weight: 720; } }   /* (up to 720, not black: heavier letters crowded inside their cells) */
-
-/* 12. type: a typewriter (P21, P22): the letters come one keystroke at a time behind a caret, which blinks and goes;
-   then a block cursor (P22's thick caret) sits on the character under the pointer, jumping cell to cell, and reverses
-   it (mix-blend-mode: difference; the mark is isolated, so it only meets its own paper) */
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mast { --ink: #121417; --face: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace; --weight: 600; --ls: 0.02em; --k: 1.22; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark { border: 0; border-bottom: max(2px, 0.05em) solid var(--ink); padding: 0.14em 0.14em 0.2em; isolation: isolate; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark > a { position: relative; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark .ch { animation: v12-key 1ms steps(1) backwards; animation-delay: calc(0.25s + var(--i) * 62ms); }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark > a::before { content: ""; position: absolute; top: -0.02em; bottom: -0.04em; left: 100%; width: max(2px, 0.07em); margin-left: max(1px, 0.03em); background: var(--ink); opacity: 0; pointer-events: none;
-  animation: v12-caret 1178ms steps(19, end) 0.25s, v12-blink 0.5s steps(1) 1.43s 4; }
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark > a::after { content: ""; position: absolute; top: -0.06em; bottom: -0.1em; left: var(--cx, 0px); width: var(--cw, 0.6em); background: #fff; mix-blend-mode: difference; opacity: var(--pa); pointer-events: none; }
-@keyframes v12-key { from { visibility: hidden; } }
-@keyframes v12-caret { from { left: 0; opacity: 1; } to { left: 100%; opacity: 1; } }
-@keyframes v12-blink { 0% { opacity: 1; } 50% { opacity: 0; } }
-
-/* 13. type: a split-flap board (FF16 "Hello World! CSS Text Roller", FF42 "CSS Rolling Text", made a flap): each
-   letter is a dark tile with the flap's split across it, the letter printed on two half-cards (::before above the
-   split, ::after below). A flip is flat, no 3D turn: the upper card folds down onto the split (scaleY 1 to 0, darkening
-   as it turns away), then the lower one opens down from it (scaleY 0 to 1). On load each tile flips from blank to its
-   letter, left to right; a tile the pointer crosses flips once more, to the same letter (never a digit or another
-   letter: 2026-10-29, the roller showed stray numerals) */
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mast { --ink: #0f1720; --face: 'Space Grotesk', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0em; --k: 0.9; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { border: 0; padding: 0.05em 0; --h13: max(0.5px, 0.012em); }
-@container (max-width: 560px) { :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { --h13: 0px; } }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch { display: inline-block; position: relative; min-width: 0.76em; margin: 0 0.028em; padding: 0.15em 0.07em 0.13em; line-height: 1; text-align: center; vertical-align: top;
-  color: #f2f5f8; background: linear-gradient(180deg, #1c2836 0 calc(50% - var(--h13)), #04070b 0 calc(50% + var(--h13)), #121b26 0 100%); border-radius: 0.07em; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-c=" "] { min-width: 0.2em; padding-left: 0; padding-right: 0; background: none; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::before, :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::after { content: attr(data-c); position: absolute; inset: 0; padding: inherit; border-radius: inherit;
-  white-space: pre; color: #f2f5f8; transform-origin: 50% 50%; pointer-events: none; animation-delay: calc(0.15s + var(--i) * 45ms); animation-fill-mode: backwards; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::before { clip-path: inset(0 0 50% 0); background: linear-gradient(180deg, #1c2836 0 calc(50% - var(--h13)), #04070b 0);
-  animation-name: v13-in-top; animation-duration: 0.56s; animation-timing-function: cubic-bezier(.55,0,.9,.45); }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::after { clip-path: inset(50% 0 0 0); background: linear-gradient(180deg, #04070b 0 calc(50% + var(--h13)), #121b26 0);
-  animation-name: v13-in-bot; animation-duration: 0.56s; animation-timing-function: linear; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-c=" "]::before, :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-c=" "]::after { content: none; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-r="a"]::before { animation: v13-top-a 0.46s cubic-bezier(.55,0,.9,.45); }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-r="b"]::before { animation: v13-top-b 0.46s cubic-bezier(.55,0,.9,.45); }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-r="a"]::after { animation: v13-bot-a 0.46s linear; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-r="b"]::after { animation: v13-bot-b 0.46s linear; }
-/* on load the cards start blank (the letter's own ink is hidden under them until the upper card has folded away) */
-@keyframes v13-in-top { 0% { transform: scaleY(1); color: transparent; } 50%, 100% { transform: scaleY(0); color: transparent; filter: brightness(0.55); } }
-@keyframes v13-in-bot { 0%, 49.9% { transform: scaleY(1); color: transparent; } 50% { transform: scaleY(0); filter: brightness(0.55); } 100% { transform: scaleY(1); } }
-@keyframes v13-top-a { 50%, 100% { transform: scaleY(0); filter: brightness(0.55); } } @keyframes v13-top-b { 50%, 100% { transform: scaleY(0); filter: brightness(0.55); } }
-@keyframes v13-bot-a { 0%, 50% { transform: scaleY(0); filter: brightness(0.55); } } @keyframes v13-bot-b { 0%, 50% { transform: scaleY(0); filter: brightness(0.55); } }
-
-/* 14. type: a width swap (P39 "Work/Life", font-variation by animation): the word under the pointer goes wide and heavy
-   (Archivo's wdth 125, wght 850) while the other two condense and lighten; on load the emphasis runs once along the
-   name, word by word */
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mast { --ink: #0f1a2b; --face: 'Archivo', 'Helvetica Neue', Arial, sans-serif; --weight: 600; --ls: 0.03em; --k: 1.02; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark { border: 0; border-top: max(3px, 0.07em) solid var(--ink); border-bottom: max(1px, 0.025em) solid var(--ink); padding: 0.21em 0.1em 0.23em; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark :is(.w1, .w2, .w3) { font-stretch: 100%; font-weight: 600; transition: font-stretch 0.6s cubic-bezier(.2,.8,.2,1), font-weight 0.6s cubic-bezier(.2,.8,.2,1);
-  animation: v14-swap 1.1s cubic-bezier(.17,.04,.04,.99) backwards; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark .w1 { animation-delay: 0.2s; } :is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark .w2 { animation-delay: 0.5s; } :is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark .w3 { animation-delay: 0.8s; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark[data-hotw] :is(.w1, .w2, .w3) { font-stretch: 80%; font-weight: 340; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark[data-hotw] :is(.w1, .w2, .w3)[data-hot] { font-stretch: 112%; font-weight: 820; }
-/* (masthead.js measures the name at rest as --aw) the link keeps its resting width and the words sit in a row centred
-   inside it: the wide word takes the room the condensed ones give up, and the mark never changes width (2026-10-29:
-   the whole masthead slid sideways as the pointer crossed the words) */
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark[data-ww] > a:not(.mx-probe) { display: inline-flex; justify-content: center; width: var(--aw, auto); white-space: pre; }
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark .mx-probe :is(.w1, .w2, .w3) { font-stretch: 100% !important; font-weight: 600 !important; }
-@keyframes v14-swap { 40% { font-stretch: 112%; font-weight: 820; } }
-
-/* 15. type: a wave lift (P9 "Wavy text", the lift driven by the pointer): the name on a ruled baseline; letters near
-   the pointer rise, each on a fine stem down to the rule, like the bars of a chart; one wave runs through on load */
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mast { --ink: #0b1d33; --face: 'Inter Tight', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.045em; --k: 1.18; }
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark { border: 0; border-bottom: max(1px, 0.025em) solid var(--ink); padding: 0.32em 0.1em 0.12em; }
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch { display: inline-block; position: relative; transform: translateY(calc(var(--d) * -0.28em));
-  color: color-mix(in oklab, var(--ink), #1f5fbf calc(var(--d) * 75%)); animation: v15-wave 1.1s cubic-bezier(.45,0,.3,1) backwards; animation-delay: calc(0.2s + var(--i) * 42ms); }
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch::after { content: ""; position: absolute; left: calc(50% - var(--ls) / 2); top: 0.86em; width: max(1px, 0.022em); margin-left: min(-0.5px, -0.011em);
-  height: calc(0.27em + var(--d) * 0.28em); background: #1f5fbf; opacity: clamp(0, calc((var(--d) - 0.04) * 5), 1); pointer-events: none; }
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch[data-c=" "]::after { content: none; }
-@keyframes v15-wave { 50% { transform: translateY(-0.2em); } }
-
-/* 16. light: a specular sheen (FF57 "CSS Only Frozen Text", FF8 "Text Shimmer Lines"): brushed-steel letters on a dark
-   plate, and a crisp double glint (two hard bands, clipped to the letters) that crosses once on load and then stands
-   where the pointer is */
-@property --sx16 { syntax: '<length-percentage>'; inherits: false; initial-value: -2em; }
-:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mast { --ink: #142130; --face: 'Saira', 'Helvetica Neue', Arial, sans-serif; --weight: 600; --ls: 0.08em; --k: 0.84; }
-:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark { font-stretch: 125%; border: 0; border-radius: 2px; background: #15212f; padding: 0.26em 0.6em 0.28em;
-  box-shadow: inset 0 0 0 1px #4a5d74; }
-/* (2026-10-29) brushed steel as one continuous gradient (no chrome horizon), and the glint two fine slanted lines in a
-   pale tint, slanted across a letter or two, not a white slab over one */
-:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark > a { --sx16: calc(-2em + var(--pa) * (var(--mx) * 0.643 + 2.38em));   /* (the pointer's x on the 40deg gradient line) */
-   color: #c9d3de; -webkit-text-fill-color: transparent;
-  background: linear-gradient(40deg, transparent calc(var(--sx16) - 0.035em), rgb(255 255 255 / 0.75) calc(var(--sx16) - 0.035em), rgb(255 255 255 / 0.75) calc(var(--sx16) + 0.035em), transparent calc(var(--sx16) + 0.035em),
-      transparent calc(var(--sx16) + 0.15em), rgb(255 255 255 / 0.5) calc(var(--sx16) + 0.15em), rgb(255 255 255 / 0.5) calc(var(--sx16) + 0.19em), transparent calc(var(--sx16) + 0.19em)),
-    linear-gradient(180deg, #e2e8ef 0%, #b4c0cd 50%, #8797aa 100%);
-  -webkit-background-clip: text; background-clip: text; animation: v16-sheen 1.6s cubic-bezier(.5,0,.25,1) 0.35s backwards; }
-@keyframes v16-sheen { from { --sx16: -2em; } to { --sx16: calc(100% + 2em); } }
-
-/* 17. light: a lens (P35 "Rainbow spotlight", FF2 "Flashlight"): the name in ink; a hard-edged circle at the pointer
-   (clip-path: circle) shows it again, magnified and in blue on blueprint paper, inside a fine ring. It crosses the name
-   once on load (masthead.js), as P35's spotlight swings on its own */
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mast { --ink: #102a43; --face: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; --weight: 700; --ls: 0.07em; --k: 1.0; }
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark { border: max(1px, 0.03em) solid var(--ink); padding: 0.28em 0.6em 0.3em; }
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a { position: relative; isolation: isolate; --ly: clamp(0.3em, var(--my), 0.7em); --lr: calc(max(0, var(--pa) - 0.15) / 0.85 * 0.7em); }
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a::after { content: attr(data-text); position: absolute; top: -0.6em; bottom: -0.6em; left: -1em; right: -1em; padding: 0.6em 1em; box-sizing: border-box; z-index: 1;
-  white-space: pre; text-align: left; color: #1557a0; pointer-events: none; opacity: min(1, calc(var(--pa) * 4));   /* (fades with its ring: no ringless blue dot as it closes) */
-  background: linear-gradient(rgb(21 87 160 / 0.14) 1px, transparent 1px) 0 0 / 0.2em 0.2em, linear-gradient(90deg, rgb(21 87 160 / 0.14) 1px, transparent 1px) 0 0 / 0.2em 0.2em, #f2f6fb;
-  clip-path: circle(var(--lr) at calc(var(--mx) + 1em) calc(var(--ly) + 0.6em)); transform: scale(1.3); transform-origin: calc(var(--mx) + 1em) calc(var(--ly) + 0.6em); }
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a::before { content: ""; position: absolute; z-index: 2; left: var(--mx); top: var(--ly); width: calc(2.6 * var(--lr)); height: calc(2.6 * var(--lr)); translate: -50% -50%;
-  box-sizing: border-box; border: max(1.5px, 0.035em) solid var(--ink); border-radius: 50%; opacity: min(1, calc(var(--pa) * 4)); pointer-events: none; }
-
-/* 18. light: an extrusion (P12 "HEY", P2 "Dancing shadow"): four hard text-shadows in navy tints build up in steps on
-   load; then they fall away from the pointer as from a light held over the name, longer the further a letter is */
-@property --dep { syntax: '<number>'; inherits: true; initial-value: 1; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mast { --ink: #102542; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.08em; --k: 1.1; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark { border: 0; padding: 0.14em 0.2em 0.3em; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark > a { animation: v18-build 0.6s steps(6, end) 0.25s backwards; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark .ch { --ox: calc(0.75 + var(--pa) * (var(--dx) * 1.5 - 0.75)); --oy: calc(0.75 + var(--pa) * (var(--dy) * 3 + 0.45 - 0.75)); --e: calc(var(--dep) * 0.016em);
-  text-shadow: calc(var(--ox) * var(--e)) calc(var(--oy) * var(--e)) 0 #8fa7c4, calc(var(--ox) * 2 * var(--e)) calc(var(--oy) * 2 * var(--e)) 0 #8fa7c4,
-    calc(var(--ox) * 3 * var(--e)) calc(var(--oy) * 3 * var(--e)) 0 #8fa7c4, calc(var(--ox) * 4 * var(--e)) calc(var(--oy) * 4 * var(--e)) 0 #8fa7c4,
-    calc(var(--ox) * 5 * var(--e)) calc(var(--oy) * 5 * var(--e)) 0 #8fa7c4, calc(var(--ox) * 6 * var(--e)) calc(var(--oy) * 6 * var(--e)) 0 #c9d6e5; }
-@keyframes v18-build { from { --dep: 0; } to { --dep: 1; } }
-
-/* 19. light: Houdini colour (FF13 "Animated CSS Gradient Text"): registered colour properties, so the colours
-   themselves interpolate: the ink drifts slowly between navy, indigo and deep teal; the pointer carries the gradient's
-   bright centre and turns its hue, teal at the left of the name to violet at the right (every stop dark enough to read) */
-@property --c19a { syntax: '<color>'; inherits: true; initial-value: #10264a; }
-@property --c19b { syntax: '<color>'; inherits: true; initial-value: #1d5f8f; }
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mast { --ink: #10264a; --face: 'Manrope', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.07em; --k: 1.04; }
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark { border: 0; border-top: max(2px, 0.05em) solid; border-bottom: max(2px, 0.05em) solid; border-image: linear-gradient(90deg, var(--c19a), var(--c19b), var(--c19a)) 1;
-  padding: 0.22em 0.14em 0.24em; animation: v19-drift 7s ease-in-out 2 alternate both; }   /* (out and back once, then still: no endless recalcs) */
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark > a { --c19b: oklch(48% 0.14 calc(252.5 + var(--pa) * (var(--u) - 0.5) * 115));   /* (back to the resting blue as the pointer leaves) */
-   transition: --c19b 0.5s ease; color: var(--c19a); -webkit-text-fill-color: transparent;
-  background: linear-gradient(90deg, var(--c19a) 0%, var(--c19b) calc(var(--pa) * clamp(0px, var(--mx), 100%) + (1 - var(--pa)) * 50%), var(--c19a) 100%);
-  -webkit-background-clip: text; background-clip: text; }
-@keyframes v19-drift { 0% { --c19a: #10264a; } 50% { --c19a: #24205a; } 100% { --c19a: #0d3a48; } }
-
-/* 20. light: drafted outlines (FF33 "CSS Text Handwriting Animation", FF50 "Animated Text"; masthead.js strokeMark): the
-   name as SVG text over the link, drawn as a drafting outline on pale blueprint fill: on load stroke-dashoffset draws
-   every contour at once and the fill comes in; the pointer sends blue dashes running round every contour as it moves.
-   On a narrow screen, where hairline outlines would close up, the letters are solid ink */
-:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mast { --ink: #12233a; --face: 'Syncopate', 'Helvetica Neue', Arial, sans-serif; --weight: 700; --ls: 0.08em; --k: 0.74; }
-:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark { position: relative; border: 0; border-top: max(1px, 0.025em) solid var(--ink); border-bottom: max(1px, 0.025em) solid var(--ink); padding: 0.34em 0.2em 0.36em; }
-:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark.sv-on > a { color: transparent; }
-.sv-layer { position: absolute; overflow: visible; pointer-events: none; }
-.sv-ink { fill: #9fb6d3; stroke: var(--ink); stroke-width: var(--sw); stroke-linejoin: round; stroke-dasharray: var(--sl) var(--sl); stroke-dashoffset: 0;
-  animation: v20-draw 1.7s cubic-bezier(.5,0,.25,1) 0.15s backwards, v20-fill 0.7s ease 1.45s backwards; }
-.sv-run { fill: none; stroke: #1f64d6; stroke-width: calc(var(--sw) * 2.2); stroke-linecap: round; stroke-dasharray: var(--sd); stroke-dashoffset: calc(var(--mx) * -1.5); opacity: var(--pa); }
-@container (max-width: 560px) { .sv-ink { fill: var(--ink); } .sv-run { display: none; } }
-@keyframes v20-draw { from { stroke-dashoffset: var(--sl); } }
-@keyframes v20-fill { from { fill-opacity: 0; } }
-
-/* 21. ink: gauges (P28 "Text hover transition": -webkit-text-stroke round a fill clipped to the text, the fill's
-   level a background-position): heavy letters full of ink, filled from the baseline up on load one after another;
-   near the pointer each letter's ink level drops to the pointer's height, leaving its outline above, so the name
-   reads like a row of gauges */
-@property --g21 { syntax: '<length-percentage>'; inherits: false; initial-value: 0%; }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mast { --ink: #121212; --face: 'Archivo Black', 'Arial Black', Helvetica, sans-serif; --weight: 400; --ls: 0.05em; --k: 0.98; }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark { border: 0; border-bottom: max(3px, 0.09em) solid var(--ink); padding: 0.1em 0.08em 0.14em; }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark .ch { display: inline-block; color: var(--ink); -webkit-text-fill-color: transparent; -webkit-text-stroke: max(1.5px, 0.04em) var(--ink);
-  --lv: calc(var(--d) * clamp(0.1em, var(--my), 0.4em) + var(--g21));   /* (at most the top 40% empties, to a tint, never to bare paper) */
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ink) 22%, transparent) var(--lv), var(--ink) var(--lv)) no-repeat; -webkit-background-clip: text; background-clip: text;
-  animation: v21-rise 0.9s cubic-bezier(.6,0,.2,1) backwards; animation-delay: calc(0.25s + var(--i) * 45ms); }
-@keyframes v21-rise { from { --g21: 1.05em; } }
-
-/* 22. ink: engraved hatching (FF23 "Colored Text With CSS Masks"): diagonal lines clipped to the letters inside a
-   hairline outline, like the engraving on a certificate, in a double frame; they turn into place on load, and the
-   pointer turns them (and slides them) as it moves */
-@property --h22 { syntax: '<angle>'; inherits: false; initial-value: -45deg; }
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mast { --ink: #1b2b44; --face: 'Red Hat Display', 'Helvetica Neue', Arial, sans-serif; --weight: 900; --ls: 0.06em; --k: 0.98; }
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark { border: max(1px, 0.025em) solid var(--ink); outline: max(1px, 0.025em) solid var(--ink); outline-offset: max(-4px, -0.11em); padding: 0.3em 0.6em 0.3em; }
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark > a { --h22: calc(-45deg + var(--pa) * (var(--u) - 0.5) * 120deg); --hp: max(3px, 0.075em); color: var(--ink); -webkit-text-fill-color: transparent; -webkit-text-stroke: max(0.8px, 0.018em) var(--ink);
-  background: repeating-linear-gradient(var(--h22), var(--ink) 0 calc(var(--hp) * 0.5), transparent calc(var(--hp) * 0.5) var(--hp)) calc(var(--pa) * var(--mx) * -0.25) 0;
-  -webkit-background-clip: text; background-clip: text; animation: v22-turn 1.5s cubic-bezier(.3,0,.2,1) 0.2s backwards; }
-@keyframes v22-turn { from { --h22: 45deg; } }
-
-/* 23. ink: an ink-plate wipe (P33 "Text shadow animation"): per word, a crimson copy wipes down over a pale one, then
-   the ink copy wipes across it, word after word, leaving the ink on a fine steel shadow; the word the pointer comes
-   onto prints again */
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mast { --ink: #0b2545; --face: 'Geist', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.04em; --k: 1.06; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark { border: 0; border-left: max(4px, 0.13em) solid #c8102e; padding: 0.1em 0.14em 0.16em 0.42em; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3) { display: inline-block; position: relative; color: #b9c6d6; transform: translate(0.05em, 0.05em); --t: 0.1s; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark .w2 { --t: 0.22s; } :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark .w3 { --t: 0.34s; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::before, :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::after { content: attr(data-text); position: absolute; left: -0.05em; top: -0.05em; white-space: pre; overflow: hidden; pointer-events: none; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::before { color: #c8102e; max-height: 0; animation: v23-down 1.3s cubic-bezier(.61,1,.88,1) var(--t) backwards; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::after { color: var(--ink); max-width: 100%; animation: v23-across 1.3s cubic-bezier(.61,1,.88,1) var(--t) backwards; }
-/* the word the pointer comes onto: the ink copy stays (never the pale copy alone); a crimson copy wipes down over it
-   and draws back up, a short accent */
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark [data-k]::before { z-index: 1; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark [data-k="a"]::before { animation: v23-down-a 0.6s cubic-bezier(.45,0,.3,1); } :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark [data-k="b"]::before { animation: v23-down-b 0.6s cubic-bezier(.45,0,.3,1); }
-/* (no JavaScript yet, or none at all: the words in plain ink, with no pale copy and no wipes) */
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark > a:not([data-split]) :is(.w1, .w2, .w3) { color: var(--ink); transform: none; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark > a:not([data-split]) :is(.w1, .w2, .w3)::before, :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark > a:not([data-split]) :is(.w1, .w2, .w3)::after { content: none; }
-@keyframes v23-down { 0% { max-height: 0; } 35%, 99% { max-height: 100%; } }
-@keyframes v23-down-a { 0% { max-height: 0; } 40% { max-height: 100%; } 100% { max-height: 0; } } @keyframes v23-down-b { 0% { max-height: 0; } 40% { max-height: 100%; } 100% { max-height: 0; } }
-@keyframes v23-across { 0%, 30% { max-width: 0; } 100% { max-width: 100%; } }
-
-/* 24. ink: italic to upright (P30 "Text hover transition" LINE: font-variation-settings "wght" 900 "ital" 1 on rest,
-   "wght" 100 "ital" 0 on hover): heavy slanted capitals (Recursive's wght and slnt axes); each letter near the pointer
-   stands up and thins, by its closeness, inside a cell as wide as the letter at rest (so nothing reflows); on load the
-   letters lean and fill in from upright and light, one after another */
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mast { --ink: #0f2a44; --face: 'Recursive', Helvetica, Arial, sans-serif; --weight: 850; --ls: 0.05em; --k: 1.06; }
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark { border: 0; border-top: max(1px, 0.025em) solid var(--ink); border-bottom: max(4px, 0.1em) solid var(--ink); padding: 0.2em 0.14em 0.22em; }
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark .ch { font-weight: calc(850 - 520 * var(--d)); font-variation-settings: 'slnt' calc(-15 + 15 * var(--d)), 'CRSV' 0;
-  animation: v24-lean 1.2s cubic-bezier(.3,0,.2,1) backwards; animation-delay: calc(0.2s + var(--i) * 45ms); }
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark[data-fw] .ch { display: inline-flex; justify-content: center; width: var(--w, auto); }
-@keyframes v24-lean { from { font-weight: 330; font-variation-settings: 'slnt' 0, 'CRSV' 0; } }
-
-/* 25. ink: a sliced plate (P29 "Believe in yourself", P27 "Link split hover"): each word is two copies, clipped above
-   and below a cut through the middle of the capitals, the upper in ink and the lower in slate; on load they close
-   together, word after word. Only the word under the pointer parts, by a hair, its lower half turning blue; the rest
-   of the name stays whole, and nothing is drawn through the letters (2026-10-29: the whole line used to split, with a
-   crimson ruled scale through it).
-   The words are hidden behind their copies only once masthead.js has made them (a[data-split]) */
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mast { --ink: #101828; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.06em; --k: 1.02; }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark { position: relative; border: 0; padding: 0.3em 0.14em 0.32em; --cut: 0.52em; }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3) { display: inline-block; position: relative; color: transparent; --p25: 0; --t: 0.2s; }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] .w2 { --t: 0.32s; } :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] .w3 { --t: 0.44s; }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)[data-hot] { --p25: var(--pa); }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::before, :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::after { content: attr(data-text); position: absolute; left: 0; top: 0; white-space: pre; pointer-events: none; transition: transform 0.25s cubic-bezier(.2,.8,.2,1); }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::before { color: var(--ink); clip-path: inset(-0.5em -0.5em calc(100% - var(--cut)) -0.5em); transform: translateY(calc(var(--p25) * -0.04em)); animation: v25-top 1.1s cubic-bezier(.16,1,.3,1) var(--t) backwards; }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::after { color: color-mix(in oklab, #3b5a80, #1f5fbf calc(var(--p25) * 100%)); clip-path: inset(var(--cut) -0.5em -0.5em -0.5em); transform: translateY(calc(var(--p25) * 0.04em)); animation: v25-bottom 1.1s cubic-bezier(.16,1,.3,1) var(--t) backwards; }
-@keyframes v25-top { from { transform: translateY(-0.2em); } }
-@keyframes v25-bottom { from { transform: translateY(0.2em); } }
-/* (end of 11-25) */
-
-@media (prefers-reduced-motion: reduce) {
-  .lsr-mark, .lsr-mark *, .lsr-mark::before, .lsr-mark::after, .lsr-mark *::before, .lsr-mark *::after { animation: none !important; transition: none !important; }
-}
-
-.lsr-foot { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem 1rem; margin-top: 0.32em; }
-.lsr-note { margin-left: auto; font-family: 'Alegreya', Georgia, serif; font-style: italic; font-size: max(12px, calc(0.323em / var(--k))); letter-spacing: 0.04em; text-align: right; }
-.lsr-about {
-  display: inline-flex; align-items: center; gap: 0.45em; min-height: 32px; padding: 0 0.85em 0 0.95em;
-  font-family: 'Noto Serif', Georgia, serif; font-weight: 700; font-size: max(12px, calc(0.27em / var(--k))); line-height: 1;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); text-decoration: none;
-  background: var(--paper); border: 1px solid currentColor; border-radius: 2px; cursor: pointer; transition: background-color .15s, color .15s;
-}
-.lsr-about::after { content: "\2192"; letter-spacing: 0; font-weight: 400; }
-.lsr-about.back::after { content: none; }
-.lsr-about.back::before { content: "\2190"; letter-spacing: 0; font-weight: 400; }
-.lsr-about:hover { background: var(--ink); color: var(--paper); text-decoration: none; }
-.lsr-about:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* ---------- YaleNew for the intro box and explanatory text (the owner, 2026-10-24; 2026-10-25: "make sure yaleNew font is
    being used" and, asked whether to serve the files to every visitor, "Serve to every visitor") ----------
@@ -390,45 +59,45 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 /* footer buttons: report a flaw (email), the faculty list on GitHub */
 .foot-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 10px 0 6px; }
 .btn-line {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid #337ab7; border-radius: 4px;
-  color: #337ab7; background: #fff; font-size: 13px; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 1px solid var(--accent-text); border-radius: 4px;
+  color: var(--accent-text); background: var(--bg); font-size: 13px; text-decoration: none;
 }
-.btn-line:hover, .btn-line:focus { background: #337ab7; color: #fff; text-decoration: none; }
-.jrnl.not-counted { color: #999; }              /* outside the host-school rank filter */
-.bio-link { margin-left: 5px; font-size: 11px; font-variant: small-caps; letter-spacing: .04em; color: #337ab7; }
+.btn-line:hover, .btn-line:focus { background: var(--accent); border-color: var(--accent); color: var(--on-accent); text-decoration: none; }
+.jrnl.not-counted { color: var(--faint); }              /* outside the host-school rank filter */
+.bio-link { margin-left: 5px; font-size: 11px; font-variant: small-caps; letter-spacing: .04em; color: var(--accent-text); }
 .bio-link:hover { text-decoration: underline; }
 
 .btn-about {
   display: inline-block; font-family: Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; letter-spacing: .02em;
-  text-transform: none; padding: 6px 16px; border-radius: 6px; color: #337ab7 !important; background: transparent;
-  border: 1px solid #337ab7; transition: all .2s ease; white-space: nowrap;
+  text-transform: none; padding: 6px 16px; border-radius: 6px; color: var(--accent-text) !important; background: transparent;
+  border: 1px solid var(--accent-text); transition: all .2s ease; white-space: nowrap;
 }
-.btn-about:hover { background: #337ab7; color: #fff !important; text-decoration: none; transform: translateY(-1px); box-shadow: 0 2px 4px rgba(51,122,183,.3); }
+.btn-about:hover { background: var(--accent); border-color: var(--accent); color: var(--on-accent) !important; text-decoration: none; transform: translateY(-1px); box-shadow: 0 2px 4px var(--style-about-shadow); }
 
 /* ---------- info panel + sticky controls (CSrankings) ---------- */
-.panel-info { border: 1px solid #bce8f1; border-radius: 4px; background: #d9edf7; color: #31708f; }
+.panel-info { border: 1px solid var(--info-border); border-radius: 4px; background: var(--info-bg); color: var(--info-text); }
 .intro-panel { border-bottom: none; border-radius: 4px 4px 0 0; padding: 10px 15px 6px; }
 .intro-panel p { margin: 0; }
 .rank-rule { margin-top: 4px !important; }
 .data-line { font-size: 13px; margin-top: 4px !important; }
-.controls-sticky { position: sticky; top: 0; z-index: 100; background: #fff; }
+.controls-sticky { position: sticky; top: 0; z-index: 100; background: var(--surface); }
 .controls { border-top: none; border-radius: 0 0 4px 4px; padding: 8px 15px; margin-bottom: 16px;
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .controls label { margin: 0; font-weight: 400; }
-.ctl-select { font-size: 14px; padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px; background: #fff; color: #333; }
-.ctl-select:hover { border-color: #337ab7; }
-.year-display { font-weight: 700; color: #337ab7; background: #d9edf7; border: 1px solid #bce8f1; border-radius: 3px; padding: 1px 4px; }
-.area-pill { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 11px; font-weight: 600; color: #fff; cursor: pointer; user-select: none;
+.ctl-select { font-size: 14px; padding: 3px 6px; border: 1px solid var(--border-input); border-radius: 4px; background: var(--surface); color: var(--text); }
+.ctl-select:hover { border-color: var(--accent); }
+.year-display { font-weight: 700; color: var(--accent-text); background: var(--info-bg); border: 1px solid var(--info-border); border-radius: 3px; padding: 1px 4px; }
+.area-pill { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 11px; font-weight: 600; color: var(--on-group); cursor: pointer; user-select: none;
   transition: opacity .2s ease, filter .15s ease; border: none; }
 .area-pill:hover { filter: brightness(1.15); }
 .selection-none { opacity: .3; } .selection-partial { opacity: .65; } .selection-all { opacity: 1; }
 .btn-filters { display: none; }
 
 /* ---------- group colors (ColorBrewer Set1, as CSrankings) ---------- */
-.c-general { color: #377eb8; } .bg-general { background: #377eb8; }
-.c-specialty { color: #ff7f00; } .bg-specialty { background: #ff7f00; }
-.c-options { color: #555; } .bg-options { background: #777; }
-.bg-other { background: #8fa3b8; }   /* online editions & other general journals in a person's bars */
+.c-general { color: var(--general-text); } .bg-general { background: var(--general); }
+.c-specialty { color: var(--specialty-text); } .bg-specialty { background: var(--specialty); }
+.c-options { color: var(--options-text); } .bg-options { background: var(--options); }
+.bg-other { background: var(--other); }   /* online editions & other general journals in a person's bars */
 
 /* ---------- two columns: areas left, ranking right (as csrankings.org) ---------- */
 .main { display: flex; gap: 30px; align-items: flex-start; }
@@ -436,71 +105,71 @@ td, th { padding: 0; text-align: left; vertical-align: top; }
 .ranking-window { flex: 1 1 auto; min-width: 0; }
 
 .area-table { width: 100%; font-size: 16px; }
-.area-table > tbody > tr:nth-of-type(odd) > td { background: #f9f9f9; }
+.area-table > tbody > tr:nth-of-type(odd) > td { background: var(--surface-2); }
 .area-table td { padding: 3px 4px; }
 .area-table td.chk { width: 34px; text-align: center; }
-.area-head td { padding: 14px 0 6px; background: #fff !important; }
-.area-btn { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; user-select: none; border: none; }
+.area-head td { padding: 14px 0 6px; background: var(--surface) !important; }
+.area-btn { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--on-group); cursor: pointer; user-select: none; border: none; }
 .area-btn:hover { filter: brightness(1.15); }
-.hovertip { cursor: pointer; color: blue; display: inline-block; width: 1.1em; font-size: 12px; user-select: none; }
+.hovertip { cursor: pointer; color: var(--link); display: inline-block; width: 1.1em; font-size: 12px; user-select: none; }
 .sub-list { margin: 4px 0 2px 1.1em; font-size: 14px; }
-.sub-list p { font-variant: small-caps; color: #777; margin: 0 0 2px; }
+.sub-list p { font-variant: small-caps; color: var(--muted); margin: 0 0 2px; }
 .sub-list table { width: 100%; font-size: 14px; }
 .sub-list td { background: transparent !important; padding: 1px 0; }
 .sub-list td.chk { width: 30px; }
-.sub-list .jrnl { color: #777; font-size: 12px; }
-.inline-select { font-size: 13px; padding: 0 2px; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
-input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: pointer; accent-color: #337ab7; }
+.sub-list .jrnl { color: var(--muted); font-size: 12px; }
+.inline-select { font-size: 13px; padding: 0 2px; border: 1px solid var(--border-input); border-radius: 4px; background: var(--surface); }
+input[type=checkbox] { width: 15px; height: 15px; margin: 2px 0 0; cursor: pointer; accent-color: var(--accent); }
 
 /* ---------- ranking table ---------- */
 .ranking { width: 100%; }
-.ranking > thead > tr > th { position: sticky; top: var(--controls-h, 46px); z-index: 10; background: #fff; border-bottom: 2px solid #ddd;
-  padding: 8px 6px; font-weight: 700; color: #777; white-space: nowrap; }
+.ranking > thead > tr > th { position: sticky; top: var(--controls-h, 46px); z-index: 10; background: var(--surface); border-bottom: 2px solid var(--border);
+  padding: 8px 6px; font-weight: 700; color: var(--muted); white-space: nowrap; }
 .ranking > tbody > tr.school > td { padding: 4px 6px; }
-.ranking > tbody > tr.school.alt > td { background: #f5f5f5; }
-.ranking > tbody > tr.school:hover > td { background: #e3f2fd; cursor: pointer; }
+.ranking > tbody > tr.school.alt > td { background: var(--surface-3); }
+.ranking > tbody > tr.school:hover > td { background: var(--hover); cursor: pointer; }
 .ranking .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.rank-cell { width: 2.6em; color: #333; }
+.rank-cell { width: 2.6em; color: var(--text); }
 .ranking > tbody > tr.faculty > td { padding: 0 0 10px 0; }
-.empty-note { padding: 18px 6px; color: #777; font-size: 15px; }
+.empty-note { padding: 18px 6px; color: var(--muted); font-size: 15px; }
 
 .faculty-table { width: 100%; font-size: 16px; margin: 2px 0 0; }
-.faculty-table th { font-size: 13px; font-style: italic; font-weight: 400; color: #333; padding: 2px 6px; }
+.faculty-table th { font-size: 13px; font-style: italic; font-weight: 400; color: var(--text); padding: 2px 6px; }
 .faculty-table > tbody > tr.person > td { padding: 3px 6px; font-size: 14px; }
-.faculty-table > tbody > tr.person.alt > td { background: #f5f5f5; }
-.faculty-table > tbody > tr.person:hover > td { background: #e3f2fd; cursor: pointer; }
+.faculty-table > tbody > tr.person.alt > td { background: var(--surface-3); }
+.faculty-table > tbody > tr.person:hover > td { background: var(--hover); cursor: pointer; }
 .faculty-table .indent { width: 22px; }
 .areaname { font-variant: small-caps; font-size: 13px; }
-.areaname span + span::before { content: ', '; color: #777; }
+.areaname span + span::before { content: ', '; color: var(--muted); }
 /* (2026-10-29) area tags are links to their higher-level group on the Subject areas page; the comma between two tags is
    not part of either link */
-.areaname .area-tag:not(:last-child)::after { content: ','; color: #777; display: inline-block; }
+.areaname .area-tag:not(:last-child)::after { content: ','; color: var(--muted); display: inline-block; }
 .areaname .area-tag + .area-tag { margin-left: 0.3em; }
 a.area-tag { text-decoration: none; }
 a.area-tag:hover, a.area-tag:focus-visible { text-decoration: underline; text-underline-offset: 2px; }
-a.area-link { color: inherit; text-decoration: underline; text-decoration-color: rgba(255, 127, 0, 0.55); text-underline-offset: 2px; }
+a.area-link { color: inherit; text-decoration: underline; text-decoration-color: var(--style-area-underline); text-underline-offset: 2px; }
 a.area-link:hover { text-decoration-color: currentColor; }
 .school-summary .trend-desc { margin: 2px 0 8px; }
 .ico { display: inline-block; vertical-align: middle; }
 .icon-link { opacity: .75; margin-left: 4px; }
 .icon-link:hover { opacity: 1; }
-.person-detail > td { padding: 4px 6px 12px 28px !important; background: #fff; }
+.person-detail > td { padding: 4px 6px 12px 28px !important; background: var(--bg); }
 .chart { display: block; margin: 2px 0 6px; }
 /* per-author bars: where a faculty member publishes */
 .bars { max-width: 520px; margin: 2px 0 10px; font-size: 13px; }
-.bars-title { font-size: 12px; color: #777; margin-bottom: 4px; font-variant: small-caps; }
+.bars-title { font-size: 12px; color: var(--muted); margin-bottom: 4px; font-variant: small-caps; }
 .bar-row { display: grid; grid-template-columns: minmax(110px, 13.5em) 1fr 2.2em; align-items: center; gap: 8px; padding: 1px 0; }
-.bar-label { color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-label { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar-track { height: 12px; }
 .bar { display: block; height: 12px; min-width: 3px; border-radius: 0 4px 4px 0; }
-.bar-value { color: #333; text-align: right; font-variant-numeric: tabular-nums; }
+.bar-value { color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
 .bar-row:hover .bar { filter: brightness(1.12); }
-.detail-note { font-size: 12px; color: #777; margin: 0 0 4px; }
-.loading { color: #777; font-style: italic; font-size: 13px; }
+.detail-note { font-size: 12px; color: var(--muted); margin: 0 0 4px; }
+.loading { color: var(--muted); font-style: italic; font-size: 13px; }
 
 
 /* ---------- footer ---------- */
-.page-footer { margin-top: 2em; padding: 1em 0 2em; border-top: 1px solid #ddd; text-align: center; color: #555; font-size: 13px; }
+.page-footer { margin-top: 2em; padding: 1em 0 2em; border-top: 1px solid var(--border); text-align: center; color: var(--muted-2); font-size: 13px; }
 .page-footer p { margin-bottom: .5em; }
 
 /* ---------- phones: filters move into a drawer (CSrankings just hides them) ---------- */
@@ -516,13 +185,13 @@ a.area-link:hover { text-decoration-color: currentColor; }
   .lsr-mast-wrap { padding: 12px 0 10px; }
   .controls { padding: 6px 10px; gap: 6px 10px; }
   .ctl-pills, #summary { display: none !important; }
-  .btn-filters { display: inline-block; padding: 4px 12px; border-radius: 6px; border: 1px solid #337ab7; background: #337ab7; color: #fff; font-weight: 600; font-size: 13px; }
+  .btn-filters { display: inline-block; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 13px; }
   .main { display: block; }
-  .area-panel { position: fixed; inset: 0 auto 0 0; width: min(380px, 92vw); max-width: none; z-index: 300; background: #fff;
-    overflow-y: auto; padding: 10px 12px 80px; box-shadow: 2px 0 12px rgba(0,0,0,.2); transform: translateX(-105%); transition: transform .25s ease; }
+  .area-panel { position: fixed; inset: 0 auto 0 0; width: min(380px, 92vw); max-width: none; z-index: 300; background: var(--surface);
+    overflow-y: auto; padding: 10px 12px 80px; box-shadow: 2px 0 12px var(--shadow); transform: translateX(-105%); transition: transform .25s ease; }
   body.filters-open .area-panel { transform: none; }
   body.filters-open { overflow: hidden; }
-  body.filters-open .drawer-backdrop { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 250; }
+  body.filters-open .drawer-backdrop { display: block; position: fixed; inset: 0; background: var(--backdrop); z-index: 250; }
   .drawer-head { display: flex !important; }
   .drawer-done { display: block !important; }
   .ranking > thead > tr > th { padding: 6px 4px; font-size: 14px; }
@@ -530,24 +199,27 @@ a.area-link:hover { text-decoration-color: currentColor; }
   .person-detail > td { padding-left: 10px !important; }
   .bar-row { grid-template-columns: minmax(96px, 42%) 1fr 2em; }
   .bar-label { white-space: normal; line-height: 1.15; }
+  /* (2026-11-01, themes) on a dark page (and in high contrast) the open drawer has a rule along its edge, as its shadow
+     does not show there */
+  :root[data-mode="dark"] .area-panel, :root[data-theme^="contrast"] .area-panel { border-right: 1px solid var(--border); }
 }
 .drawer-head { display: none; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .drawer-done { display: none; position: sticky; bottom: 0; margin-top: 12px; width: 100%; padding: 9px; border-radius: 6px; border: none;
-  background: #337ab7; color: #fff; font-weight: 600; }
+  background: var(--accent); color: var(--on-accent); font-weight: 600; }
 
 /* ---------- about / history pages ---------- */
 .prose { max-width: 820px; margin: 0 auto; font-size: 15px; }
 .prose h2 { font-size: 20px; font-weight: 600; margin: 26px 0 8px; }
 .prose ul { padding-left: 1.3em; }
 .prose table { font-size: 13px; width: 100%; }
-.prose th, .prose td { padding: 3px 8px; border-bottom: 1px solid #eee; }
-.prose tbody tr:nth-of-type(odd) td { background: #f9f9f9; }
-.up { color: #2e7d32; } .down { color: #c62828; }
+.prose th, .prose td { padding: 3px 8px; border-bottom: 1px solid var(--border-soft); }
+.prose tbody tr:nth-of-type(odd) td { background: var(--surface-2); }
+.up { color: var(--up); } .down { color: var(--down); }
 
 /* "What they work on" in a faculty member's drop-down (2026-10-25) */
 .works { max-width: 620px; margin: 4px 0 10px; font-size: 13.5px; }
-.works-lede { margin: 0 0 4px; color: #333; }
-.works-tag { margin: 0 0 4px; color: #333; }
+.works-lede { margin: 0 0 4px; color: var(--text); }
+.works-tag { margin: 0 0 4px; color: var(--text); }
 .works-list { margin: 0; padding-left: 1.1em; }
 .works-list li { margin: 2px 0; line-height: 1.35; }
 .works-tree > li > ul { margin: 1px 0 4px; padding-left: 1.1em; list-style: circle; }
@@ -556,51 +228,20 @@ a.area-link:hover { text-decoration-color: currentColor; }
 
 /* the number-crunching spinner (masthead.js: LSR.crunch): the page blurred behind a veil, the dots in the middle */
 .crunch { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 6px; background: rgba(255, 255, 255, 0.42); -webkit-backdrop-filter: blur(7px) saturate(1.15); backdrop-filter: blur(7px) saturate(1.15);
+  gap: 6px; background: var(--veil); -webkit-backdrop-filter: blur(7px) saturate(1.15); backdrop-filter: blur(7px) saturate(1.15);
   opacity: 0; visibility: hidden; transition: opacity 0.22s ease, visibility 0s linear 0.22s; pointer-events: none; }
 .crunch.on { opacity: 1; visibility: visible; transition: opacity 0.18s ease; pointer-events: auto; cursor: progress; }
 .crunch-dots { display: block; }
 .crunch-label { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; letter-spacing: 0.02em;
-  color: #2b2b2b; min-height: 1.4em; }   /* (no soft white glow behind it: the owner bans blur and glows) */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .crunch { background: rgba(255, 255, 255, 0.82); } }
+  color: var(--veil-text); min-height: 1.4em; }   /* (no soft white glow behind it: the owner bans blur and glows) */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .crunch { background: var(--veil-solid); } }
 
-/* (the variants above are scoped: the page's own masthead follows <html data-mast>, each gallery preview its own data-mast)
-   the logo gallery (masthead.js): a quiet "change logo" by the build hash, and every masthead in a pop-up */
-.lsr-right { display: inline-flex; align-items: baseline; gap: 0.9em; }
-.mast-pick { align-self: center; padding: 0; border: 0; background: none; cursor: pointer;
-  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-weight: 400; font-size: max(9.5px, 0.62em); letter-spacing: 0.04em;
-  text-transform: none; color: #77736c; text-decoration: underline; text-decoration-color: rgba(119, 115, 108, 0.45); text-underline-offset: 2px; }
-.mast-pick:hover, .mast-pick:focus-visible { color: #4a4740; text-decoration-color: currentColor; }
-html.mast-open { overflow: hidden; }
-.mast-gallery { position: fixed; inset: 0; z-index: 1100; display: none; align-items: flex-start; justify-content: center; padding: 4vh 16px;
-  background: rgba(20, 22, 28, 0.42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); overflow-y: auto; }
-.mast-gallery.on { display: flex; }
-.mast-panel { width: min(1080px, 100%); background: #fff; border-radius: 10px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); padding: 18px 20px 16px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color: #222; }
-.mast-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-.mast-top h2 { margin: 0 0 4px; font-size: 19px; }
-.mast-top p { margin: 0; font-size: 13.5px; color: #555; }
-.mast-x { border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: #666; padding: 0 4px; }
-.mast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 14px; }
-.mast-card { display: flex; flex-direction: column; border: 1px solid #e3e1dc; border-radius: 8px; overflow: hidden; background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
-.mast-card:hover { border-color: #b9b5ad; }
-.mast-card.is-now { border-color: #1c5cab; box-shadow: 0 0 0 2px rgba(28, 92, 171, 0.25); }
-.mast-card.is-fav { border-color: #b08d57; box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.3); }
-.mast-preview { padding: 14px 12px 10px; pointer-events: none; }
-.mast-bar { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 7px 10px; border-top: 1px solid #efede8; background: #fafaf8; font-size: 12.5px; }
-.mast-no { color: #777; margin-right: auto; }
-.mast-bar button { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 3px 10px; font: inherit; cursor: pointer; color: #333; white-space: nowrap; }
-.mast-bar button:hover { border-color: #888; }
-.mast-vote[aria-pressed="true"] { background: #b08d57; border-color: #b08d57; color: #fff; }
-.mast-bottom { margin-top: 14px; text-align: right; }
-.mast-shuffle { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; }
-@media (max-width: 520px) { .mast-grid { grid-template-columns: 1fr; } .mast-panel { padding: 14px 12px; } .mast-bar { gap: 6px; } .mast-bar button { padding: 3px 8px; } }
 
 /* BETA: categories from a title model (off by default; the switch in Options) */
-.c-beta { color: #6a4fb3; font-style: italic; }
+.c-beta { color: var(--beta); font-style: italic; }
 .c-beta::before { content: "\03B2\00a0"; font-style: normal; font-size: 0.85em; opacity: 0.8; }
-.works-beta { margin: 4px 0; color: #4b3d7a; font-size: 13px; }
-.beta-badge { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 999px; background: #ece7f8; color: #4b3d7a;
+.works-beta { margin: 4px 0; color: var(--beta-ink); font-size: 13px; }
+.beta-badge { display: inline-block; padding: 0 6px; margin-right: 4px; border-radius: 999px; background: var(--beta-bg); color: var(--beta-ink);
   font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 
 /* recent trends (2026-10-28, the owner: "a time chart broken down by selected filters and when publication counts
@@ -610,9 +251,9 @@ html.mast-open { overflow: hidden; }
 th.spark-col { font-weight: 400; }
 .spark { display: inline-block; line-height: 0; vertical-align: middle; cursor: help; }
 .spark svg { overflow: visible; }
-.spark-line { fill: none; stroke: #377eb8; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-.spark-base { stroke: #e3e3e3; stroke-width: 1; }
-.spark-end { fill: #377eb8; }
+.spark-line { fill: none; stroke: var(--spark); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.spark-base { stroke: var(--spark-base); stroke-width: 1; }
+.spark-end { fill: var(--spark); }
 .school-tags { margin-left: 6px; font-size: 12px; }
 .school-summary { margin: 4px 0 8px; }
 .school-summary .works-tag { margin: 2px 0 6px; font-size: 13px; }
@@ -622,11 +263,28 @@ th.spark-col { font-weight: 400; }
   .school-tags { display: none; }
 }
 
-/* 26. interactive: "Law School Rankings" in a pixel face, drawn as small dots that the pointer's movement scatters and
-   that settle back (2026-10-28, the owner: "do one logo with a pixelated mover that changes motion based on mouse
-   movement (small dots)"; masthead.js: pixelMark). The link keeps its place and its name; the dots replace its ink once
-   they are ready, and the text shows in the pixel face if they never are. */
-:is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mast { --ink: #16161b; --face: 'Silkscreen', 'Courier New', monospace; --weight: 700; --ls: 0.04em; --k: 0.92; }
-:is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mark { position: relative; border: 0; padding: 0.2em 0.25em 0.26em; text-transform: none; }
-:is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mark.px-on > a { color: transparent; }
-.px-canvas { position: absolute; pointer-events: none; }
+/* (2026-11-01, themes) outside White a tag's count keeps the tag's own color (faded, it reads too faint on the other
+   themes' pages and rows) */
+:root:not([data-theme="light"]) .c-specialty .tag-n { opacity: 1; }
+
+/* (2026-11-01, themes) Dark themes: a group button partly on keeps its fill under a shade of the page's color, one
+   switched off is an outline in its color, both with full-strength text (a faded button turns muddy on a dark page) */
+:root[data-mode="dark"]:not([data-theme^="contrast"]) .selection-partial { opacity: 1; box-shadow: inset 0 0 0 999px var(--style-dim); }
+:root[data-mode="dark"]:not([data-theme^="contrast"]) .selection-none { opacity: 1; background: transparent; color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--options-text); }
+:root[data-mode="dark"]:not([data-theme^="contrast"]) .bg-general.selection-none { box-shadow: inset 0 0 0 1px var(--general-text); }
+:root[data-mode="dark"]:not([data-theme^="contrast"]) .bg-specialty.selection-none { box-shadow: inset 0 0 0 1px var(--specialty-text); }
+
+/* (2026-11-01, themes) High contrast: no faded text or marks; a group switched off is an outline instead of a pale fill
+   (a partly selected group is a full fill); the Beta label gets a rule, as its fill is the page's; the footer buttons
+   keep their outline without the links' underline; a subject-area link keeps its orange underline */
+:root[data-theme^="contrast"] .c-beta::before,
+:root[data-theme^="contrast"] .icon-link,
+:root[data-theme^="contrast"] .selection-partial { opacity: 1; }
+:root[data-theme^="contrast"] .selection-none { opacity: 1; background: transparent; color: var(--text); box-shadow: inset 0 0 0 2px var(--options); }
+:root[data-theme^="contrast"] .bg-general.selection-none { box-shadow: inset 0 0 0 2px var(--general); }
+:root[data-theme^="contrast"] .bg-specialty.selection-none { box-shadow: inset 0 0 0 2px var(--specialty); }
+:root[data-theme^="contrast"] .beta-badge { box-shadow: inset 0 0 0 1px currentColor; }
+:root[data-theme^="contrast"] a.btn-line { text-decoration: none; }
+:root[data-theme^="contrast"] a.area-link { text-decoration-color: var(--style-area-underline); }
+:root[data-theme^="contrast"] a.area-link:hover { text-decoration-color: currentColor; }

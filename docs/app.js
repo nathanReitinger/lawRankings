@@ -20,7 +20,15 @@
   const STORAGE_KEY = 'lawRankings.v4';
   const DEFAULT_YEARS = 20;          // the default window's year labels (2026-10-29)
   const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers
-  const COLORS = { general: '#377eb8', specialty: '#ff7f00' };   // flagship blue, specialty orange (CSrankings Set1)
+  // (2026-11-01, themes) colors are read from the theme in use (theme.css) when they are drawn: T(token, the literal the
+  // page had before themes); TW for a color with no token of the same White value: White keeps the literal, the other
+  // themes take the token
+  const T = (n, f) => (window.LSRTheme ? window.LSRTheme.color(n, f) : f);
+  const themeName = () => (window.LSRTheme ? window.LSRTheme.get().theme : 'light');
+  const themed = () => themeName() !== 'light';
+  const TW = (n, f) => (themed() ? T(n, f) : f);
+  // flagship blue, specialty orange (CSrankings Set1), in each theme's own steps
+  const COLORS = { get general() { return T('--general', '#377eb8'); }, get specialty() { return T('--specialty', '#ff7f00'); } };
 
   let DATA, META, state, groupSubjects;
   let journalCats, personPapers;   // journal -> [0 = flagship, 1+g = specialty group g]; person -> their papers
@@ -556,9 +564,39 @@
     return '<a class="' + (cls || 'c-specialty') + ' area-tag" href="' + esc(href) + '" title="' + esc(title) + '">' +
       esc(shortName(DATA.groups[g])) + '<span class="tag-n">' + n + '</span></a>';
   }
-  // the journals behind a person's tag, all years (build_data.py: people[i][5], [[field, articles, [[journal, articles]]]])
-  const personAreaJournals = (person, g) => (DATA.people[person][5] || []).filter(([f]) => areaOfField(f) === g)
-    .flatMap(([, , js]) => js || []).sort((a, b) => b[1] - a[1]);
+  // (2026-11-01, the owner: "when you select a year it should only display info for that year, and change things") a
+  // person's subject areas from their specialty-journal articles in the selected years (short pieces as the switch
+  // says), no longer from every year collected: [[area, articles, [[field, articles, [[journal, articles]]]]]], most
+  // articles first; kept until the years or the short-piece switch change
+  let personAreaCache = { key: '', map: new Map() };
+  function personAreas(person) {
+    const key = state.from + '-' + state.to + '-' + (state.minor ? 1 : 0);
+    if (personAreaCache.key !== key) personAreaCache = { key: key, map: new Map() };
+    if (personAreaCache.map.has(person)) return personAreaCache.map.get(person);
+    const P = DATA.papers, byArea = new Map();
+    (personPapers.get(person) || []).forEach((p) => {
+      if (P.year[p] < state.from || P.year[p] > state.to || (state.minor && P.minor[p])) return;
+      const ji = P.journal[p], f = fieldOfJournal(ji);
+      const g = f < 0 ? -1 : areaOfField(f);
+      if (g < 0) return;
+      if (!byArea.has(g)) byArea.set(g, new Map());
+      const m = byArea.get(g);
+      if (!m.has(f)) m.set(f, new Map());
+      m.get(f).set(ji, (m.get(f).get(ji) || 0) + 1);
+    });
+    const most = (a, b) => b[1] - a[1];
+    const out = [...byArea.entries()].map(([g, m]) => {
+      const fields = [...m.entries()].map(([f, js]) => {
+        const list = [...js.entries()].sort((a, b) => most(a, b) || DATA.journals[a[0]][0].localeCompare(DATA.journals[b[0]][0]));
+        return [f, list.reduce((t, x) => t + x[1], 0), list];
+      }).sort((a, b) => most(a, b) || DATA.subjects[a[0]].localeCompare(DATA.subjects[b[0]]));
+      return [g, fields.reduce((t, x) => t + x[1], 0), fields];
+    }).sort((a, b) => most(a, b) || DATA.groups[a[0]].localeCompare(DATA.groups[b[0]]));
+    personAreaCache.map.set(person, out);
+    return out;
+  }
+  // the journals behind one of those areas, most articles first
+  const areaJournals = (fields) => fields.flatMap(([, , js]) => js).sort((a, b) => b[1] - a[1]);
   // the journals of a set of articles, most articles first
   function journalsOf(papers) {
     const m = new Map();
@@ -593,7 +631,7 @@
     const all = schoolAreas(s);
     if (!all.length) return '';
     const name = DATA.schools[s][0];
-    const when = state.from + '–' + state.to;
+    const when = yearsText();
     return ' <span class="areaname school-tags">' + all.slice(0, top).map(([g, n, set]) => areaTag(g, n,
       name + ': ' + n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' by its current faculty in ' + DATA.groups[g] + ', ' + when +
       '. Opens ' + DATA.groups[g] + ' on the Subject areas page, with these journals.', areaHref(g, journalsOf(set), name + ', ' + when))).join('') + '</span>';
@@ -614,21 +652,34 @@
   function schoolSummaryHtml(s) {
     const share = schoolPapers(s);
     return '<div class="school-summary">' + trendBox({ school: s }) +
-      '<p class="detail-note trend-desc">Counted articles per year by its current faculty in the selected journals, each split between its co-authors.' +
-      (state.from > trendStart() && state.from <= trendEnd() ? ' The shaded band marks the selected years.' : '') +
-      (trendEnd() < state.to ? ' The lines end at ' + trendEnd() + ', the last full year.' : '') + '</p>' +
+      '<p class="detail-note trend-desc">Counted articles' + (trendStart() === trendLast() ? '' : ' per year') + ' by its current faculty in the selected journals, each split between its co-authors.' +
+      (trendLast() < state.to ? ' The lines end at ' + trendLast() + ', the last full year.' : '') +
+      (trendLast() === state.to && state.to > trendEnd() ? ' ' + state.to + ' is still coming out.' : '') + '</p>' +
       authorBars([...share.keys()], { title: 'Where its faculty publish', weight: (p) => share.get(p), who: DATA.schools[s][0] }) + '</div>';
   }
 
   // the chart under an opened school or person: their counted articles per year in the selected journals, one line per
-  // selected area (at most five, the smaller ones folded into one) and their total, over the twenty years up to the
-  // window's end, or the whole window if it is longer (the selected years shaded), so a recent rise shows against what
-  // came before. Highcharts is loaded the first time one is opened, not with the page.
+  // selected area (at most five, the smaller ones folded into one) and their total, over the selected years (2026-11-01,
+  // the owner: "when you select a year it should only display info for that year"; it used to reach back twenty years
+  // with the selected ones shaded). Highcharts is loaded the first time one is opened, not with the page.
   const TREND_COLORS = ['#377eb8', '#ff7f00', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+  // (2026-11-01, themes) the lines' colors in the theme in use: White as above; the other themes Flagship blue and
+  // specialty orange in their steps for lines and text, then the categorical slots, violet before amber (amber sits
+  // next to the orange), except in High contrast dark, whose violet is as pale as its Flagship blue
+  const TREND_SLOTS = ['--s3', '--s7', '--s5', '--s4', '--s6', '--s8'];
+  const TREND_SLOTS_CD = ['--s3', '--s4', '--s5', '--s7', '--s6', '--s8'];
+  function trendColors() {
+    if (!themed()) return TREND_COLORS;
+    const slots = themeName() === 'contrast-dark' ? TREND_SLOTS_CD : TREND_SLOTS;
+    return [T('--general-text', TREND_COLORS[0]), T('--specialty-text', TREND_COLORS[1])].concat(slots.map((n) => T(n, '#777')));
+  }
+  // (2026-11-01, themes) the gray line of the folded groups (White #999): the chart's muted gray, and in the high
+  // contrast themes a mid gray of their own, so it stays apart from their black or white Total line
+  const TREND_OTHER = { 'contrast-light': '#6b6b6b', 'contrast-dark': '#a6a6a6' };
+  const trendOther = () => TREND_OTHER[themeName()] || TW('--chart-muted', '#999');
   const trendCharts = new Set();
   let trendSeq = 0, hcLoad = null;
-  // the chart's first year: twenty years up to the window's end, or the window's start if earlier; the selected years
-  // are shaded only when they start after it (schoolSummaryHtml mentions the band only then)
+  // the chart's first year: the window's start
   // (2026-10-29, the owner: "Cut the prediction trend line at the year prior. Don't hardcode that value because what if
   // it is 2027") the chart ends at the last full year: the year before the visitor's current year (or the window's last
   // year, when that is earlier); the current year's volumes are still coming out
@@ -650,7 +701,12 @@
     const slope = med(sl);
     return { slope: slope, at0: med(ys.map((y, i) => y - slope * i)) };
   }
-  function trendStart() { return Math.max(META.years.min, Math.min(state.from, state.to - 19)); }
+  function trendStart() { return Math.max(META.years.min, state.from); }
+  // the chart's last year: the last full year, unless the selected years are all in the current year (then that year,
+  // in part)
+  function trendLast() { const e = trendEnd(); return e < trendStart() ? state.to : e; }
+  // "2020" or "2007–2026"
+  function yearsText(a, b) { a = a == null ? state.from : a; b = b == null ? state.to : b; return a === b ? String(a) : a + '–' + b; }
   function trendBox(who) {
     const id = 'trend' + (++trendSeq);
     return '<div class="trend-chart" id="' + id + '" data-trend="' + esc(JSON.stringify(who)) + '"><p class="detail-note">Loading the chart…</p></div>';
@@ -702,14 +758,25 @@
   function destroyTrends(root) {
     trendCharts.forEach((c) => { if (!root || root.contains(c.renderTo)) { c.destroy(); trendCharts.delete(c); } });
   }
+  // (2026-11-01, themes) a theme chosen while charts are open draws them again in its colors
+  document.addEventListener('lsr-theme', () => {
+    const boxes = [...trendCharts].map((c) => c.renderTo);
+    destroyTrends();
+    boxes.forEach((box) => { box.innerHTML = ''; delete box.dataset.drawn; });
+    if (boxes.length) drawPending($('rankingWindow'));
+  });
   function drawPending(root) {
     const boxes = [...root.querySelectorAll('.trend-chart:not([data-drawn])')];
     if (!boxes.length || !current.jAreas) return;
-    highcharts().then((H) => boxes.forEach((box) => {
+    highcharts().then((H) => {
+      // (2026-11-01, themes) the theme's text, axis, grid and tooltip colors for the charts drawn now
+      if (window.LSRTheme) window.LSRTheme.highcharts(H);
+      return H;
+    }).then((H) => boxes.forEach((box) => {
       if (!box.isConnected || box.dataset.drawn) return;
       box.dataset.drawn = '1';
       const who = JSON.parse(box.dataset.trend);
-      const y1 = trendEnd(), y0 = trendStart();
+      const y1 = trendLast(), y0 = trendStart();
       const counts = yearlyCounts(who.person != null ? [who.person] : peopleAt(who.school), who.school, y0, y1);
       const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i);
       const name = who.person != null ? DATA.people[who.person][0] : DATA.schools[who.school][0];
@@ -725,40 +792,42 @@
         const first = lines[0].name === 'Flagship' ? 1 : 0;
         const big = new Set(lines.slice(first).sort((a, b) => sum(b) - sum(a)).slice(0, MAX_LINES - 1 - first));
         const rest = lines.filter((x, j) => j >= first && !big.has(x));
-        shown = lines.filter((x, j) => j < first || big.has(x)).concat([{ name: rest.length + ' other selected groups', color: '#999',
+        shown = lines.filter((x, j) => j < first || big.has(x)).concat([{ name: rest.length + ' other selected groups', color: trendOther(),
           raw: years.map((_, k) => rest.reduce((t, x) => t + x.raw[k], 0)) }]);
       }
-      const series = shown.map((x, i) => ({ name: x.name, color: x.color || TREND_COLORS[i], data: [...x.raw].map(r1) }));
+      const lineColors = trendColors();
+      const series = shown.map((x, i) => ({ name: x.name, color: x.color || lineColors[i], data: [...x.raw].map(r1) }));
       // (the owner, 2026-10-28: "line chart not bar") one line per selected area, and their total when there are several:
       // each article once, as in the By year strip
-      if (series.length > 1) series.unshift({ name: 'Total', color: '#333', lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
+      if (series.length > 1) series.unshift({ name: 'Total', color: TW('--chart-ink', '#333'), lineWidth: 2.5, zIndex: 2, data: [...counts.total].map(r1) });
       box.innerHTML = '';
-      if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + y0 + '–' + y1 + '.</p>'; return; }
+      if (!series.length) { box.innerHTML = '<p class="detail-note">No counted articles in ' + yearsText(y0, y1) + '.</p>'; return; }
       // the trend line of the total (each article once) over the years shown, from five years on
       if (years.length >= 5) {
         const t = senLine([...counts.total]), last = years.length - 1;
         const per = Math.round(t.slope * 10) / 10;
-        series.push({ name: 'Trend line (Theil–Sen): ' + (per > 0 ? '+' : per < 0 ? '−' : '') + Math.abs(per).toFixed(1) + ' a year', color: '#111', dashStyle: 'Dash',
+        series.push({ name: 'Trend line (Theil–Sen): ' + (per > 0 ? '+' : per < 0 ? '−' : '') + Math.abs(per).toFixed(1) + ' a year', color: TW('--chart-ink', '#111'), dashStyle: 'Dash',
           lineWidth: 1.5, marker: { enabled: false }, enableMouseTracking: false, zIndex: 3, data: [[0, t.at0], [last, t.at0 + t.slope * last]] });
       }
       // (review) the legend gets its own room (a row per line on a phone, two to a row wider), so the plot keeps its height
       const legendRows = series.length > 1 ? (box.clientWidth < 500 ? series.length : Math.ceil(series.length / 2)) : 0;
       trendCharts.add(H.chart(box, {
         chart: { type: 'line', height: 190 + 18 * legendRows, spacing: [6, 12, 4, 0], backgroundColor: 'transparent' },
-        title: { text: 'Counted articles per year, ' + y0 + '–' + y1, align: 'left', style: { fontSize: '12px', fontWeight: '600', color: '#333' } },
+        title: { text: (y0 === y1 ? 'Counted articles, ' : 'Counted articles per year, ') + yearsText(y0, y1), align: 'left', style: { fontSize: '12px', fontWeight: '600', color: T('--text', '#333') } },
         subtitle: y1 < state.to ? { text: (y1 + 1 === state.to ? state.to : (y1 + 1) + '–' + state.to) + ' left out: volumes still coming out', align: 'left',
-          style: { fontSize: '10.5px', color: '#777' } } : undefined,
-        accessibility: { description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + y0 + '–' + y1 + '.' },
-        xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: '#666' } },
-          // (review) the band covers whole years (half a category each side); its label only when the band has room for it
-          plotBands: state.from > y0 && state.from <= y1 ? [{ from: state.from - y0 - 0.5, to: y1 - y0 + 0.5, color: 'rgba(55,126,184,0.07)',
-            label: (y1 - state.from + 1) * box.clientWidth / years.length >= 80 ? { text: 'selected years', style: { fontSize: '10px', color: '#777' }, y: 12 } : undefined }] : [] },
-        yAxis: { title: { text: null }, min: 0, allowDecimals: true, gridLineColor: '#eee', labels: { style: { fontSize: '10px', color: '#666' } } },
-        legend: { enabled: series.length > 1, itemStyle: { fontSize: '11px', fontWeight: '400', color: '#333' }, margin: 4, padding: 2 },
+          style: { fontSize: '10.5px', color: T('--muted', '#777') } } : undefined,
+        // (2026-11-01, themes) the keyboard focus ring in the theme's focus color (White: Highcharts' own)
+        accessibility: Object.assign({ description: name + ': counted articles per year in the selected journals, adjusted for co-authors, ' + yearsText(y0, y1) + '.' },
+          themed() ? { keyboardNavigation: { focusBorder: { style: { color: T('--focus', '#1f64d6') } } } } : {}),
+        xAxis: { categories: years.map(String), tickInterval: years.length > 12 ? 2 : 1, labels: { style: { fontSize: '10px', color: TW('--chart-ink-2', '#666') } } },
+        yAxis: { title: { text: null }, min: 0, allowDecimals: true, gridLineColor: TW('--chart-grid', '#eee'), labels: { style: { fontSize: '10px', color: TW('--chart-ink-2', '#666') } } },
+        legend: { enabled: series.length > 1, itemStyle: { fontSize: '11px', fontWeight: '400', color: T('--text', '#333') }, margin: 4, padding: 2 },
         // (review) only the lines with articles that year, so the tooltip stays short
         tooltip: { shared: true, headerFormat: '<b>{point.key}</b><br>', pointFormatter: function () {
           return this.y ? '<span style="color:' + this.color + '">●</span> ' + esc(this.series.name) + ': <b>' + this.y.toFixed(1) + '</b><br/>' : ''; } },
-        plotOptions: { line: { lineWidth: 2, marker: { radius: 2.5, symbol: 'circle' }, states: { hover: { lineWidth: 2.5 } } } },
+        // (2026-11-01, themes) a marker under the pointer is ringed in the page's color (Highcharts' own is white)
+        plotOptions: { line: { lineWidth: 2, marker: { enabled: true, radius: years.length <= 3 ? 4.5 : 2.5, symbol: 'circle', lineColor: TW('--bg', '#ffffff') },
+          states: { hover: { lineWidth: 2.5 } } } },
         series: series,
       }));
     })).catch(() => boxes.forEach((box) => { box.innerHTML = '<p class="detail-note">The chart could not be loaded.</p>'; }));
@@ -778,11 +847,11 @@
       // what this person works on (2026-10-25, the owner: "I want zero inferences drawn ... a clear taxonomy ... that
       // pulls information from grouped specialty journals. That's it. If an author only published flagship, then no
       // inference is made. If they have multiple specialty then it might be multi tag"): every area of the specialty
-      // journals they published in, all years, each with its count (build_data.py: people[i][4]); nothing for someone
-      // with no specialty-journal article
-      const tags = betaOn && BETA ? betaTags(person) : (DATA.people[person][4] || []).map(([g, n]) => areaTag(g, n,
-        areaTitle(person, g, n) + '. Opens ' + DATA.groups[g] + ' on the Subject areas page, with these journals.',
-        areaHref(g, personAreaJournals(person, g), DATA.people[person][0] + ', years collected'))).join('');
+      // journals they published in during the selected years (2026-11-01; before, every year collected), each with its
+      // count; nothing for someone with no specialty-journal article in those years
+      const tags = betaOn && BETA ? betaTags(person) : personAreas(person).map(([g, n, fields]) => areaTag(g, n,
+        areaTitle(g, n, fields) + '. Opens ' + DATA.groups[g] + ' on the Subject areas page, with these journals.',
+        areaHref(g, areaJournals(fields), DATA.people[person][0] + ', ' + yearsText()))).join('');
       html += '<tr class="person' + (i % 2 ? '' : ' alt') + '" data-key="' + key + '" data-person="' + person + '" tabindex="0" aria-expanded="' + open + '">' +
         '<td class="indent"><span class="hovertip">' + (open ? '&#9660;' : '&#9658;') + '</span></td>' +
         '<td>' + esc(DATA.people[person][0]) + ' <span class="areaname">' + tags + '</span>' +
@@ -842,7 +911,7 @@
     const why = [papers.length - f.papers.length - skipped - own > 0 ? 'outside the selected journals' : '',
       skipped ? 'skipped as short pieces (' + skipped + ')' : '', own ? 'in the school\'s own journals (' + own + ')' : ''].filter(Boolean);
     const note = '<p class="detail-note">' + f.papers.length + ' of ' + papers.length + ' article' + (papers.length === 1 ? '' : 's') +
-      ' (' + state.from + '–' + state.to + ') count in this ranking' +
+      ' (' + yearsText() + ') count in this ranking' +
       (why.length ? '; the others are ' + why.slice(0, -1).join(', ') + (why.length > 1 ? ' or ' : '') + why[why.length - 1] : '') +
       '.' + (DATA.people[person][3] ? ' <a href="' + esc(DATA.people[person][3]) + '" target="_blank" rel="noopener">Faculty page</a>' : '') + '</p>';
     detailRow.firstElementChild.innerHTML = trendBox({ person: person, school: s }) + worksOn(person, forBars) + authorBars(forBars, { who: DATA.people[person][0] }) + note;
@@ -859,10 +928,9 @@
     }
     return areaMap.has(f) ? areaMap.get(f) : -1;
   }
-  // a tag's tooltip: the area's count and its fields, all years (build_data.py: people[i][5])
-  function areaTitle(person, g, n) {
-    const fields = (DATA.people[person][5] || []).filter(([fi]) => areaOfField(fi) === g);
-    return n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' in ' + DATA.groups[g] + ', years collected: ' +
+  // a tag's tooltip: the area's count and its fields, in the selected years
+  function areaTitle(g, n, fields) {
+    return n + ' specialty-journal article' + (n === 1 ? '' : 's') + ' in ' + DATA.groups[g] + ', ' + yearsText() + ': ' +
       fields.map(([fi, k]) => DATA.subjects[fi] + ' ' + k).join(', ');
   }
   // the field a journal's articles count toward (build_data.py: data.field_of; -1 none), as in the tags
@@ -895,26 +963,22 @@
     });
     const areas = [...byArea.entries()].sort((a, b) => b[1].n - a[1].n || (DATA.groups[a[0]] || '').localeCompare(DATA.groups[b[0]] || ''));
     const who = esc(DATA.people[person][0]);
-    const all = DATA.people[person][4] || [];
-    // (audit) the tags (all years) above the chosen years' tree, so the two cannot read as a contradiction
+    // (2026-11-01) the tags follow the selected years too, so the every-year line that stood above this tree is gone
     const b = betaOn && BETA ? (BETA.people[person] || []) : [];
     const areaLink = (g, js, whose) => '<a class="area-link" href="' + esc(areaHref(g, js, whose)) + '" title="' + esc('Opens ' + DATA.groups[g] +
       ' on the Subject areas page, with these journals') + '">' + esc(DATA.groups[g]) + '</a>';
-    const tagLine = (all.length ? '<p class="works-tag">Years collected: ' + all.map(([g, n]) => '<b>' + areaLink(g, personAreaJournals(person, g), DATA.people[person][0] + ', years collected') +
-      '</b> ' + n).join(' · ') + '</p>' : '') +
-      (betaOn && BETA ? '<p class="works-beta"><span class="beta-badge">Beta</span> Title model categories, from their titles in the collected journals (flagship reviews included): ' +
+    const tagLine = (betaOn && BETA ? '<p class="works-beta"><span class="beta-badge">Beta</span> Title model categories, from their titles in the collected journals (flagship reviews included): ' +
         (b.length ? b.map(([g, n]) => esc(DATA.groups[g]) + ' ' + n).join(' · ') : 'no title at model probability ' + (BETA.min_p != null ? BETA.min_p : 0.5) + ' or above') + ' (' + esc(betaNote()) + ').</p>' : '');
     if (!areas.length) {
       return '<div class="works"><div class="bars-title">Subject areas, from specialty journals</div>' + tagLine + '<p class="detail-note">' + who +
-        ': 0 specialty-journal articles in ' + state.from + '–' + state.to + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') +
-        (all.length ? '' : '; 0 in the other years collected') + '.</p></div>';
+        ': 0 specialty-journal articles in ' + yearsText() + (flagship ? ' (' + flagship + ' in flagship law reviews)' : '') + '.</p></div>';
     }
     const tree = areas.map(([g, a]) => '<li><b>' + (DATA.groups[g] ? areaLink(g, a.fields.flatMap(([, , js]) => js).sort((x, y) => y[1] - x[1]),
-      DATA.people[person][0] + ', ' + state.from + '–' + state.to) : 'Other') + '</b> <span class="text-muted">' + a.n + '</span><ul>' +
+      DATA.people[person][0] + ', ' + yearsText()) : 'Other') + '</b> <span class="text-muted">' + a.n + '</span><ul>' +
       a.fields.sort((x, y) => y[1] - x[1] || DATA.subjects[x[0]].localeCompare(DATA.subjects[y[0]])).map(([f, n, js]) => '<li>' + esc(DATA.subjects[f]) +
         ' <span class="text-muted">' + n + '</span> · ' + js.map(([ji, k]) => esc(DATA.journals[ji][0]) + (k > 1 ? ' (' + k + ')' : '')).join(', ') + '</li>').join('') +
       '</ul></li>').join('');
-    return '<div class="works"><div class="bars-title">Subject areas, from specialty journals (' + state.from + '–' + state.to + ')</div>' + tagLine +
+    return '<div class="works"><div class="bars-title">Subject areas, from specialty journals (' + yearsText() + ')</div>' + tagLine +
       '<p class="works-lede">' + (state.minor ? '' : '<span class="text-muted">Short pieces included. </span>') + who + ': ' + specialty + ' specialty-journal article' +
       (specialty === 1 ? '' : 's') + (flagship ? '; ' + flagship + ' in flagship law reviews' : '') + '. Each journal sits in one group, each group in one higher-level group.</p>' +
       '<ul class="works-list works-tree">' + tree + '</ul></div>';
@@ -938,13 +1002,13 @@
     const cats = [...n.keys()].sort((a, b) => n.get(b) - n.get(a) || a - b);   // most to least
     if (!cats.length) return '';
     const max = Math.max(...n.values());
-    const title = (o.title || 'Where they publish') + ', ' + state.from + '–' + state.to;
+    const title = (o.title || 'Where they publish') + ', ' + yearsText();
     return '<div class="bars" aria-label="' + esc(title) + '">' +
       '<div class="bars-title">' + esc(title) + '</div>' +
       cats.map((c) => {
         const tip = catLabel(c) + ': ' + n.get(c) + ' article' + (n.get(c) === 1 ? '' : 's') + ' (adjusted for co-authors: ' + one(adj.get(c)) + ')';
         const label = c > 0 && o.who
-          ? '<a class="area-link" href="' + esc(areaHref(c - 1, journalsOf(byCat.get(c)), o.who + ', ' + state.from + '–' + state.to)) + '">' + esc(catLabel(c)) + '</a>'
+          ? '<a class="area-link" href="' + esc(areaHref(c - 1, journalsOf(byCat.get(c)), o.who + ', ' + yearsText())) + '">' + esc(catLabel(c)) + '</a>'
           : esc(catLabel(c));
         return '<div class="bar-row" title="' + esc(tip) + '"><span class="bar-label">' + label + '</span>' +
           '<span class="bar-track"><span class="bar ' + (c === 0 ? 'bg-general' : c === -1 ? 'bg-other' : 'bg-specialty') + '" style="width:' + (100 * n.get(c) / max).toFixed(1) + '%"></span></span>' +

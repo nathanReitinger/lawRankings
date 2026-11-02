@@ -2,6 +2,16 @@
    and tables are the page's own (insights.css .ins-card, .ins-tile, .ins-legend, .ins-table); this adds what the
    Lorenz curves, the Gini bars and the five-year lines need. */
 
+/* (2026-11-01, themes) the slices' blues, which equality.js reads when it draws (the total is theme.css's second chart
+   ink): White's are the colors from before themes, darker for the narrower slice. High contrast keeps each step 4.5:1
+   or more on white; on a dark page the ramp turns round, lighter for the narrower slice, each step 3:1 or more on the
+   page. */
+:root { --eq-1st: #0d366b; --eq-top3: #184f95; --eq-top14: #256abf; --eq-top50: #5598e7; --eq-top100: #86b6ef; }
+:root[data-theme="contrast-light"] { --eq-1st: #061f40; --eq-top3: #0d366b; --eq-top14: #184f95; --eq-top50: #1c5cab; --eq-top100: #256abf; }
+:root[data-mode="dark"] { --eq-1st: #cde2fb; --eq-top3: #9ec5f4; --eq-top14: #6da7ec; --eq-top50: #3987e5; --eq-top100: #256abf; }
+:root[data-theme="solarized-dark"] { --eq-top100: #2a78d6; }
+:root[data-theme="contrast-dark"] { --eq-top50: #5598e7; --eq-top100: #3987e5; }
+
 .eq-card { overflow: hidden; }
 .eq-chart { min-height: 120px; }
 .eq-chart .highcharts-container { margin: 0 auto; }
@@ -16,12 +26,12 @@
   background: none; font: inherit; color: var(--ink-2); cursor: pointer; text-align: left; line-height: 1.25; }
 .eq-key:hover { border-color: var(--hair); color: var(--ink); }
 .eq-key[aria-pressed="true"] { border-color: var(--ink-2); color: var(--ink); background: var(--plane); }
-.eq-key:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.eq-key:focus-visible { outline: 2px solid var(--i-accent); outline-offset: 1px; }
 .eq-legend i { flex: none; width: 18px; height: 3px; border-radius: 2px; }
 .eq-legend .eq-lab, .eq-legend .eq-long { display: inline; }
 .eq-ref { padding: 0 9px; min-height: 30px; }
 /* the diagonal of equal shares: a dashed rule, as in the chart */
-.eq-legend i.dash { height: 0; border-top: 1.5px dashed var(--axis); background: none !important; }
+.eq-legend i.dash { height: 0; border-top: 1.5px dashed var(--chart-axis); background: none !important; }   /* (2026-11-01, themes) the chart's own rule color */
 
 /* the Lorenz curves with each slice's Gini beside them; one above the other on a narrow screen */
 .eq-split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 4px 22px; align-items: start; }
@@ -32,7 +42,7 @@
 .eq-card .ins-table th, .eq-card .ins-table td { overflow-wrap: break-word; }
 .eq-card .ins-table thead th { vertical-align: bottom; font-weight: 600; color: var(--ink-2); }
 .eq-card .ins-table tbody th { font-weight: 400; text-align: left; }
-.eq-card .ins-table td small { display: block; color: var(--muted); font-size: 11px; }
+.eq-card .ins-table td small { display: block; color: var(--i-muted); font-size: 11px; }
 .eq-note { font-size: 12.5px; color: var(--ink-2); margin: 8px 0 0; max-width: 760px; line-height: 1.4; }
 
 @media (max-width: 759px) {

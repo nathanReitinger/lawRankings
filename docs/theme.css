@@ -1,0 +1,257 @@
+/* Law School Rankings: the themes (2026-11-01, the owner: "Add night mode for mobile. Allow auto switch or user to set
+   it. Add themes like I've done in other projects too. That was things like Solarized or paper or other themes").
+   Loaded before every other stylesheet. theme.js sets <html data-theme="<name>" data-mode="light|dark"> before the page
+   paints; every color on the site comes from the variables below. White is the site's own look, unchanged (each value
+   is the color the page used before themes); the other themes reset the same names. The charts' colors are the
+   reference palette's (the categorical slots, chart ink and rules), with its own steps for dark surfaces.
+
+   Names:
+   --bg page            --surface panels on the page (sticky bar, drawer, table header)
+   --surface-2 / -3     striped rows (filter list / ranking)       --hover a row under the pointer
+   --text --text-strong --muted --muted-2 --faint   text, strongest to faintest
+   --border --border-soft --border-input            rules and outlines
+   --link --link-hover  links      --accent fills (buttons) with --on-accent text on them; --accent-text the same hue as text
+   --info-bg --info-border --info-text              the blue info panel (CSrankings)
+   --general --specialty --options --other          group fills (white text on them: --on-group); *-text as text
+   --beta --beta-ink --beta-bg                      the Beta title-model labels
+   --up --down          changes in the version history
+   --backdrop --shadow  behind a drawer or a window; its shadow
+   --veil --veil-solid --veil-text                  the "Crunching numbers" veil
+   --spark --spark-base the By year lines        --focus keyboard focus ring
+   --stamp --pick --pick-hover                      the build hash, "change logo" / "theme"
+   --dialog-*           the logo gallery and the Theme window
+   --chart-ink --chart-ink-2 --chart-muted --chart-axis --chart-grid --chart-surface --chart-ring --chart-tooltip
+   --chart-on-fill      text on a colored mark
+   --s1 ... --s8        categorical series, in this order
+   --seq-100 ... --seq-700   the blue ramp (light to dark in every theme: on a dark page the low steps stand out
+                        and the high steps recede, so a chart on a dark page picks its steps with that in mind) */
+
+:root {
+  color-scheme: light;
+  --bg: #fff; --surface: #fff; --surface-2: #f9f9f9; --surface-3: #f5f5f5; --hover: #e3f2fd;
+  --text: #333; --text-strong: #222; --muted: #777; --muted-2: #555; --faint: #999;
+  --border: #ddd; --border-soft: #eee; --border-input: #ccc;
+  --link: blue; --link-hover: #23527c;
+  --accent: #337ab7; --on-accent: #fff; --accent-text: #337ab7;
+  --info-bg: #d9edf7; --info-border: #bce8f1; --info-text: #31708f;
+  --general: #377eb8; --general-text: #377eb8; --specialty: #ff7f00; --specialty-text: #ff7f00;
+  --options: #777; --options-text: #555; --other: #8fa3b8; --on-group: #fff;
+  --beta: #6a4fb3; --beta-ink: #4b3d7a; --beta-bg: #ece7f8;
+  --up: #2e7d32; --down: #c62828;
+  --backdrop: rgba(0, 0, 0, 0.3); --shadow: rgba(0, 0, 0, 0.2);
+  --veil: rgba(255, 255, 255, 0.42); --veil-solid: rgba(255, 255, 255, 0.82); --veil-text: #2b2b2b;
+  --spark: #377eb8; --spark-base: #e3e3e3; --focus: #1f64d6;
+  --stamp: #9b978f; --pick: #77736c; --pick-hover: #4a4740;
+  --dialog-bg: #fff; --dialog-text: #222; --dialog-muted: #555; --dialog-faint: #777; --dialog-border: #e3e1dc; --dialog-border-hover: #b9b5ad;
+  --dialog-bar: #fafaf8; --dialog-bar-border: #efede8; --dialog-btn: #fff; --dialog-btn-border: #d6d3cc; --dialog-btn-text: #333;
+  --dialog-backdrop: rgba(20, 22, 28, 0.42); --dialog-shadow: rgba(0, 0, 0, 0.25); --now: #1c5cab; --fav: #b08d57;
+  --chart-ink: #0b0b0b; --chart-ink-2: #52514e; --chart-muted: #898781; --chart-axis: #c3c2b7; --chart-grid: #e8e7e1;
+  --chart-surface: #f7f7f5; --chart-ring: rgba(11, 11, 11, 0.10); --chart-tooltip: rgba(255, 255, 255, 0.97); --chart-on-fill: #fff;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --seq-100: #cde2fb; --seq-150: #b7d3f6; --seq-200: #9ec5f4; --seq-250: #86b6ef; --seq-300: #6da7ec; --seq-350: #5598e7;
+  --seq-400: #3987e5; --seq-450: #2a78d6; --seq-500: #256abf; --seq-550: #1c5cab; --seq-600: #184f95; --seq-650: #104281; --seq-700: #0d366b;
+}
+
+/* Paper: warm off-white, ink-blue links */
+:root[data-theme="paper"] {
+  --bg: #faf8f3; --surface: #faf8f3; --surface-2: #f3efe6; --surface-3: #f1ece1; --hover: #e9e2d2;
+  --text: #2b2924; --text-strong: #1d1b17; --muted: #6c675c; --muted-2: #57534a; --faint: #8f897c;
+  --border: #e0d8c8; --border-soft: #ebe5d8; --border-input: #d3cab6;
+  --link: #1d4e89; --link-hover: #143866;
+  --accent: #35679c; --accent-text: #2e5f99;
+  --info-bg: #efe9dc; --info-border: #e0d6c2; --info-text: #4f4a40;
+  --general: #3a73a8; --general-text: #2f6aa1; --specialty: #d9730d; --specialty-text: #ad5a06;
+  --options: #8a8478; --options-text: #57534a; --other: #98a2ab;
+  --veil: rgba(250, 248, 243, 0.5); --veil-solid: rgba(250, 248, 243, 0.85);
+  --spark: #2f6aa1; --spark-base: #e3dccd;
+  --pick: #6c675c; --pick-hover: #2b2924;
+  --dialog-bg: #fffdf8; --dialog-faint: #6c675c; --dialog-bar: #f6f2e9; --dialog-btn: #fffdf8;
+  --chart-grid: #e6e0d3; --chart-axis: #c9c1b0; --chart-surface: #f4f0e7; --chart-tooltip: rgba(255, 253, 248, 0.97);
+}
+
+/* Solarized (Ethan Schoonover's base and accent colors; text a step darker than base00 for reading) */
+:root[data-theme="solarized-light"] {
+  --bg: #fdf6e3; --surface: #fdf6e3; --surface-2: #f6efdb; --surface-3: #eee8d5; --hover: #e4ecea;
+  --text: #4c5e63; --text-strong: #073642; --muted: #566b72; --muted-2: #52676e; --faint: #839496;
+  --border: #e2dbc4; --border-soft: #ece5cf; --border-input: #cfc6aa;
+  --link: #1a6399; --link-hover: #144f7a;
+  --accent: #1f6fa8; --accent-text: #1a6399;
+  --info-bg: #eee8d5; --info-border: #ddd6bf; --info-text: #44575d;
+  --general: #2176b5; --general-text: #1f6fa8; --specialty: #cb4b16; --specialty-text: #b8410f;
+  --options: #839496; --options-text: #586e75; --other: #93a1a1;
+  --beta: #6c71c4; --beta-ink: #4c50a0; --beta-bg: #ebe7ee;
+  --up: #5f6e00; --down: #b8312c;
+  --veil: rgba(253, 246, 227, 0.5); --veil-solid: rgba(253, 246, 227, 0.85); --veil-text: #44575d;
+  --spark: #1f6fa8; --spark-base: #e2dbc4; --focus: #1f6fa8;
+  --stamp: #839496; --pick: #586e75; --pick-hover: #073642;
+  --dialog-bg: #fdf6e3; --dialog-text: #073642; --dialog-muted: #52676e; --dialog-faint: #586e75; --dialog-border: #e2dbc4; --dialog-border-hover: #c4bb9d;
+  --dialog-bar: #f6efdb; --dialog-bar-border: #e8e1cb; --dialog-btn: #fdf6e3; --dialog-btn-border: #d6cdb2; --dialog-btn-text: #44575d;
+  --now: #1f6fa8; --fav: #b58900;
+  --chart-ink: #073642; --chart-ink-2: #586e75; --chart-muted: #74878a; --chart-axis: #cfc6aa; --chart-grid: #e8e1cb;
+  --chart-surface: #f6efdb; --chart-ring: rgba(7, 54, 66, 0.12); --chart-tooltip: rgba(253, 246, 227, 0.97);
+}
+
+/* High contrast: black on white, solid rules, underlined links */
+:root[data-theme="contrast-light"] {
+  --bg: #fff; --surface: #fff; --surface-2: #fff; --surface-3: #f0f0f0; --hover: #dde6ff;
+  --text: #000; --text-strong: #000; --muted: #1f1f1f; --muted-2: #1f1f1f; --faint: #3d3d3d;
+  --border: #000; --border-soft: #595959; --border-input: #000;
+  --link: #0000c8; --link-hover: #00007a;
+  --accent: #0000c8; --accent-text: #0000c8;
+  --info-bg: #fff; --info-border: #000; --info-text: #000;
+  --general: #0b4f9c; --general-text: #0b4f9c; --specialty: #a64200; --specialty-text: #a64200;
+  --options: #333; --options-text: #1f1f1f; --other: #3d4f63;
+  --beta: #4b2ea8; --beta-ink: #2d1a70; --beta-bg: #fff;
+  --up: #005a1e; --down: #a80000;
+  --veil: rgba(255, 255, 255, 0.85); --veil-solid: #fff; --veil-text: #000;
+  --spark: #0b4f9c; --spark-base: #8c8c8c; --focus: #0000c8;
+  --stamp: #3d3d3d; --pick: #1f1f1f; --pick-hover: #000;
+  --dialog-text: #000; --dialog-muted: #1f1f1f; --dialog-faint: #3d3d3d; --dialog-border: #000; --dialog-border-hover: #000;
+  --dialog-bar: #fff; --dialog-bar-border: #000; --dialog-btn-border: #000; --dialog-btn-text: #000; --dialog-backdrop: rgba(0, 0, 0, 0.6);
+  --now: #0000c8; --fav: #6b4500;
+  --chart-ink: #000; --chart-ink-2: #1f1f1f; --chart-muted: #3d3d3d; --chart-axis: #000; --chart-grid: #8c8c8c;
+  --chart-surface: #fff; --chart-ring: #000; --chart-tooltip: #fff;
+  --s1: #0b4f9c; --s2: #b33f00; --s3: #00703c; --s4: #845400; --s5: #b0306a; --s6: #005a1e; --s7: #4b2ea8; --s8: #b00020;
+}
+
+/* the dark themes share these, then each sets its own page and rules */
+:root[data-mode="dark"] {
+  color-scheme: dark;
+  --bg: #151515; --surface: #151515; --surface-2: #1b1b1b; --surface-3: #1d1d1d; --hover: #1c2b3b;
+  --text: #dedcd6; --text-strong: #f0efec; --muted: #a09e97; --muted-2: #b6b4ad; --faint: #7f7d77;
+  --border: #353535; --border-soft: #282828; --border-input: #4a4a4a;
+  --link: #8ab4f8; --link-hover: #b3cefb;
+  --accent: #2f6fae; --on-accent: #fff; --accent-text: #7fb0e5;
+  --info-bg: #132029; --info-border: #24404e; --info-text: #a3c8db;
+  --general: #3d7fbf; --general-text: #75aadf; --specialty: #d86f0a; --specialty-text: #ffa04d;
+  --options: #6a6a6a; --options-text: #aaa; --other: #5f7287; --on-group: #fff;
+  --beta: #a493ea; --beta-ink: #c8bdf4; --beta-bg: #2b2546;
+  --up: #6cc070; --down: #f28b82;
+  --backdrop: rgba(0, 0, 0, 0.6); --shadow: rgba(0, 0, 0, 0.6);
+  --veil: rgba(21, 21, 21, 0.55); --veil-solid: rgba(21, 21, 21, 0.9); --veil-text: #e6e4de;
+  --spark: #75aadf; --spark-base: #3a3a3a; --focus: #8ab4f8;
+  --stamp: #7f7c75; --pick: #9a968e; --pick-hover: #d6d2ca;
+  --dialog-bg: #1d1d1d; --dialog-text: #ecebe6; --dialog-muted: #aeaca5; --dialog-faint: #8f8d86; --dialog-border: #353535; --dialog-border-hover: #5a5a5a;
+  --dialog-bar: #222; --dialog-bar-border: #2f2f2f; --dialog-btn: #262626; --dialog-btn-border: #4a4a4a; --dialog-btn-text: #e6e4de;
+  --dialog-backdrop: rgba(0, 0, 0, 0.6); --dialog-shadow: rgba(0, 0, 0, 0.6); --now: #75aadf; --fav: #c9a46a;
+  --chart-ink: #f0efec; --chart-ink-2: #c3c2b7; --chart-muted: #9a9890; --chart-axis: #4a4a46; --chart-grid: #2c2c2a;
+  --chart-surface: #1c1c1b; --chart-ring: rgba(255, 255, 255, 0.12); --chart-tooltip: rgba(30, 30, 29, 0.97); --chart-on-fill: #fff;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+}
+
+/* Darkest: true black, for phones with OLED screens at night */
+:root[data-theme="black"] {
+  --bg: #000; --surface: #000; --surface-2: #0c0c0c; --surface-3: #101010; --hover: #0f2133;
+  --border: #2a2a2a; --border-soft: #1c1c1c; --border-input: #3d3d3d;
+  --veil: rgba(0, 0, 0, 0.6); --veil-solid: rgba(0, 0, 0, 0.9);
+  --spark-base: #2e2e2e;
+  --dialog-bg: #0e0e0e; --dialog-bar: #141414; --dialog-bar-border: #232323; --dialog-btn: #161616; --dialog-border: #2a2a2a;
+  --chart-grid: #222; --chart-axis: #3d3d3a; --chart-surface: #0b0b0b; --chart-tooltip: rgba(16, 16, 16, 0.97);
+}
+
+/* Solarized dark */
+:root[data-theme="solarized-dark"] {
+  --bg: #002b36; --surface: #002b36; --surface-2: #05313d; --surface-3: #073642; --hover: #0a4352;
+  --text: #a3b0b0; --text-strong: #eee8d5; --muted: #8c9c9d; --muted-2: #93a1a1; --faint: #6c8288;
+  --border: #0f4a58; --border-soft: #0a3d4a; --border-input: #1d5e6e;
+  --link: #5aaee8; --link-hover: #8cc8f0;
+  --accent: #1f6fa8; --accent-text: #5aaee8;
+  --info-bg: #073642; --info-border: #0f4a58; --info-text: #9fb0b0;
+  --general: #2176b5; --general-text: #5aaee8; --specialty: #cb4b16; --specialty-text: #e8743b;
+  --options: #586e75; --options-text: #93a1a1; --other: #4f6f7a;
+  --beta: #6c71c4; --beta-ink: #aaaeec; --beta-bg: #1c2d4b;
+  --up: #a6bf00; --down: #f2625e;
+  --veil: rgba(0, 43, 54, 0.55); --veil-solid: rgba(0, 43, 54, 0.9); --veil-text: #eee8d5;
+  --spark: #5aaee8; --spark-base: #1d5e6e; --focus: #5aaee8;
+  --stamp: #6c8288; --pick: #839496; --pick-hover: #eee8d5;
+  --dialog-bg: #073642; --dialog-text: #eee8d5; --dialog-muted: #a3b0b0; --dialog-faint: #93a1a1; --dialog-border: #0f4a58; --dialog-border-hover: #2a6b7b;
+  --dialog-bar: #05313d; --dialog-bar-border: #0f4a58; --dialog-btn: #002b36; --dialog-btn-border: #1d5e6e; --dialog-btn-text: #d6dcd6;
+  --now: #5aaee8; --fav: #b58900;
+  --chart-ink: #eee8d5; --chart-ink-2: #93a1a1; --chart-muted: #839496; --chart-axis: #2c5a66; --chart-grid: #0d4250;
+  --chart-surface: #04313c; --chart-ring: rgba(238, 232, 213, 0.12); --chart-tooltip: rgba(7, 54, 66, 0.97);
+}
+
+/* High contrast dark: white on black, yellow links */
+:root[data-theme="contrast-dark"] {
+  --bg: #000; --surface: #000; --surface-2: #000; --surface-3: #141414; --hover: #262200;
+  --text: #fff; --text-strong: #fff; --muted: #f2f2f2; --muted-2: #f2f2f2; --faint: #d0d0d0;
+  --border: #fff; --border-soft: #a6a6a6; --border-input: #fff;
+  --link: #ffe600; --link-hover: #fff27a;
+  --accent: #ffe600; --on-accent: #000; --accent-text: #ffe600;
+  --info-bg: #000; --info-border: #fff; --info-text: #fff;
+  --general: #8fc8ff; --general-text: #8fc8ff; --specialty: #ffb366; --specialty-text: #ffb366;
+  --options: #d0d0d0; --options-text: #f2f2f2; --other: #b9c6d6; --on-group: #000;
+  --beta: #c9b8ff; --beta-ink: #e4dbff; --beta-bg: #000;
+  --up: #6dff9e; --down: #ff8080;
+  --veil: rgba(0, 0, 0, 0.85); --veil-solid: #000; --veil-text: #fff;
+  --spark: #8fc8ff; --spark-base: #a6a6a6; --focus: #ffe600;
+  --stamp: #d0d0d0; --pick: #f2f2f2; --pick-hover: #fff;
+  --dialog-bg: #000; --dialog-text: #fff; --dialog-muted: #f2f2f2; --dialog-faint: #d0d0d0; --dialog-border: #fff; --dialog-border-hover: #fff;
+  --dialog-bar: #000; --dialog-bar-border: #fff; --dialog-btn: #000; --dialog-btn-border: #fff; --dialog-btn-text: #fff; --dialog-backdrop: rgba(0, 0, 0, 0.75);
+  --now: #ffe600; --fav: #ffcc4d;
+  --chart-ink: #fff; --chart-ink-2: #f2f2f2; --chart-muted: #d0d0d0; --chart-axis: #fff; --chart-grid: #6b6b6b;
+  --chart-surface: #000; --chart-ring: #fff; --chart-tooltip: #000; --chart-on-fill: #000;
+  --s1: #8fc8ff; --s2: #ffb366; --s3: #5ce6a8; --s4: #ffe14d; --s5: #ff9ec7; --s6: #7ddc6e; --s7: #c9b8ff; --s8: #ff8080;
+}
+/* high contrast: links underlined, focus that cannot be missed */
+:root[data-theme^="contrast"] a { text-decoration: underline; }
+:root[data-theme^="contrast"] :focus-visible { outline: 3px solid var(--focus) !important; outline-offset: 2px; }
+
+/* ---------- the Theme window (theme.js), opened from "theme" by "change logo" (masthead.js) ---------- */
+html.th-open { overflow: hidden; }
+.th-dialog { position: fixed; inset: 0; z-index: 1150; display: none; align-items: flex-start; justify-content: center; padding: 8vh 16px;
+  background: var(--dialog-backdrop); overflow-y: auto; }
+.th-dialog.on { display: flex; }
+.th-panel { width: min(560px, 100%); background: var(--dialog-bg); color: var(--dialog-text); border: 1px solid var(--dialog-border); border-radius: 10px;
+  box-shadow: 0 20px 60px var(--dialog-shadow); padding: 16px 18px 14px; font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
+.th-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.th-top h2 { margin: 0; font-size: 19px; font-weight: 600; }
+.th-x { border: 0; background: none; color: var(--dialog-muted); font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; min-width: 36px; min-height: 36px; }
+.th-x:hover { color: var(--dialog-text); }
+.th-group { border: 0; margin: 10px 0 0; padding: 0; min-width: 0; }
+.th-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.th-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.th-card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 1px solid var(--dialog-border); border-radius: 8px;
+  cursor: pointer; font-size: 13px; color: var(--dialog-text); background: var(--dialog-bg); }
+.th-card:hover { border-color: var(--dialog-border-hover); }
+.th-card input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.th-card:has(input:checked) { border-color: var(--now); box-shadow: 0 0 0 2px var(--now); }
+.th-card:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.th-name { font-weight: 600; line-height: 1.2; }
+.th-auto { flex-direction: row; align-items: center; gap: 12px; }
+.th-auto .th-prev { flex: 0 0 96px; }
+.th-auto-text { display: flex; flex-direction: column; gap: 2px; }
+.th-hint { color: var(--dialog-muted); font-size: 12.5px; line-height: 1.3; }
+.th-note { margin: 12px 0 0; color: var(--dialog-faint); font-size: 12.5px; }
+/* the pictures: each theme in its own colors, whatever theme the page is in */
+.th-prev { position: relative; display: block; height: 58px; border-radius: 5px; overflow: hidden; background: var(--p-bg);
+  border: 1px solid var(--p-rule); }
+.th-p-bar { position: absolute; left: 8%; right: 8%; top: 9px; height: 9px; border-radius: 2px; background: var(--p-info); }
+.th-p-line { position: absolute; left: 8%; width: 60%; top: 25px; height: 4px; border-radius: 2px; background: var(--p-text); }
+.th-p-line.th-p-short { top: 34px; width: 34%; background: var(--p-link); }
+.th-p-bars { position: absolute; left: 8%; bottom: 7px; display: flex; gap: 3px; align-items: flex-end; }
+.th-p-bars i { display: block; width: 14px; height: 9px; border-radius: 1px; background: var(--p-general); }
+.th-p-bars i + i { width: 9px; height: 6px; background: var(--p-specialty); }
+.th-prev-auto { display: flex; padding: 0; border: 1px solid var(--dialog-border); }
+.th-half { position: relative; flex: 1 1 50%; height: 100%; background: var(--p-bg); }
+.th-half::before { content: ""; position: absolute; left: 14%; right: 14%; top: 12px; height: 8px; border-radius: 2px; background: var(--p-info); }
+.th-half::after { content: ""; position: absolute; left: 14%; width: 56%; top: 28px; height: 4px; border-radius: 2px; background: var(--p-text); }
+[data-p="light"] { --p-bg: #fff; --p-rule: #ddd; --p-info: #d9edf7; --p-text: #333; --p-link: blue; --p-general: #377eb8; --p-specialty: #ff7f00; }
+[data-p="paper"] { --p-bg: #faf8f3; --p-rule: #e0d8c8; --p-info: #efe9dc; --p-text: #2b2924; --p-link: #1d4e89; --p-general: #3a73a8; --p-specialty: #d9730d; }
+[data-p="solarized-light"] { --p-bg: #fdf6e3; --p-rule: #e2dbc4; --p-info: #eee8d5; --p-text: #4c5e63; --p-link: #1f6fa8; --p-general: #2176b5; --p-specialty: #cb4b16; }
+[data-p="contrast-light"] { --p-bg: #fff; --p-rule: #000; --p-info: #000; --p-text: #000; --p-link: #0000c8; --p-general: #0b4f9c; --p-specialty: #a64200; }
+[data-p="dark"] { --p-bg: #151515; --p-rule: #353535; --p-info: #132029; --p-text: #dedcd6; --p-link: #8ab4f8; --p-general: #3d7fbf; --p-specialty: #d86f0a; }
+[data-p="black"] { --p-bg: #000; --p-rule: #2a2a2a; --p-info: #132029; --p-text: #dedcd6; --p-link: #8ab4f8; --p-general: #3d7fbf; --p-specialty: #d86f0a; }
+[data-p="solarized-dark"] { --p-bg: #002b36; --p-rule: #0f4a58; --p-info: #073642; --p-text: #a3b0b0; --p-link: #5aaee8; --p-general: #2176b5; --p-specialty: #cb4b16; }
+[data-p="contrast-dark"] { --p-bg: #000; --p-rule: #fff; --p-info: #fff; --p-text: #fff; --p-link: #ffe600; --p-general: #8fc8ff; --p-specialty: #ffb366; }
+/* phones: the window rises from the bottom, two pictures to a row */
+@media (max-width: 520px) {
+  .th-dialog { align-items: flex-end; padding: 0; }
+  .th-panel { width: 100%; max-height: 88vh; overflow-y: auto; border-radius: 14px 14px 0 0; border-bottom: 0;
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px)); }
+  .th-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .th-dialog.on .th-panel { animation: th-rise 0.18s ease-out; }
+  @keyframes th-rise { from { transform: translateY(8px); opacity: 0; } }
+}

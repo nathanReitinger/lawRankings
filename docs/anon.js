@@ -15,7 +15,6 @@
   const num = (n) => Number(n).toLocaleString('en-US');
   const MINUS = '−';
   const signed = (x, d) => (x > 0 ? '+' : x < 0 ? MINUS : '') + Math.abs(x).toFixed(d);
-  const css = (name, dflt) => getComputedStyle(document.body).getPropertyValue(name).trim() || dflt;
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const el = (tag, attrs, text) => {
     const e = document.createElement(tag);
@@ -49,16 +48,35 @@
 
   // colors: the switching reviews in the page's flagship blue, the comparison reviews in its second ink (a pair with
   // ample contrast for every kind of color vision); the policy groups of the last card in the same family
-  const C_SW = '#2a78d6', C_CMP = '#52514e';
+  // (2026-11-01, themes) each color is a token of the theme in use (theme.css, or anon.css :root) with its White value:
+  // tc() reads it when a chart is drawn, tv() gives it as CSS for the page's own keys (which follow a theme by themselves)
+  const COLOR = {
+    sw: ['--s1', '#2a78d6'], cmp: ['--chart-ink-2', '#52514e'], ink: ['--chart-ink', '#0b0b0b'], muted: ['--an-muted', '#898781'],
+    grid: ['--chart-grid', '#e8e7e1'], axis: ['--chart-axis', '#c3c2b7'], tip: ['--chart-tooltip', 'rgba(255,255,255,0.97)'], tipRule: ['--chart-ring', 'rgba(11,11,11,0.10)'],
+    band: ['--an-band', '#f7f7f5'], fit: ['--an-fit', '#104281'],
+    anon: ['--an-anon', '#104281'], switched: ['--an-switched', '#86b6ef'], named: ['--an-named', '#eb6834'], nostmt: ['--an-nostmt', '#f2a27f'], unknown: ['--an-unknown', '#c9c8c0'],
+  };
+  const tc = (k) => (window.LSRTheme ? LSRTheme.color(COLOR[k][0], COLOR[k][1]) : COLOR[k][1]);
+  const tv = (k) => 'var(' + COLOR[k][0] + ', ' + COLOR[k][1] + ')';
+  // the card's own color behind a chart (white under White): the outline that sets a dot off from its line, and the
+  // inside of the reference year's ring
+  const hole = (node) => {
+    for (let n = node; n && n.nodeType === 1; n = n.parentElement) {
+      const b = getComputedStyle(n).backgroundColor;
+      if (b && b !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(b)) return b;
+    }
+    return window.LSRTheme ? LSRTheme.color('--bg', '#ffffff') : '#ffffff';
+  };
+  // the policy groups: their color is a key of COLOR
   const ROLE = {
-    'before': { label: 'Anonymous, no known start', color: '#104281' },
-    'switched': { label: 'Switched (dated)', color: '#86b6ef' },
-    'too recent': { label: 'Switched 2025', color: '#86b6ef' },
-    'early': { label: 'Switched (dated, own window only)', color: '#86b6ef' },
-    'named': { label: 'Not anonymous (stated or inferred)', color: '#eb6834' },
-    'no statement': { label: 'No anonymity statement found', color: '#f2a27f' },
-    'unknown': { label: 'Article policy not found', color: '#c9c8c0' },     // (2026-10-31: Florida and Villanova)
-    'undated': { label: 'Anonymous or partly anonymous, undated', color: '#104281' },
+    'before': { label: 'Anonymous, no known start', color: 'anon' },
+    'switched': { label: 'Switched (dated)', color: 'switched' },
+    'too recent': { label: 'Switched 2025', color: 'switched' },
+    'early': { label: 'Switched (dated, own window only)', color: 'switched' },
+    'named': { label: 'Not anonymous (stated or inferred)', color: 'named' },
+    'no statement': { label: 'No anonymity statement found', color: 'nostmt' },
+    'unknown': { label: 'Article policy not found', color: 'unknown' },     // (2026-10-31: Florida and Villanova)
+    'undated': { label: 'Anonymous or partly anonymous, undated', color: 'anon' },
   };
   // a policy as the per-review panels and the lede name it
   const polShort = (p) => (/^partially/.test(p || '') ? 'partly anonymous' : /track$/.test(p || '') ? 'optional anonymous track' :
@@ -68,7 +86,7 @@
 
   const font = { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' };
   function base(W) {
-    const ink2 = css('--ink-2', '#52514e'), muted = css('--muted', '#898781'), grid = css('--grid', '#e8e7e1'), axis = css('--axis', '#c3c2b7');
+    const ink2 = tc('cmp'), muted = tc('muted'), grid = tc('grid'), axis = tc('axis');
     const axisStyle = { color: muted, fontSize: '11.5px', fontVariantNumeric: 'tabular-nums' };
     return {
       chart: { backgroundColor: 'transparent', style: font, spacing: [8, 4, 6, 2], animation: false },
@@ -78,7 +96,7 @@
       legend: { enabled: false },           // each figure's key is the page's own, above the chart
       // (2026-10-26, the owner on the journal tree: "my cursor gets stuck in it"): a tap shows the tooltip, a swipe
       // always scrolls the page
-      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)',
+      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: tc('tip'), borderColor: tc('tipRule'),
         borderRadius: 8, borderWidth: 1, shadow: { opacity: 0.08 }, padding: 9, style: { fontSize: '12.5px', color: ink2, whiteSpace: 'normal', width: Math.min(300, W - 40) + 'px' } },
       xAxis: { lineColor: axis, tickColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
       yAxis: { lineColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
@@ -87,6 +105,7 @@
     };
   }
   function makeChart(box, opts, W) {
+    if (window.LSRTheme) LSRTheme.highcharts(Highcharts);      // (2026-11-01, themes) Highcharts' own text and rules
     const c = Highcharts.chart(box, Highcharts.merge(base(W), opts));
     charts.push(c);
     return c;
@@ -267,14 +286,14 @@
     };
     texts.push(words);
     words();
-    c.legend.append(swatch('Before the switch, and the switch year', C_CMP, 'dot'), swatch('After (from the first volume chosen under it)', C_SW, 'dot'), swatch('Reference year', '#ffffff', 'dot ring'));
+    c.legend.append(swatch('Before the switch, and the switch year', tv('cmp'), 'dot'), swatch('After (from the first volume chosen under it)', tv('sw'), 'dot'), swatch('Reference year', 'transparent', 'dot ring'));
     if (!has('errorbar') || !has('scatter')) { noChart(c, T.d); return; }
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560, k = outcome, ev = E(), s = scale(k);
-      const rule = css('--axis', '#c3c2b7'), plane = css('--plane', '#f7f7f5');
-      const color = (e) => (e >= 1 ? C_SW : C_CMP);
+      const rule = tc('axis'), plane = tc('band'), SW = tc('sw'), CMP = tc('cmp'), bg = hole(c.box);
+      const color = (e) => (e >= 1 ? SW : CMP);
       const pts = ev.e.map((e, i) => ({ x: e, y: s * ev.b[i], color: color(e), custom: i,
-        marker: e === -1 ? { fillColor: '#ffffff', lineColor: C_CMP, lineWidth: 1.5 } : undefined }));
+        marker: e === -1 ? { fillColor: bg, lineColor: CMP, lineWidth: 1.5 } : undefined }));
       makeChart(c.box, {
         chart: { height: narrow ? 300 : 360 },
         accessibility: { description: 'Event study: the difference between switching and comparison reviews in ' + SHORT[k].toLowerCase() + ', by year since the switch, with 95% intervals. The table below lists the numbers.',
@@ -284,7 +303,7 @@
         xAxis: { min: -A.bin - 0.5, max: A.bin + 0.5, tickPositions: ev.e, labels: { formatter() { return lab(this.value); }, autoRotation: false, padding: 0,
           style: { fontSize: narrow ? '10px' : '11.5px', textOverflow: 'none', whiteSpace: 'nowrap' } },
           title: { text: narrow ? 'Years since the switch' : 'Years since the switch (volume year minus switch year)' },
-          plotBands: [{ from: 0.5, to: A.bin + 0.5, color: plane, label: { text: 'after', align: 'left', x: 6, y: 14, style: { color: css('--muted', '#898781'), fontSize: '11.5px' } } }] },
+          plotBands: [{ from: 0.5, to: A.bin + 0.5, color: plane, label: { text: 'after', align: 'left', x: 6, y: 14, style: { color: tc('muted'), fontSize: '11.5px' } } }] },
         yAxis: { title: { text: narrow ? null : (isShare(k) ? 'Difference, percentage points' : 'Difference, places') },
           labels: { formatter() { return (this.value > 0 ? '+' : this.value < 0 ? MINUS : '') + Math.abs(this.value); } },
           plotLines: [{ value: 0, color: rule, width: 1.5, zIndex: 2 }] },
@@ -298,7 +317,7 @@
         series: [
           { type: 'errorbar', name: '95% interval', data: ev.e.map((e, i) => ({ x: e, low: s * ev.lo[i], high: s * ev.hi[i], color: color(e), custom: i })).filter((p) => ev.e[p.custom] !== -1),
             whiskerLength: narrow ? 6 : 10, stemWidth: 1.5, whiskerWidth: 1.5, enableMouseTracking: false, states: { inactive: { opacity: 1 } } },
-          { type: 'scatter', name: 'Difference', data: pts, marker: { symbol: 'circle', radius: narrow ? 4 : 5, lineWidth: 1, lineColor: '#ffffff' }, zIndex: 3 },
+          { type: 'scatter', name: 'Difference', data: pts, marker: { symbol: 'circle', radius: narrow ? 4 : 5, lineWidth: 1, lineColor: bg }, zIndex: 3 },
         ],
       }, W);
     } });
@@ -328,16 +347,16 @@
     };
     texts.push(words);
     words();
-    c.legend.append(swatch('Switching reviews (' + sw.length + ')', C_SW), swatch('Comparison reviews (' + num(A.counts.comparison) + ')', C_CMP), swatch('Switch years', css('--plane', '#f7f7f5'), 'box an-band'));
+    c.legend.append(swatch('Switching reviews (' + sw.length + ')', tv('sw')), swatch('Comparison reviews (' + num(A.counts.comparison) + ')', tv('cmp')), swatch('Switch years', tv('band'), 'box an-band'));
     if (!has('line')) { noChart(c, T.d); return; }
     figs.push({ box: c.box, draw: () => {
-      const W = c.box.clientWidth, narrow = W < 560, k = outcome, t = A.trend[k], s = scale(k);
+      const W = c.box.clientWidth, narrow = W < 560, k = outcome, t = A.trend[k], s = scale(k), bg = hole(c.box);
       const ser = (key, name, color) => ({ type: 'line', name: name, color: color, lineWidth: 2, data: t.years.map((y, i) => (t[key][i] ? { x: y, y: s * t[key][i][0], custom: i } : { x: y, y: null })),
-        marker: { enabled: true, symbol: 'circle', radius: narrow ? 2.5 : 3, lineWidth: 1, lineColor: '#ffffff' } });
+        marker: { enabled: true, symbol: 'circle', radius: narrow ? 2.5 : 3, lineWidth: 1, lineColor: bg } });
       makeChart(c.box, {
         chart: { height: narrow ? 280 : 340 },
         accessibility: { description: SHORT[k] + ' per year for the switching reviews and the comparison reviews. The table below lists the numbers.' },
-        xAxis: { tickInterval: narrow ? 4 : 2, plotBands: [{ from: y0 - 0.5, to: y1 + 0.5, color: css('--plane', '#f7f7f5') }], crosshair: { color: css('--axis', '#c3c2b7'), width: 1 } },
+        xAxis: { tickInterval: narrow ? 4 : 2, plotBands: [{ from: y0 - 0.5, to: y1 + 0.5, color: tc('band') }], crosshair: { color: tc('axis'), width: 1 } },
         yAxis: { title: { text: narrow ? null : (isShare(k) ? 'Share of articles' : 'Mean U.S. News rank') }, labels: { format: isShare(k) ? '{value}%' : '{value}' }, reversed: false, min: isShare(k) ? 0 : null },
         tooltip: { shared: true, formatter() {
           const i = this.points[0].point.custom;
@@ -346,7 +365,7 @@
             return '<span style="color:' + p.series.color + '">●</span> ' + esc(p.series.name) + ': <b>' + val(k, row[0]) + '</b> (' + num(row[1]) + ' articles, ' + row[2] + ' reviews)';
           }).join('<br>');
         } },
-        series: [ser('switched', 'Switching reviews', C_SW), ser('comparison', 'Comparison reviews', C_CMP)],
+        series: [ser('switched', 'Switching reviews', tc('sw')), ser('comparison', 'Comparison reviews', tc('cmp'))],
       }, W);
     } });
   }
@@ -409,8 +428,8 @@
     };
     texts.push(words);
     words();
-    c.legend.append(swatch('The review, by year', C_SW, 'dot'), swatch('Fitted line, before and after', '#104281', 'line an-hline'), swatch('The review without the change (model)', css('--ink-2', '#52514e'), 'dash'),
-      swatch('Switch year', css('--ink-2', '#52514e'), 'dot-line'), swatch('Volumes chosen under the policy', css('--plane', '#f7f7f5'), 'box an-band'));
+    c.legend.append(swatch('The review, by year', tv('sw'), 'dot'), swatch('Fitted line, before and after', tv('fit'), 'line an-hline'), swatch('The review without the change (model)', tv('cmp'), 'dash'),
+      swatch('Switch year', tv('cmp'), 'dot-line'), swatch('Volumes chosen under the policy', tv('band'), 'box an-band'));
     if (!has('line')) { panels.forEach((P) => P.box.remove()); T.d.open = true; return; }
     panels.forEach((P) => figs.push({ box: P.box, draw: () => {
       const k = outcome, r = A.each[k].find((x) => x.j === P.j);
@@ -419,30 +438,30 @@
       const pt = (y, i) => (r.review[i] ? { x: y, y: s * r.review[i][0], custom: i } : { x: y, y: null });
       const cm = (y, i) => (r.counterfactual[i] != null ? { x: y, y: s * r.counterfactual[i], custom: i } : { x: y, y: null });
       const seg = (L) => (L ? [{ x: L[0], y: s * L[1] }, { x: L[2], y: s * L[3] }] : []);
-      const ink2 = css('--ink-2', '#52514e');
+      const ink2 = tc('cmp'), SW = tc('sw'), fit = tc('fit'), bg = hole(P.box);
       makeChart(P.box, {
         chart: { height: narrow ? 200 : 220, spacing: [6, 4, 4, 0] },
         accessibility: { description: jname(P.j) + ': ' + SHORT[k].toLowerCase() + ' by volume year, ' + r.window[0] + '–' + r.window[1] + ', with fitted lines before and after its ' + r.adopted + ' switch and the review without the change as the model has it. The table below lists the numbers.' },
         xAxis: { min: r.window[0] - 0.5, max: r.window[1] + 0.5, tickInterval: narrow ? 4 : 2, labels: { style: { fontSize: '10.5px' } },
-          plotBands: [{ from: r.adopted + 0.5, to: r.window[1] + 0.5, color: css('--plane', '#f7f7f5') }],
+          plotBands: [{ from: r.adopted + 0.5, to: r.window[1] + 0.5, color: tc('band') }],
           plotLines: [{ value: r.adopted, color: ink2, width: 1.5, dashStyle: 'Dot', zIndex: 3,
-            label: { text: 'switch', rotation: 0, align: 'right', x: -4, y: 12, style: { color: css('--muted', '#898781'), fontSize: '10.5px' } } }],
-          crosshair: { color: css('--axis', '#c3c2b7'), width: 1 } },
+            label: { text: 'switch', rotation: 0, align: 'right', x: -4, y: 12, style: { color: tc('muted'), fontSize: '10.5px' } } }],
+          crosshair: { color: tc('axis'), width: 1 } },
         yAxis: { title: { text: null }, labels: { format: isShare(k) ? '{value}%' : '{value}', style: { fontSize: '10.5px' } }, min: isShare(k) ? 0 : undefined, tickAmount: 5 },
         tooltip: { shared: true, formatter() {
           const pnt = this.points.find((q) => q.point.custom != null);
           if (!pnt) return false;
           const i = pnt.point.custom, a = r.review[i], b = r.comparison[i], f = r.counterfactual[i];
           return '<b>' + r.years[i] + '</b>' + (r.years[i] > r.adopted ? ' (chosen under the policy)' : r.years[i] === r.adopted ? ' (the switch year)' : '') +
-            (a ? '<br><span style="color:' + C_SW + '">●</span> ' + esc(jshort(jname(P.j))) + ': <b>' + val(k, a[0]) + '</b> (' + num(a[1]) + ' articles)' : '<br>' + esc(jshort(jname(P.j))) + ': no articles counted') +
+            (a ? '<br><span style="color:' + SW + '">●</span> ' + esc(jshort(jname(P.j))) + ': <b>' + val(k, a[0]) + '</b> (' + num(a[1]) + ' articles)' : '<br>' + esc(jshort(jname(P.j))) + ': no articles counted') +
             (f != null ? '<br><span style="color:' + ink2 + '">●</span> Without the change (model): ' + val(k, f) : '') +
             (b ? '<br>Comparison reviews, pooled: ' + val(k, b[0]) + ' (' + num(b[1]) + ' articles)' : '');
         } },
         series: [
           { type: 'line', name: 'Without the change (model)', data: r.years.map(cm), color: ink2, dashStyle: 'Dash', lineWidth: 1.5, marker: { enabled: false }, zIndex: 1 },
-          { type: 'line', name: jname(P.j), data: r.years.map(pt), color: C_SW, lineWidth: 1, marker: { enabled: true, symbol: 'circle', radius: narrow ? 2.5 : 3, lineWidth: 1, lineColor: '#ffffff' }, zIndex: 2 },
-          { type: 'line', name: 'Fitted line before', data: seg(r.line_before), color: '#104281', lineWidth: 2.5, marker: { enabled: false }, enableMouseTracking: false, zIndex: 3, states: { inactive: { opacity: 1 } } },
-          { type: 'line', name: 'Fitted line after', data: seg(r.line_after), color: '#104281', lineWidth: 2.5, marker: { enabled: false }, enableMouseTracking: false, zIndex: 3, states: { inactive: { opacity: 1 } } },
+          { type: 'line', name: jname(P.j), data: r.years.map(pt), color: SW, lineWidth: 1, marker: { enabled: true, symbol: 'circle', radius: narrow ? 2.5 : 3, lineWidth: 1, lineColor: bg }, zIndex: 2 },
+          { type: 'line', name: 'Fitted line before', data: seg(r.line_before), color: fit, lineWidth: 2.5, marker: { enabled: false }, enableMouseTracking: false, zIndex: 3, states: { inactive: { opacity: 1 } } },
+          { type: 'line', name: 'Fitted line after', data: seg(r.line_after), color: fit, lineWidth: 2.5, marker: { enabled: false }, enableMouseTracking: false, zIndex: 3, states: { inactive: { opacity: 1 } } },
         ],
       }, W);
     } }));
@@ -469,24 +488,24 @@
     };
     texts.push(words);
     words();
-    c.legend.append(swatch('Estimate and 95% interval', C_SW, 'dot'), swatch('Main estimate', css('--ink-2', '#52514e'), 'dash'));
+    c.legend.append(swatch('Estimate and 95% interval', tv('sw'), 'dot'), swatch('Main estimate', tv('cmp'), 'dash'));
     if (!has('errorbar') || !has('scatter')) { noChart(c, T.d); return; }
     figs.push({ box: c.box, draw: () => {
-      const W = c.box.clientWidth, narrow = W < 560, k = outcome, s = scale(k), R = rows();
+      const W = c.box.clientWidth, narrow = W < 560, k = outcome, s = scale(k), R = rows(), SW = tc('sw'), CMP = tc('cmp');
       makeChart(c.box, {
         chart: { inverted: true, height: 46 + R.length * (narrow ? 24 : 26), marginLeft: narrow ? 132 : 190 },
         accessibility: { description: 'Estimate of the change in ' + SHORT[k].toLowerCase() + ' for each specification, with its 95% interval. The table below lists the numbers.' },
-        xAxis: { categories: R.map((r) => robLabel(r, narrow)), labels: { style: { fontSize: narrow ? '11px' : '12px', color: css('--ink-2', '#52514e'), textOverflow: 'ellipsis' }, step: 1 }, tickLength: 0, lineWidth: 0 },
+        xAxis: { categories: R.map((r) => robLabel(r, narrow)), labels: { style: { fontSize: narrow ? '11px' : '12px', color: CMP, textOverflow: 'ellipsis' }, step: 1 }, tickLength: 0, lineWidth: 0 },
         yAxis: { title: { text: narrow ? null : (isShare(k) ? 'Change, percentage points' : 'Change, places') }, labels: { formatter() { return (this.value > 0 ? '+' : this.value < 0 ? MINUS : '') + Math.abs(this.value); } },
-          plotLines: [{ value: 0, color: css('--axis', '#c3c2b7'), width: 1.5, zIndex: 2 }, { value: s * R[0].est, color: css('--ink-2', '#52514e'), width: 1, dashStyle: 'Dash', zIndex: 2 }] },
+          plotLines: [{ value: 0, color: tc('axis'), width: 1.5, zIndex: 2 }, { value: s * R[0].est, color: CMP, width: 1, dashStyle: 'Dash', zIndex: 2 }] },
         tooltip: { formatter() {
           const r = R[this.point.index];
           return '<b>' + esc(r.label) + '</b><br>Change: <b>' + eff(k, r.est) + unitWord(k) + '</b><br>95% interval ' + ci(k, r.lo, r.hi) + '<br>p ' + fmtP(r.p) + ' clustered' + (r.p_perm != null ? ', ' + fmtP(r.p_perm) + ' randomization' : '') +
             '<br>' + r.n_treated + ' switching, ' + num(r.n_control) + ' comparison reviews';
         } },
         series: [
-          { type: 'errorbar', name: '95% interval', data: R.map((r) => [s * r.lo, s * r.hi]), color: C_SW, whiskerLength: narrow ? 6 : 8, stemWidth: 1.5, whiskerWidth: 1.5, enableMouseTracking: false, states: { inactive: { opacity: 1 } } },
-          { type: 'scatter', name: 'Estimate', data: R.map((r, i) => ({ x: i, y: s * r.est, color: i === 0 ? css('--ink', '#0b0b0b') : C_SW })), marker: { symbol: 'circle', radius: narrow ? 4 : 4.5, lineWidth: 1, lineColor: '#ffffff' }, zIndex: 3 },
+          { type: 'errorbar', name: '95% interval', data: R.map((r) => [s * r.lo, s * r.hi]), color: SW, whiskerLength: narrow ? 6 : 8, stemWidth: 1.5, whiskerWidth: 1.5, enableMouseTracking: false, states: { inactive: { opacity: 1 } } },
+          { type: 'scatter', name: 'Estimate', data: R.map((r, i) => ({ x: i, y: s * r.est, color: i === 0 ? tc('ink') : SW })), marker: { symbol: 'circle', radius: narrow ? 4 : 4.5, lineWidth: 1, lineColor: hole(c.box) }, zIndex: 3 },
         ],
       }, W);
     } });
@@ -573,8 +592,8 @@
       'The ratio counts published articles; submissions and reading practices (such as a guaranteed read for a review’s own faculty) are not in the data.');
     const lg = {}, swYears = [];
     rv.forEach((r) => { const k = r.role === 'too recent' || r.role === 'early' ? 'switched' : r.role; lg[k] = 1; if (k === 'switched' && swYears.indexOf(r.adopted) < 0) swYears.push(r.adopted); });
-    Object.keys(ROLE).filter((k) => lg[k]).forEach((k) => c.legend.appendChild(swatch(k === 'switched' ? 'Switched (' + swYears.sort().join(', ') + ')' : ROLE[k].label, ROLE[k].color, 'box')));
-    c.legend.appendChild(swatch('95% interval', css('--ink-2', '#52514e'), 'line'));
+    Object.keys(ROLE).filter((k) => lg[k]).forEach((k) => c.legend.appendChild(swatch(k === 'switched' ? 'Switched (' + swYears.sort().join(', ') + ')' : ROLE[k].label, tv(ROLE[k].color), 'box')));
+    c.legend.appendChild(swatch('95% interval', tv('cmp'), 'line'));
     const fmtR = (x) => (x == null ? '–' : x.toFixed(1) + '×');
     const lo = Math.min.apply(null, rv.map((r) => r.own)), hi = Math.max.apply(null, rv.map((r) => r.own));
     c.foot.textContent = 'Articles by a review’s own faculty, ' + H.window[0] + '–' + H.window[1] + ': ' + num(lo) + ' to ' + num(hi) + ' per review.';
@@ -586,12 +605,12 @@
     T.tb.insertBefore(el('p', { class: 'an-note' }, 'Own faculty: the review’s faculty-authored articles with an author on its own school’s faculty. Elsewhere: that faculty’s articles in the other top-14 reviews, as a share of those reviews’ faculty-authored articles. Ratio: the first share over the second, with a 95% interval.'), T.tb.firstChild);
     if (!has('bar') || !has('errorbar')) { noChart(c, T.d); return; }
     figs.push({ box: c.box, draw: () => {
-      const W = c.box.clientWidth, narrow = W < 560;
+      const W = c.box.clientWidth, narrow = W < 560, CMP = tc('cmp');
       makeChart(c.box, {
         chart: { type: 'bar', height: 40 + rv.length * (narrow ? 24 : 26), marginLeft: narrow ? 104 : 270 },
         accessibility: { description: 'Bars: each top-14 review’s own-faculty ratio (its own faculty’s share of its articles over that faculty’s share of the other top-14 reviews), with 95% intervals, colored by anonymous-review policy. The table below lists the numbers.' },
-        xAxis: { categories: rv.map((r) => (narrow ? jshort(jname(r.j)) : jname(r.j))), labels: { style: { fontSize: narrow ? '11px' : '12px', color: css('--ink-2', '#52514e') }, step: 1 }, tickLength: 0, lineWidth: 0 },
-        yAxis: { min: 0, title: { text: narrow ? null : 'Own-faculty ratio (1 = same share)' }, labels: { format: '{value}×' }, plotLines: [{ value: 1, color: css('--ink-2', '#52514e'), width: 1, dashStyle: 'Dash', zIndex: 3 }] },
+        xAxis: { categories: rv.map((r) => (narrow ? jshort(jname(r.j)) : jname(r.j))), labels: { style: { fontSize: narrow ? '11px' : '12px', color: CMP }, step: 1 }, tickLength: 0, lineWidth: 0 },
+        yAxis: { min: 0, title: { text: narrow ? null : 'Own-faculty ratio (1 = same share)' }, labels: { format: '{value}×' }, plotLines: [{ value: 1, color: CMP, width: 1, dashStyle: 'Dash', zIndex: 3 }] },
         tooltip: { formatter() {
           const r = rv[this.point.index];
           return '<b>' + esc(jname(r.j)) + '</b><br>Ratio <b>' + fmtR(r.ratio) + '</b>' + (r.ratio_lo != null ? ' (95% ' + r.ratio_lo.toFixed(1) + '–' + r.ratio_hi.toFixed(1) + ')' : '') +
@@ -599,8 +618,8 @@
         } },
         plotOptions: { bar: { borderWidth: 0, borderRadius: 2, pointPadding: 0.12, groupPadding: 0.06 } },
         series: [
-          { type: 'bar', name: 'Own-faculty ratio', data: rv.map((r) => ({ y: r.ratio, color: (ROLE[r.role] || ROLE.unknown).color })) },
-          { type: 'errorbar', name: '95% interval', data: rv.map((r) => (r.ratio_lo != null ? [r.ratio_lo, r.ratio_hi] : null)), color: css('--ink-2', '#52514e'), whiskerLength: narrow ? 5 : 7, stemWidth: 1, whiskerWidth: 1, enableMouseTracking: false, states: { inactive: { opacity: 1 } } },
+          { type: 'bar', name: 'Own-faculty ratio', data: rv.map((r) => ({ y: r.ratio, color: tc((ROLE[r.role] || ROLE.unknown).color) })) },
+          { type: 'errorbar', name: '95% interval', data: rv.map((r) => (r.ratio_lo != null ? [r.ratio_lo, r.ratio_hi] : null)), color: CMP, whiskerLength: narrow ? 5 : 7, stemWidth: 1, whiskerWidth: 1, enableMouseTracking: false, states: { inactive: { opacity: 1 } } },
         ],
       }, W);
     } });
@@ -701,4 +720,7 @@
   }
   document.addEventListener('lsr-insights-data', () => setTimeout(start, 0));
   if (window.LSR_INS) setTimeout(start, 0);
+  // (2026-11-01, themes) another theme picked: the charts drawn so far are drawn again in its colors (the keys and
+  // tables follow by themselves); a section not drawn yet takes the theme in force when it draws
+  document.addEventListener('lsr-theme', () => { if (drawn && figs.length) drawAll(); });
 })();

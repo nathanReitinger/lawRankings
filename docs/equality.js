@@ -16,8 +16,27 @@
   const pct1 = (x) => (x == null || !isFinite(x) ? '–' : (100 * x).toFixed(1) + '%');
   const yrs = (a, b) => (a === b ? String(a) : a + '–' + b);
   const gini = (g) => (g == null || !isFinite(g) ? '–' : g.toFixed(2));
-  const css = (name, dflt) => getComputedStyle(document.body).getPropertyValue(name).trim() || dflt;
-  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // (2026-11-01, themes) a color of the theme in use, read when a chart is drawn: theme.css's chart colors and this
+  // section's own (equality.css, --eq-*); the literal is White's, for a page without theme.js. V: the same color for a
+  // swatch in a key above a chart, which then follows a change of theme by itself
+  const T = (name, dflt) => (window.LSRTheme ? LSRTheme.color(name, dflt) : dflt);
+  const V = (name, dflt) => 'var(' + name + ', ' + dflt + ')';
+  const white = () => !window.LSRTheme || LSRTheme.get().theme === 'light';
+  const pal = () => ({ ink: T('--chart-ink', '#0b0b0b'), ink2: T('--chart-ink-2', '#52514e'), muted: T('--chart-muted', '#898781'), rule: T('--chart-axis', '#c3c2b7') });
+  // the color behind a chart (its card's), as #rrggbb: the rings round the dots, the outline round a label (White:
+  // #ffffff, as before)
+  const hex = (c) => {
+    let m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:\s*[,/]\s*([\d.]+)(%?))?/.exec(c || ''), v;
+    if (m) v = [+m[1], +m[2], +m[3]];
+    else if ((m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+)(%?))?/.exec(c || ''))) v = [m[1], m[2], m[3]].map((x) => Math.round(255 * x));
+    if (!v || (m[4] != null && parseFloat(m[4]) === 0)) return null;
+    return '#' + v.map((x) => x.toString(16).padStart(2, '0')).join('');
+  };
+  const behind = (node) => {
+    for (let e = node; e && e.nodeType === 1; e = e.parentElement) { const h = hex(getComputedStyle(e).backgroundColor); if (h) return h; }
+    return '#ffffff';
+  };
+  const esc =(s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const el = (tag, attrs, text) => {
     const e = document.createElement(tag);
     if (attrs) Object.keys(attrs).forEach((k) => e.setAttribute(k, attrs[k]));
@@ -39,14 +58,18 @@
   // white (2.99 and 2.11) and the two darkest are close (1.5:1 apart), so every mark is also named directly: the Lorenz
   // curves on the chart, the five-year lines at their ends, the Gini bars on their axis. key: the tables' column heads,
   // named as on the charts ('1–14' broke after its dash on a phone; 'Top 14' wraps as 'Top' over '14' and stays narrow)
+  // (2026-11-01, themes) each color from the theme (tok: equality.css --eq-*, the total theme.css's second chart ink;
+  // color: White's, as before): on a dark page the ramp turns round, lighter for the narrower slice, so the narrowest
+  // still stands out most, each step 3:1 or more on the page
   const SLICES = [
-    { cut: 1, short: 'Ranked 1st', key: '1st', color: '#0d366b' },
-    { cut: 3, short: 'Top 3', key: 'Top 3', color: '#184f95' },
-    { cut: 14, short: 'Top 14', key: 'Top 14', color: '#256abf' },
-    { cut: 50, short: 'Top 50', key: 'Top 50', color: '#5598e7' },
-    { cut: 100, short: 'Top 100', key: 'Top 100', color: '#86b6ef' },
-    { cut: Infinity, short: 'Flagship total', key: 'Total', color: '#52514e' },
+    { cut: 1, short: 'Ranked 1st', key: '1st', tok: '--eq-1st', color: '#0d366b' },
+    { cut: 3, short: 'Top 3', key: 'Top 3', tok: '--eq-top3', color: '#184f95' },
+    { cut: 14, short: 'Top 14', key: 'Top 14', tok: '--eq-top14', color: '#256abf' },
+    { cut: 50, short: 'Top 50', key: 'Top 50', tok: '--eq-top50', color: '#5598e7' },
+    { cut: 100, short: 'Top 100', key: 'Top 100', tok: '--eq-top100', color: '#86b6ef' },
+    { cut: Infinity, short: 'Flagship total', key: 'Total', tok: '--chart-ink-2', color: '#52514e' },
   ];
+  const sliceColor = (i) => T(SLICES[i].tok, SLICES[i].color);
   const inSlice = (r, cut) => (cut === Infinity ? r >= 0 : r >= 1 && r <= cut);   // 0: the review of an unranked school
   const HEAD = 2;                 // the headline's slice: the top 14, as legal academia talks about the top
   const OVER_TIME = [1, 2, 3, 5]; // the slices drawn over time (the table has all six)
@@ -176,9 +199,11 @@
   const keys = [];
 
   const font = { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' };
-  function base(W) {
-    const ink2 = css('--ink-2', '#52514e'), muted = css('--muted', '#898781'), grid = css('--grid', '#e8e7e1'), axis = css('--axis', '#c3c2b7');
+  function base(W, bg) {
+    const ink2 = T('--chart-ink-2', '#52514e'), muted = T('--chart-muted', '#898781'), grid = T('--chart-grid', '#e8e7e1'), axis = T('--chart-axis', '#c3c2b7');
     const axisStyle = { color: muted, fontSize: '11.5px', fontVariantNumeric: 'tabular-nums' };
+    // (2026-11-01, themes) the keyboard's focus ring in the theme's focus color (White: Highcharts' own, as before)
+    const a11y = white() ? { enabled: true } : { enabled: true, keyboardNavigation: { focusBorder: { style: { color: T('--focus', '#1f64d6') } } } };
     return {
       chart: { backgroundColor: 'transparent', style: font, spacing: [8, 4, 6, 2], animation: false },
       title: { text: null }, subtitle: { text: null },
@@ -187,16 +212,18 @@
       legend: { enabled: false },           // each figure's key is the page's own, above the chart
       // (2026-10-26, the owner on the journal tree: "my cursor gets stuck in it"): a tap shows the tooltip, a swipe
       // always scrolls the page
-      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)',
+      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: T('--chart-tooltip', 'rgba(255,255,255,0.97)'), borderColor: T('--chart-ring', 'rgba(11,11,11,0.10)'),
         borderRadius: 8, borderWidth: 1, shadow: { opacity: 0.08 }, padding: 9, style: { fontSize: '12.5px', color: ink2, whiteSpace: 'normal', width: Math.min(300, W - 40) + 'px' } },
       xAxis: { lineColor: axis, tickColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
       yAxis: { lineColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
-      plotOptions: { series: { animation: false, states: { inactive: { opacity: 0.35 } } } },
-      accessibility: { enabled: true },
+      // (2026-11-01, themes) the ring round a point under the pointer in the card's color (Highcharts' own is white)
+      plotOptions: { series: { animation: false, states: { inactive: { opacity: 0.35 } }, marker: { lineColor: bg } } },
+      accessibility: a11y,
     };
   }
-  function makeChart(box, opts, W) {
-    const c = Highcharts.chart(box, Highcharts.merge(base(W), opts));
+  function makeChart(box, opts, W, bg) {
+    if (window.LSRTheme) LSRTheme.highcharts(Highcharts);      // (2026-11-01, themes) Highcharts' own text and rules
+    const c = Highcharts.chart(box, Highcharts.merge(base(W, bg || behind(box)), opts));
     charts.push(c);
     return c;
   }
@@ -259,7 +286,7 @@
     items.forEach(([i, tail]) => {
       const b = el('button', { type: 'button', class: 'eq-key', 'aria-pressed': String(focus === i), 'data-slice': String(i) });
       const sw = el('i');
-      sw.style.background = SLICES[i].color;
+      sw.style.background = V(SLICES[i].tok, SLICES[i].color);
       const [main, more] = sliceParts(i);
       const t = el('span', { class: 'eq-lab' }, main);
       t.appendChild(el('span', { class: 'eq-long' }, more));
@@ -283,7 +310,7 @@
       ch.series.forEach((s) => {
         const o = s.options.custom || {};
         if (o.slice != null) s.update({ opacity: isOn(o.slice, here) ? 1 : 0.2, zIndex: (o.z || 1) + (focus === o.slice ? 10 : 0) }, false);
-        if (o.bars) s.points.forEach((pt) => pt.update({ color: isOn(pt.custom) ? SLICES[pt.custom].color : faded(SLICES[pt.custom].color) }, false));
+        if (o.bars) s.points.forEach((pt) => pt.update({ color: isOn(pt.custom) ? sliceColor(pt.custom) : faded(sliceColor(pt.custom)) }, false));
       });
       ch.redraw(false);
     });
@@ -372,8 +399,9 @@
     right.append(el('p', { class: 'eq-sub' }, 'Gini coefficient'), bars);
     split.append(left, right);
     c.box.replaceWith(split);
-    const blue = css('--flagship', '#2a78d6'), rule = css('--axis', '#c3c2b7'), ink = css('--ink', '#0b0b0b'), ink2 = css('--ink-2', '#52514e'), muted = css('--muted', '#898781');
-    const curves = SLICES.map((sl, i) => Array.from(R.slices[i].L, (y, k) => [100 * k / n, 100 * y]));
+    // (2026-11-01, themes) the colors of the theme in use and the card's, read again each time the chart is drawn
+    let cl = null, bg = null;
+    const curves =SLICES.map((sl, i) => Array.from(R.slices[i].L, (y, k) => [100 * k / n, 100 * y]));
     // each curve named on the chart, as the five-year lines are at their ends: two of the blues are under 3:1 on white,
     // and the curves of the review ranked first and of the top 3 run together. A name goes beside its curve where no
     // other curve comes near; where none is clear (the curves lie close together), in the nearest clear space with a
@@ -480,7 +508,7 @@
         const i = (s.options.custom || {}).slice;
         if (i == null) return;
         const t = texts[i] = ch.renderer.text(esc(narrow ? SLICES[i].short.replace('Flagship total', 'Total').replace('Ranked 1st', '1st') : SLICES[i].short), 0, 0)
-          .css({ fontSize: narrow ? '11px' : '11.5px', fontWeight: '600', color: ink2, opacity: isOn(i) ? 1 : 0.35 }).add(g);
+          .css({ fontSize: narrow ? '11px' : '11.5px', fontWeight: '600', color: cl.ink2, opacity: isOn(i) ? 1 : 0.35 }).add(g);
         const bb = t.getBBox();
         size[i] = { w: Math.ceil(bb.width), h: Math.ceil(bb.height), dy: -bb.y };
       });
@@ -491,13 +519,15 @@
         texts[c.i].attr({ x: X + c.b.x0, y: Y + c.b.y0 + size[c.i].dy });
         delete texts[c.i];
         if (!c.q) return;
-        ch.renderer.path([['M', X + c.p.x, Y + c.p.y], ['L', X + c.q.x, Y + c.q.y]]).attr({ stroke: muted, 'stroke-width': 1, opacity: op }).add(g);
-        ch.renderer.circle(X + c.p.x, Y + c.p.y, 2.5).attr({ fill: SLICES[c.i].color, stroke: '#ffffff', 'stroke-width': 1, opacity: op }).add(g);
+        ch.renderer.path([['M', X + c.p.x, Y + c.p.y], ['L', X + c.q.x, Y + c.q.y]]).attr({ stroke: cl.muted, 'stroke-width': 1, opacity: op }).add(g);
+        ch.renderer.circle(X + c.p.x, Y + c.p.y, 2.5).attr({ fill: sliceColor(c.i), stroke: bg, 'stroke-width': 1, opacity: op }).add(g);
       });
       Object.keys(texts).forEach((i) => texts[i].destroy());   // no room anywhere: the key above names it
     };
     figs.push({ box: left, draw: () => {
       const W = left.clientWidth, narrow = W < 560;
+      cl = pal(); bg = behind(left);
+      const { rule, muted } = cl;
       makeChart(left, {
         chart: { type: 'line', height: narrow ? 330 : 420, marginRight: narrow ? 16 : 18, events: { render() { nameCurves(this, narrow); } } },     // (room for the last label, 100%)
         accessibility: { description: 'Lorenz curves: for each slice of flagship law reviews, the share of its articles (up) held by the share of the ' + n + ' U.S. law schools with the fewest (across). The tables below the chart list the numbers.' },
@@ -510,16 +540,17 @@
           const k = Math.round(pts[0].x * n / 100);
           const head = k === 0 ? '0 schools' : k === n ? 'The ' + n + ' schools' : k === 1 ? 'The school (' + pct(1 / n) + ') with the fewest articles' : 'The ' + k + ' schools (' + pct(k / n) + ') with the fewest articles';
           return '<b>' + head + '</b><br>' + pts.map((p) => '<span style="color:' + p.series.color + '">●</span> ' + esc(p.series.name) + ': <b>' + pct1(p.y / 100) + '</b>').join('<br>') +
-            '<br><span style="color:#898781">of each slice’s articles (each sorts the schools by its own count)</span>';
+            '<br><span style="color:' + muted + '">of each slice’s articles (each sorts the schools by its own count)</span>';
         } },
         plotOptions: { series: { marker: { enabled: false, symbol: 'circle' }, states: { hover: { lineWidthPlus: 0 } }, findNearestPointBy: 'x' } },
         series: [{ name: 'Equal counts', data: [[0, 0], [100, 100]], color: rule, lineWidth: 1.5, dashStyle: 'ShortDash', enableMouseTracking: false, zIndex: 0, accessibility: { enabled: false } }]
-          .concat(SLICES.map((sl, i) => ({ name: sliceName(i, false), data: curves[i], color: sl.color, lineWidth: 2, custom: { slice: i, z: 1 + i },
+          .concat(SLICES.map((sl, i) => ({ name: sliceName(i, false), data: curves[i], color: sliceColor(i), lineWidth: 2, custom: { slice: i, z: 1 + i },
             opacity: isOn(i) ? 1 : 0.2, zIndex: 1 + i + (focus === i ? 10 : 0) }))),
-      }, W);
+      }, W, bg);
     } });
     figs.push({ box: bars, draw: () => {
       const W = bars.clientWidth, narrow = W < 560;
+      const { ink, ink2 } = pal(), bbg = behind(bars);
       makeChart(bars, {
         chart: { type: 'bar', height: SLICES.length * (narrow ? 34 : 40) + 46, marginRight: 34 },
         accessibility: { description: 'Bars: the Gini coefficient of each slice of flagship law reviews, from the review of the school ranked first to the flagship reviews in total.' },
@@ -532,12 +563,12 @@
             'Ten with the most: ' + pct1(L.top10) + '; the ' + half + ' with the fewest: ' + pct1(L.bottom);
         } },
         series: [{ name: 'Gini coefficient', borderRadius: 3, pointPadding: 0.16, groupPadding: 0, borderWidth: 0, custom: { bars: true },
-          data: SLICES.map((sl, i) => ({ y: giniOf(R.slices[i]), color: isOn(i) ? sl.color : faded(sl.color), custom: i })),
+          data: SLICES.map((sl, i) => ({ y: giniOf(R.slices[i]), color: isOn(i) ? sliceColor(i) : faded(sliceColor(i)), custom: i })),
           dataLabels: { enabled: true, crop: false, overflow: 'allow', formatter() { return gini((this.point || this).y); },
-            style: { color: ink, fontSize: '11.5px', fontWeight: '600', textOutline: '3px #ffffff' } } }],
-      }, W);
+            style: { color: ink, fontSize: '11.5px', fontWeight: '600', textOutline: '3px ' + bbg } } }],
+      }, W, bbg);
     } });
-    return { h, half, ten, blue };
+    return { h, half, ten };
   }
 
   // ---------------------------------------------------------------- 2. the Gini over time
@@ -562,10 +593,10 @@
       W5.map((w, k) => [lab(w)].concat(SLICES.map((sl, i) => [gini(giniOf(T[k][i])), num(T[k][i].articles)]))), 'eq-time');
     D.tb.insertBefore(el('p', { class: 'eq-note' }, 'Each cell: the Gini coefficient, and under it the number of articles (a dash: fewer than ' + MIN + '; the chart leaves those points out). The columns are the slices by school rank, ties kept: the school ranked 1st, the top 3, 14, 50 and 100, and the flagship reviews in total.'), D.tb.firstChild);
     if (!has('line')) { noChart(c, D.d); return { h0, h1 }; }
-    const rule = css('--axis', '#c3c2b7'), ink2 = css('--ink-2', '#52514e');
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
-      const cats = W5.map((w) => (narrow ? '’' + String(w[0]).slice(2) : w[0]) + '–' + String(w[1]).slice(2));
+      const { rule, ink2 } = pal(), bg = behind(c.box);
+      const cats =W5.map((w) => (narrow ? '’' + String(w[0]).slice(2) : w[0]) + '–' + String(w[1]).slice(2));
       const endText = (i) => (narrow ? SLICES[i].short.replace('Flagship total', 'Total') : SLICES[i].short);
       makeChart(c.box, {
         chart: { type: 'line', height: narrow ? 300 : 360, marginRight: narrow ? 58 : 92, events: { render() {
@@ -592,10 +623,10 @@
           return '<b>' + lab(W5[k]) + '</b><br>' + pts.map((p) => { const i = p.series.options.custom.slice; return '<span style="color:' + p.series.color + '">●</span> ' +
             esc(SLICES[i].short) + ': Gini <b>' + gini(p.y) + '</b>, ' + num(T[k][i].articles) + ' articles'; }).join('<br>');
         } },
-        plotOptions: { series: { marker: { enabled: true, symbol: 'circle', radius: narrow ? 3 : 3.5, lineWidth: 1, lineColor: '#ffffff' }, states: { hover: { lineWidthPlus: 0 } } } },
-        series: OVER_TIME.map((i, z) => ({ name: SLICES[i].short, color: SLICES[i].color, lineWidth: 2, custom: { slice: i, z: 1 + z },
+        plotOptions: { series: { marker: { enabled: true, symbol: 'circle', radius: narrow ? 3 : 3.5, lineWidth: 1, lineColor: bg }, states: { hover: { lineWidthPlus: 0 } } } },
+        series: OVER_TIME.map((i, z) => ({ name: SLICES[i].short, color: sliceColor(i), lineWidth: 2, custom: { slice: i, z: 1 + z },
           opacity: isOn(i, OVER_TIME) ? 1 : 0.2, zIndex: 1 + z + (focus === i ? 10 : 0), data: T.map((row) => giniOf(row[i])) })),
-      }, W);
+      }, W, bg);
     } });
     return { h0, h1 };
   }
@@ -717,4 +748,12 @@
   }
   document.addEventListener('lsr-insights-data', () => setTimeout(start, 0));
   if (window.LSR_INS) setTimeout(start, 0);
+  // (2026-11-01, themes) another theme chosen: the charts drawn again in its colors, all at once (a first drawing still
+  // under way stops), with the slice picked out kept; the keys follow by themselves; charts not drawn yet take it when
+  // they draw
+  document.addEventListener('lsr-theme', () => {
+    if (!drawn || !figs.length) return;
+    gen++;
+    drawAll();
+  });
 })();

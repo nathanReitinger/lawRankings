@@ -48,8 +48,10 @@
   // (2026-10-26, the owner: "add analysis on title character length over time. break it out per law review rank and
   // school rank") the groups' colors, here and in every figure that colors by group: the reference categorical order
   // (blue, orange, aqua, yellow, magenta), which passes the adjacent-pair color-vision checks on white; three sit under
-  // 3:1, so every mark in them carries a direct label and the numbers are in a table
-  const TI_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
+  // 3:1, so every mark in them carries a direct label and the numbers are in a table (2026-11-01, themes: theme.css
+  // --s1 to --s5, read with the page's other colors below)
+  const TI_WHITE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
+  let TI_COLORS = TI_WHITE;
 
   let DATA, META, INS;
   // from, to, src, skipShort and noHome follow the page's bar (below: the bar)
@@ -63,9 +65,30 @@
 
   const HC = typeof Highcharts !== 'undefined';
   const SANS = 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif';
-  const INK = css('--ink') || '#0b0b0b', INK2 = css('--ink-2') || '#52514e', MUTED = css('--muted') || '#898781';
-  const GRID = css('--grid') || '#e8e7e1', AXIS = css('--axis') || '#c3c2b7', ACCENT = css('--accent') || '#2a78d6';
-  const DIM = '#c9c8c0';
+  // (2026-11-01, themes) the colors of the theme in use: the page's names on body.ins and its --ins-* colors
+  // (insights.css), theme.css's; read again when the theme changes (theme.js: 'lsr-theme'). The fallbacks are White's.
+  let INK, INK2, MUTED, GRID, AXIS, ACCENT, DIM, SURF, HAIR, TIP_BG, NODE_OFF, NODE, BLUE_STRONG, BLUE_SOFT, TREE_LINK, TINT,
+    TEAM, RAMP, GRAYS, ON_LIGHT, ON_DARK, WHITE = true;
+  const list = (name, dflt) => { const v = css(name).split(',').map((x) => x.trim()).filter(Boolean); return v.length === dflt.length ? v : dflt; };
+  function readColors() {
+    WHITE = !window.LSRTheme || LSRTheme.get().theme === 'light';
+    INK = css('--ink') || '#0b0b0b'; INK2 = css('--ink-2') || '#52514e'; MUTED = css('--i-muted') || '#898781';
+    GRID = css('--grid') || '#e8e7e1'; AXIS = css('--axis') || '#c3c2b7'; ACCENT = css('--i-accent') || '#2a78d6';
+    DIM = css('--dim') || '#c9c8c0'; SURF = css('--i-surface') || '#ffffff'; HAIR = css('--hair') || 'rgba(11,11,11,0.10)';
+    TIP_BG = css('--chart-tooltip') || 'rgba(255,255,255,0.97)';
+    NODE_OFF = css('--ins-node-off') || '#b3b2a9'; NODE = css('--ins-node') || '#8f8e86';
+    BLUE_STRONG = css('--ins-blue-strong') || '#1c5cab'; BLUE_SOFT = css('--ins-blue-soft') || '#86b6ef';
+    TREE_LINK = css('--ins-tree-link') || '#a9c7ec';
+    const t = parseFloat(css('--ins-tint'));
+    TINT = isNaN(t) ? 0.35 : t;
+    TEAM = list('--ins-team', ['#86b6ef', '#2a78d6', '#104281']);
+    RAMP = list('--ins-heat', ['#f3f8fe', '#cde2fb', '#9ec5f4', '#5598e7', '#2a78d6', '#1c5cab', '#104281', '#0d366b']);
+    GRAYS = list('--ins-heat-gray', ['#f7f7f5', '#e6e5df', '#cfcec6', '#b3b2a9', '#8f8e86']);
+    ON_LIGHT = css('--ins-on-light') || '#0b0b0b'; ON_DARK = css('--ins-on-dark') || '#ffffff';
+    TI_COLORS = TI_WHITE.map((c, k) => css('--s' + (k + 1)) || c);
+  }
+  readColors();
+  document.addEventListener('lsr-theme', readColors);
   const mix = (a, b, t) => Highcharts.color(a).tweenTo(Highcharts.color(b), t);
   const alpha = (c, a) => Highcharts.color(c).setOpacity(a).get();
   const ramp = (stops, t) => {                 // piecewise between the stops, t in [0, 1]
@@ -84,16 +107,31 @@
       // (2026-10-26, the owner: "my cursor gets stuck in it"): a finger swiping over a chart scrolls the page
       // (followTouchMove: false keeps Highcharts from claiming the touch); a tap shows the tooltip, which stays
       // until the next tap elsewhere
+      // (2026-11-01, themes) White's colors here, as Highcharts' defaults for the page; hcLook (below) sets the theme's
+      // before each figure is drawn
       tooltip: { followTouchMove: false, useHTML: true, hideDelay: 150, padding: 9, borderWidth: 1, borderRadius: 8,
         backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)', shadow: { color: '#000000', opacity: 0.06, offsetX: 0, offsetY: 3, width: 6 },
-        style: { fontSize: '12.5px', color: INK2, whiteSpace: 'normal' } },
-      xAxis: { lineColor: AXIS, tickColor: AXIS, gridLineColor: GRID, labels: { style: { color: MUTED, fontSize: '11.5px' } },
-        title: { style: { color: MUTED, fontSize: '11.5px', fontWeight: '400' } } },
-      yAxis: { lineColor: AXIS, tickColor: AXIS, gridLineColor: GRID, labels: { style: { color: MUTED, fontSize: '11.5px' } },
-        title: { text: null, style: { color: MUTED, fontSize: '11.5px', fontWeight: '400' } } },
+        style: { fontSize: '12.5px', color: '#52514e', whiteSpace: 'normal' } },
+      xAxis: { lineColor: '#c3c2b7', tickColor: '#c3c2b7', gridLineColor: '#e8e7e1', labels: { style: { color: '#898781', fontSize: '11.5px' } },
+        title: { style: { color: '#898781', fontSize: '11.5px', fontWeight: '400' } } },
+      yAxis: { lineColor: '#c3c2b7', tickColor: '#c3c2b7', gridLineColor: '#e8e7e1', labels: { style: { color: '#898781', fontSize: '11.5px' } },
+        title: { text: null, style: { color: '#898781', fontSize: '11.5px', fontWeight: '400' } } },
       plotOptions: { series: { animation: { duration: 300 }, states: { inactive: { opacity: 1 } } } },
     });
   }
+  // (2026-11-01, themes) the theme's text and rules for Highcharts (theme.js), then this page's over them: set before
+  // every figure is drawn, since the sections after this one set theirs too
+  function hcLook() {
+    if (window.LSRTheme) LSRTheme.highcharts(Highcharts);
+    const ax = { lineColor: AXIS, tickColor: AXIS, gridLineColor: GRID, labels: { style: { color: MUTED } }, title: { style: { color: MUTED } } };
+    Highcharts.setOptions({ tooltip: { backgroundColor: TIP_BG, borderColor: HAIR, style: { color: INK2 } }, xAxis: ax, yAxis: Object.assign({}, ax) });
+  }
+  // the numbers on a colored cell or bar: White as before (by the fill's lightness), the other themes the ink that
+  // reads best on it
+  const lum = (c) => { const v = Highcharts.color(c).rgba.slice(0, 3).map((x) => { x /= 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const onFill = (bg) => (ratio(bg, ON_DARK) >= ratio(bg, ON_LIGHT) ? ON_DARK : ON_LIGHT);
 
   // one chart per box: a chart drawn again goes into its box after the old one is destroyed; without the library,
   // a note in its place (every number is also in the text, the detail panels and the tables)
@@ -105,6 +143,7 @@
   function draw(id, options) {
     clearChart(id);
     if (!HC) { $(id).appendChild(el('p', { class: 'text-muted' }, 'The chart library did not load; the numbers are in the text and tables on this page.')); return null; }
+    hcLook();
     return (charts[id] = Highcharts.chart($(id), options));
   }
 
@@ -134,7 +173,7 @@
     const x = chart.plotLeft + chart.plotWidth + 10;
     placeLabels(ends, chart.plotTop, chart.plotTop + chart.plotHeight).forEach((l) => {
       if (Math.abs(l.y - l.y0) > 3) chart.renderer.path([['M', l.x + 6, l.y0], ['L', x - 3, l.y]]).attr({ stroke: AXIS, 'stroke-width': 1 }).add(g);
-      chart.renderer.text(esc(l.text), x, l.y + 4).css({ fontSize: '12px', fontWeight: '600', color: INK2, textOutline: '3px #ffffff' }).add(g);
+      chart.renderer.text(esc(l.text), x, l.y + 4).css({ fontSize: '12px', fontWeight: '600', color: INK2, textOutline: '3px ' + SURF }).add(g);
     });
   }
 
@@ -442,7 +481,7 @@
     const schoolName = (s) => (W >= 900 ? DATA.schools[s][0] : instLabel(DATA.schools[s][0], narrow ? 14 : 22));
     const data = [{ id: 'J', name: jname, custom: { kind: 'journal', n: R.articles, schools: R.list.length } }];
     shown.forEach((o, k) => {
-      const blue = mix('#1c5cab', '#86b6ef', shown.length > 1 ? k / (shown.length - 1) : 0);   // one hue, darker = more articles
+      const blue = mix(BLUE_STRONG, BLUE_SOFT, shown.length > 1 ? k / (shown.length - 1) : 0);   // one hue, darker (on a dark page lighter) = more articles
       const open = isOpen(o);
       // value: Highcharts orders siblings by it (an opened institution's authors would otherwise move it to the top)
       data.push({ id: 's' + o.s, parent: 'J', name: schoolName(o.s), value: o.n, color: blue,
@@ -458,7 +497,7 @@
           link: { lineWidth: 0 }, dataLabels: { enabled: false }, accessibility: { enabled: false }, custom: { kind: 'pad' } });
         return;
       }
-      const tint = mix(blue, '#ffffff', 0.35);
+      const tint = mix(blue, SURF, TINT);
       o.authors.slice(0, capA).forEach(([person, n]) => {
         data.push({ id: 'a' + person + '_' + o.s, parent: 's' + o.s, name: DATA.people[person][0], value: n, color: tint,
           marker: { radius: rA(n), fillColor: tint }, link: { lineWidth: wA(n) },
@@ -508,12 +547,12 @@
       series: [{
         type: 'treegraph', data: data, name: jname, turboThreshold: 0, cursor: 'pointer', animation: { duration: 350 },
         fillSpace: true, reversed: true,             // the whole width while authors are closed; the most articles on top
-        marker: { symbol: 'circle', lineWidth: 1, lineColor: '#ffffff' },
-        link: { type: 'curved', color: '#a9c7ec', lineWidth: 1 },
+        marker: { symbol: 'circle', lineWidth: 1, lineColor: SURF },
+        link: { type: 'curved', color: TREE_LINK, lineWidth: 1 },
         collapseButton: { enabled: false },
-        states: { hover: { link: { color: '#1c5cab' } }, inactive: { opacity: 0.6, link: { opacity: 0.45 } } },
+        states: { hover: { link: { color: BLUE_STRONG } }, inactive: { opacity: 0.6, link: { opacity: 0.45 } } },
         dataLabels: { enabled: true, crop: false, overflow: 'allow', align: 'left', x: 8, useHTML: false,
-          style: { fontSize: '12px', fontWeight: '400', color: INK2, textOutline: '3px #ffffff', whiteSpace: 'nowrap' },
+          style: { fontSize: '12px', fontWeight: '400', color: INK2, textOutline: '3px ' + SURF, whiteSpace: 'nowrap' },
           formatter() {
             const c = this.point.custom || {};
             if (c.kind === 'journal' || c.kind === 'pad') return '';
@@ -611,7 +650,7 @@
     const lab = (inside, side) => (inside
       ? { align: side < 0 ? 'left' : 'right', x: side < 0 ? nodeW + 1 : -(nodeW + 1) }
       : { align: side < 0 ? 'right' : 'left', x: side < 0 ? -(nodeW + 1) : nodeW + 1 });
-    const leftColor = (b) => (sel != null ? '#b3b2a9' : selJ != null || band < 0 || band === b ? TI_COLORS[b] : '#b3b2a9');
+    const leftColor = (b) => (sel != null ? NODE_OFF : selJ != null || band < 0 || band === b ? TI_COLORS[b] : NODE_OFF);
     const nodes = left.map((id) => {
       const b = fromBand(id), x = id === 'Sx';
       return { id: id, column: 0, color: x ? INK : leftColor(b),
@@ -619,7 +658,7 @@
         dataLabels: Object.assign({}, lab(!wide, -1), { style: { color: x ? INK : INK2 } }), custom: x ? { kind: 'school', s: sel } : { kind: 'sband', b: b } };
     }).concat(right.map((id) => {
       const x = id === 'Rx', c = x ? selC : +id.slice(1);
-      return { id: id, column: 1, color: x ? INK : '#8f8e86',
+      return { id: id, column: 1, color: x ? INK : NODE,
         name: x ? shortName(DATA.journals[selJ][0], wide ? 26 : 12) : wide ? MATRIX_HEADS[c] : BANDS[c].short,
         dataLabels: Object.assign({}, lab(!wide, 1), { style: { color: x ? INK : INK2 } }), custom: x ? { kind: 'review', j: selJ } : { kind: 'rband', c: c } };
     }));
@@ -656,7 +695,7 @@
         cursor: 'pointer', turboThreshold: 0,
         states: { hover: { linkOpacity: 0.85 }, inactive: { linkOpacity: 0.12, opacity: 0.5 } },
         dataLabels: { enabled: true, inside: true, crop: false, overflow: 'allow', verticalAlign: 'middle',
-          style: { fontSize: '12px', fontWeight: '600', color: INK2, textOutline: '3px #ffffff' },
+          style: { fontSize: '12px', fontWeight: '600', color: INK2, textOutline: '3px ' + SURF },
           nodeFormatter() {
             return esc(this.point.name) + (wide && this.point.sum ? ' · ' + num(this.point.sum) : '');
           } },
@@ -786,8 +825,7 @@
 
   ////////////////////////////////////////////////////////////////////////// question 1: the matrix
 
-  const RAMP = ['#f3f8fe', '#cde2fb', '#9ec5f4', '#5598e7', '#2a78d6', '#1c5cab', '#104281', '#0d366b'];
-  const GRAYS = ['#f7f7f5', '#e6e5df', '#cfcec6', '#b3b2a9', '#8f8e86'];
+  // the cells' colors: RAMP (the flagship block) and GRAYS (the other journals; the first, an empty cell), at the top
   const MATRIX_HEADS = BANDS.map((b) => (b.label === '101 & below, unranked' ? '101+ & unranked' : b.label)).concat(['Online & other general', 'Specialty journals']);
   function renderMatrix() {
     // by row: articles, each once per group of schools it has an author in (rows add to 100%); by column: credits,
@@ -842,7 +880,7 @@
     M.forEach((row, r) => row.forEach((v, c) => {
       const s = share(r, c), bg = s == null ? GRAYS[0] : c < 5 ? ramp(RAMP, s / (mx || 1)) : ramp(GRAYS, s / (mxOther || 1)), diag = r === c && c < 5;
       data.push({ x: c, y: r, value: s == null ? 0 : s, color: bg, custom: { n: v, s: s }, borderColor: diag ? INK : undefined, borderWidth: diag ? 1.5 : undefined,
-        dataLabels: { style: { color: lightness(bg) < 0.55 ? '#ffffff' : INK } } });
+        dataLabels: { style: { color: WHITE ? (lightness(bg) < 0.55 ? ON_DARK : INK) : onFill(bg) } } });
     }));
     const rowH = narrow ? 40 : 46, top = narrow ? 52 : 58, bottom = byRow ? 6 : 26;
     const fs = narrow ? '10px' : '12px';
@@ -930,7 +968,7 @@
       series: [
         // the diagonal: a school publishing at its own level
         { type: 'line', name: 'Own level', data: [[1, 1], { x: top * 0.86, y: top * 0.86, dataLabels: { enabled: true, format: 'own level', align: 'left', x: 6, y: -2,
-          style: { color: MUTED, fontSize: '11.5px', fontWeight: '400', textOutline: '3px #ffffff' } } }, [top, top]],
+          style: { color: MUTED, fontSize: '11.5px', fontWeight: '400', textOutline: '3px ' + SURF } } }, [top, top]],
           color: alpha(INK2, 0.45), lineWidth: 1, marker: { enabled: false }, enableMouseTracking: false, accessibility: { enabled: false } },
         { type: 'scatter', name: 'Regions', data: [
           { x: top * 0.98, y: top * 0.05, dataLabels: { format: 'reviews ranked above the school', align: 'right' } },
@@ -938,11 +976,11 @@
           marker: { enabled: false }, enableMouseTracking: false, accessibility: { enabled: false },
           dataLabels: { enabled: true, style: { color: MUTED, fontSize: '11.5px', fontWeight: '400', fontStyle: 'italic', textOutline: 'none' } } },
         { name: 'Law schools', data: pts.filter((d) => d.s !== st.school).map(point), enableMouseTracking: false, accessibility: { enabled: false },
-          marker: { symbol: 'circle', radius: wide ? 4.5 : 4, fillColor: alpha(ACCENT, st.school != null ? 0.35 : 0.8), lineColor: '#ffffff', lineWidth: 1.5 } },
+          marker: { symbol: 'circle', radius: wide ? 4.5 : 4, fillColor: alpha(ACCENT, st.school != null ? 0.35 : 0.8), lineColor: SURF, lineWidth: 1.5 } },
         { name: 'Picked school', data: me ? [Object.assign(point(me), { dataLabels: label(me) })] : [], enableMouseTracking: false, accessibility: { enabled: false },
-          marker: { symbol: 'circle', radius: 6.5, fillColor: INK, lineColor: '#ffffff', lineWidth: 2 },
+          marker: { symbol: 'circle', radius: 6.5, fillColor: INK, lineColor: SURF, lineWidth: 2 },
           dataLabels: { enabled: true, verticalAlign: 'middle', formatter() { return esc(shortName(DATA.schools[this.point.custom.s][0], 28)); },
-            style: { color: INK2, fontSize: '12px', fontWeight: '600', textOutline: '3px #ffffff' } } },
+            style: { color: INK2, fontSize: '12px', fontWeight: '600', textOutline: '3px ' + SURF } } },
         // the hit layer: every school again, an invisible 24px target with a ring on hover
         { name: 'Law schools', data: pts.map(point), color: ACCENT, cursor: 'pointer', zIndex: 5,
           marker: { symbol: 'circle', radius: 12, fillColor: HIT_FILL, lineWidth: 0, states: { hover: { enabled: true, radiusPlus: 0, fillColor: HIT_FILL, lineWidth: 0 } } },
@@ -1068,7 +1106,7 @@
     const span = end - y0;
     const yrRows = INS.years.map((y, i) => [y, i]).filter(([y]) => y >= y0 && y <= end);
     const kinds = ['flagship', 'specialty'];
-    const color = { flagship: css('--flagship'), specialty: css('--specialty') };
+    const color = { flagship: css('--flagship'), specialty: css('--i-specialty') };
     const v = INS[variant()];
     const series = kinds.map((k) => ({ k: k, pts: yrRows.map(([y, i]) => ({ y: y, v: measureOf(v[k][i], st.measure), n: v[k][i][0] })).filter((d) => d.v != null && d.n >= 20) }));
     const vmax = max(series, (s) => max(s.pts, (d) => d.v)) || 1;
@@ -1107,7 +1145,7 @@
       tooltip: { shared: true, followTouchMove: false, formatter() {
         return tipHTML({ title: String(this.x), rows: this.points.map((p) => [p.series.name, fmt(p.y) + ' of ' + num(p.point.custom.n), p.series.color]) });
       } },
-      plotOptions: { series: { lineWidth: 2, marker: { enabled: false, symbol: 'circle', radius: 4, lineColor: '#ffffff', lineWidth: 2 },
+      plotOptions: { series: { lineWidth: 2, marker: { enabled: false, symbol: 'circle', radius: 4, lineColor: SURF, lineWidth: 2 },
         states: { hover: { lineWidthPlus: 0 } } } },
       series: series.map((s) => ({ name: KIND_LABEL[s.k], color: color[s.k],
         data: s.pts.map((d, i, a) => ({ x: d.y, y: d.v, custom: { n: d.n }, marker: i === a.length - 1 ? { enabled: true } : undefined })) })),
@@ -1129,7 +1167,7 @@
       d.full = d.a % 10 === 0 && d.b === d.a + 9;
       d.name = d.full ? d.label : spanLabel(d.a, d.b);
     });
-    const colors = [css('--seq-1'), css('--seq-2'), css('--seq-3')];
+    const colors = TEAM;   // (2026-11-01, themes) White: --seq-1 to --seq-3 as before
     const names = ['2 authors', '3 authors', '4 or more'];
     const lg = $('teamsLegend');
     lg.replaceChildren();
@@ -1148,7 +1186,7 @@
         return tipHTML({ value: pct(this.percentage / 100, 1), lines: ['of co-authored articles in ' + (d.full ? 'the ' + d.label : d.name) + ' had ' + names[k].replace('4 or more', 'four or more authors')],
           note: num(this.y) + ' of ' + num(d.co) });
       } },
-      plotOptions: { bar: { stacking: 'percent', pointWidth: 22, borderWidth: 1, borderColor: '#ffffff',
+      plotOptions: { bar: { stacking: 'percent', pointWidth: 22, borderWidth: 1, borderColor: SURF,
         borderRadius: { radius: 4, scope: 'stack', where: 'end' }, groupPadding: 0.1,
         dataLabels: { enabled: true, inside: true, crop: false, style: { fontSize: '12px', fontWeight: '600', textOutline: 'none' },
           formatter() {
@@ -1156,7 +1194,7 @@
             return w > t.length * 7.5 + 10 ? t : '';
           } } } },
       series: names.map((nm, k) => ({ name: nm, color: colors[k], data: decades.map((d) => d.counts[k]),
-        dataLabels: { style: { color: k === 0 ? INK : '#ffffff' } } })),
+        dataLabels: { style: { color: WHITE ? (k === 0 ? INK : ON_DARK) : onFill(colors[k]) } } })),
     });
   }
 
@@ -1229,7 +1267,7 @@
     });
     const pick = st.school;
     const pickPts = pick == null ? [] : periods.map((p, i) => { const v = p.bySchool.get(pick); return v ? { x: i, y: v[1] / v[0], custom: { s: pick, n: v[0], co: v[1], k: i } } : null; });
-    const SPEC = css('--specialty'), DARK = '#1c5cab';
+    const SPEC = css('--i-specialty'), DARK = BLUE_STRONG;
     // the legend (identity never by color alone) and the table behind the chart
     const lg = $('spreadLegend');
     lg.replaceChildren();
@@ -1278,13 +1316,13 @@
         { type: 'scatter', name: 'Schools', data: dots, turboThreshold: 0, enableMouseTracking: false, zIndex: 2, accessibility: { enabled: false },
           marker: { symbol: 'circle', radius: wide ? 2.6 : 2.2, fillColor: alpha(ACCENT, pick != null ? 0.32 : 0.5), lineWidth: 0 } },
         { type: 'line', name: 'Median school', data: ok.map(([i, p]) => [i, p.q[2]]), color: DARK, lineWidth: 2, zIndex: 3, enableMouseTracking: false,
-          marker: { enabled: true, symbol: 'circle', radius: 3.5, fillColor: DARK, lineColor: '#ffffff', lineWidth: 1.5 } },
+          marker: { enabled: true, symbol: 'circle', radius: 3.5, fillColor: DARK, lineColor: SURF, lineWidth: 1.5 } },
         { type: 'line', name: pick != null ? DATA.schools[pick][0] : 'Picked school', data: pickPts, color: SPEC, lineWidth: 1.5, zIndex: 4, enableMouseTracking: false,
-          marker: { enabled: true, symbol: 'circle', radius: 4.5, fillColor: SPEC, lineColor: '#ffffff', lineWidth: 2 },
+          marker: { enabled: true, symbol: 'circle', radius: 4.5, fillColor: SPEC, lineColor: SURF, lineWidth: 2 },
           dataLabels: { enabled: true, formatter() {     // the school's name once, at its last period
             const last = pickPts.filter(Boolean).pop();
             return last && this.point.x === last.x ? esc(shortName(DATA.schools[pick][0], wide ? 26 : 16)) : '';
-          }, align: 'right', x: -8, y: -6, style: { color: INK2, fontSize: '12px', fontWeight: '600', textOutline: '3px #ffffff' } } },
+          }, align: 'right', x: -8, y: -6, style: { color: INK2, fontSize: '12px', fontWeight: '600', textOutline: '3px ' + SURF } } },
         // the hit layer: every dot again, an invisible target with a ring on hover
         { type: 'scatter', name: 'Law schools', data: dots, turboThreshold: 0, color: ACCENT, cursor: 'pointer', zIndex: 5,
           marker: { symbol: 'circle', radius: wide ? 6 : 7, fillColor: HIT_FILL, lineWidth: 0, states: { hover: { enabled: true, radiusPlus: 0, fillColor: HIT_FILL, lineWidth: 0 } } },
@@ -1440,7 +1478,7 @@
         return tipHTML({ title: yr + ' (' + Math.max(first, yr - 1) + '–' + String(Math.min(last, yr + 1)).slice(2) + ')',
           rows: this.points.slice().sort((a, b) => b.y - a.y).map((p) => [p.series.name, fmt(p.y) + (mi === 3 ? '' : ' chars') + ' · ' + num(p.point.custom.n) + ' titles', p.series.color]) });
       } },
-      plotOptions: { series: { lineWidth: 2, marker: { enabled: false, symbol: 'circle', radius: 4, lineColor: '#ffffff', lineWidth: 2 },
+      plotOptions: { series: { lineWidth: 2, marker: { enabled: false, symbol: 'circle', radius: 4, lineColor: SURF, lineWidth: 2 },
         states: { hover: { lineWidthPlus: 0 } } } },
       series: series.map((s) => ({ name: s.b, color: TI_COLORS[s.k],
         data: s.pts.map((d, i, a) => ({ x: d.y, y: d.v, custom: { n: d.n }, marker: i === a.length - 1 ? { enabled: true } : undefined })) })),
@@ -1862,6 +1900,14 @@
         if (tiDone) renderTitlesChart();
       }, 120);
     }).observe(document.body);
+    // (2026-11-01, themes) another theme chosen (or the device turning dark): the figures drawn so far are drawn again
+    // in its colors (readColors, at the top, has read them); the sections not drawn yet use them when they draw
+    document.addEventListener('lsr-theme', () => {
+      if (!W1) return;
+      renderJournal(); renderNetwork(); renderMatrix(); renderScatter();
+      if (coDone) { renderTrend(); renderTeams(); renderSpread(); }
+      if (tiDone) renderTitlesChart();
+    });
   }
 
   if (LSR.crunch) LSR.crunch.show('Loading the data');

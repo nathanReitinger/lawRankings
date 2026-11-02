@@ -5,6 +5,13 @@
   const REPO = 'https://github.com/nathanReitinger/lawRankings';
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const utc = (t) => t.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC');
+  // (2026-11-01, themes) a CSS color as 'r,g,b' for the canvases (the spinner, 26's dots); the fallback if it is not one
+  const rgbOf = (css, fallback) => {
+    const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(css || '').trim());
+    if (m) { const h = m[1].length === 3 ? m[1].replace(/./g, '$&$&') : m[1]; return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(','); }
+    const r = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(String(css || ''));
+    return r ? r[1] + ',' + r[2] + ',' + r[3] : fallback;
+  };
 
   // "Volume 2.1.0" on the left; on the right, small and quiet, the build's short hash (2026-10-26, the owner: "not a
   // timestamp but a smaller-tech-looking build hash ... small ... not super obvious. just like a little extra
@@ -44,9 +51,11 @@
   // to the next pair. (2026-10-29: no dotted spokes and no ring of faint dots; at full bloom those read as a snowflake
   // in a dial.) Black only (#0b0b0b), drawn at the screen's pixel ratio so it stays crisp. LSR.crunch.show(text) /
   // hide() around a load; LSR.crunch.run(fn, text) for a recompute (the veil is painted before fn runs). With reduced
-  // motion: a still asterisk, only its opacity pulses.
+  // motion: a still asterisk, only its opacity pulses. (2026-11-01, themes) The ink is the theme's strongest ink
+  // (--chart-ink: that black in White, a near white in the dark themes), read as the veil goes up and on a theme change.
   const crunch = (function () {
-    const SIZE = 56, R = 19, ARMS = 8, R0 = 2.2, CYCLE = 1.8, HOP = 0.45, INK = '11,11,11';
+    const SIZE = 56, R = 19, ARMS = 8, R0 = 2.2, CYCLE = 1.8, HOP = 0.45;
+    let INK = '11,11,11';
     const QUIPS = ['Crunching numbers'];   // (the caller's own label stays up: plain description, announced once)
     let veil, canvas, ctx, label, raf = 0, shownAt = 0, depth = 0, hideTimer = 0;
     let t0 = 0, dpr = 0;
@@ -55,6 +64,8 @@
     const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
     const smooth = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
     const ink = (a) => 'rgba(' + INK + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
+    const inkNow = () => { INK = rgbOf(window.LSRTheme ? window.LSRTheme.color('--chart-ink', '#0b0b0b') : '#0b0b0b', '11,11,11'); };
+    document.addEventListener('lsr-theme', () => { if (veil) { inkNow(); draw(Math.max(0, performance.now() - t0) / 1000, still()); } });
     // the backing store follows the screen's pixel ratio (also after a zoom), so the petals stay sharp
     function fit() {
       const d = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
@@ -137,6 +148,7 @@
       if (veil.classList.contains('on')) return;
       shownAt = performance.now();
       t0 = shownAt;
+      inkNow();
       fit();
       draw(0, still());
       veil.classList.add('on');
@@ -365,6 +377,19 @@
     if (stamp) { line.insertBefore(box, stamp); box.appendChild(stamp); }
     else line.appendChild(box);
     box.appendChild(b);
+    // (2026-11-01, themes) "theme" beside it, in the same quiet style: the Theme window (theme.js)
+    if (window.LSRTheme) {
+      const t = document.createElement('button');
+      t.type = 'button';
+      t.className = 'mast-pick theme-pick';
+      t.setAttribute('data-theme-open', '');
+      t.setAttribute('aria-haspopup', 'dialog');
+      t.setAttribute('aria-expanded', 'false');
+      t.title = 'Colors of the site: Automatic, White, Paper, Solarized, Dark and others';
+      t.textContent = 'theme';
+      t.addEventListener('click', () => window.LSRTheme.open(t));
+      box.appendChild(t);
+    }
   }
   // each letter of the wordmark in its own span (--i: its place; data-c: the letter itself, which variant 12 swaps for
   // passing characters and puts back), for the masthead variants that move, weigh or light letters one by one
@@ -449,8 +474,7 @@
       canvas.style.left = -bx - (parseFloat(cs.borderLeftWidth) || 0) + 'px';
       canvas.style.top = -by - (parseFloat(cs.borderTopWidth) || 0) + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const m = /(\d+),\s*(\d+),\s*(\d+)/.exec(cs.color);
-      if (m) ink = m[1] + ',' + m[2] + ',' + m[3];
+      ink = rgbOf(cs.color, ink);
       // the letters drawn once at 8 pitches to the em in device pixels, each advance a whole number of pitches, then read
       // one pitch at a time at the middle of each cell
       const off = document.createElement('canvas');
@@ -616,6 +640,8 @@
     const onFonts = () => { if (alive) build(); };                    // (the face can arrive after the first load() resolves)
     if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', onFonts);
     return {
+      // (2026-11-01, themes) the theme changed: the dots in the mark's new ink, where they are
+      recolor() { if (!alive) return; ink = rgbOf(getComputedStyle(mark).color, ink); if (dots.length) draw(performance.now()); },
       destroy() {
         alive = false;
         if (document.fonts && document.fonts.removeEventListener) document.fonts.removeEventListener('loadingdone', onFonts);
@@ -632,6 +658,7 @@
       },
     };
   }
+  document.addEventListener('lsr-theme', () => pxMarks.forEach((inst) => inst.recolor()));
   // start or stop the dots wherever variant 26 is showing: the page's masthead and, while the gallery is open, its card
   function pixelSync() {
     const marks = [...document.querySelectorAll('.lsr-mast-wrap .lsr-mark')].filter((m) => PX_ON(m) && (!m.closest('.mast-gallery') || m.closest('.mast-gallery.on')));
