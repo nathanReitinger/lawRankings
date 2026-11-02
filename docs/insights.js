@@ -33,8 +33,8 @@
   };
   const range = (a, b, step) => { const out = []; for (let x = a; x < b; x += step) out.push(x); return out; };   // [a, b)
 
-  // groups of schools (and of flagship reviews, by their school's rank). The rankings page uses 1–3, 4–25, 26–50,
-  // 51+; here the "top 14" is split out because that is how legal academia talks about the top.
+  // groups of schools (and of flagship reviews, by their school's rank). The rankings page uses 1–3, 4–14, 15–30,
+  // 31–100, 101+; here the "top 14" is split out because that is how legal academia talks about the top.
   const BANDS = [
     { label: 'Top 14', short: 'T14', lo: 1, hi: 14 },
     { label: '15–25', short: '15–25', lo: 15, hi: 25 },
