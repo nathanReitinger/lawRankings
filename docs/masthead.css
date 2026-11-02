@@ -70,6 +70,10 @@
   --mh25-lo: #c8dcf5;
   --mh-on-fav: #000;
 }
+/* (2026-11-01, themes) High contrast underlines links (theme.css); the wordmark and the boxed page buttons read as links by
+   their place and their box, so they keep their own look */
+:root[data-theme^="contrast"] .lsr-mark a,
+:root[data-theme^="contrast"] .lsr-about { text-decoration: none; }
 :root[data-theme]:not([data-theme="light"]) { --mh-close: var(--dialog-muted); --mh-btn-hover: var(--dialog-border-hover); }
 
 /* ---------- masthead: professional wordmarks, a different one on each visit (2026-10-25; 25 of them since 2026-10-26) ----------

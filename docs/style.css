@@ -8,17 +8,20 @@
   --style-area-underline: rgba(255, 127, 0, 0.55);   /* a subject-area link's underline */
   --style-ico-axis: #aaa; --style-ico-3: #4daf4a; --style-ico-4: #984ea3;   /* the chart icon (index.html, #i-chart) */
 }
-:root[data-theme="paper"] { --style-about-shadow: rgba(53, 103, 156, 0.3); --style-area-underline: rgba(173, 90, 6, 0.55); }
+:root[data-theme="paper"] { --style-about-shadow: rgba(53, 103, 156, 0.3); --style-area-underline: rgba(156, 81, 5, 0.55); }
 :root[data-theme="solarized-light"] { --style-about-shadow: rgba(31, 111, 168, 0.3); --style-area-underline: rgba(184, 65, 15, 0.55); }
 :root[data-mode="dark"] { --style-about-shadow: rgba(0, 0, 0, 0.5); --style-area-underline: rgba(255, 160, 77, 0.6);
   --style-ico-axis: #8a8884; --style-ico-3: var(--s3); --style-ico-4: var(--s7); }
-:root[data-theme="solarized-dark"] { --style-area-underline: rgba(232, 116, 59, 0.7); }
+:root[data-theme="solarized-dark"] { --style-area-underline: rgba(240, 133, 80, 0.7); }
 :root[data-theme^="contrast"] { --style-about-shadow: transparent; --style-area-underline: var(--specialty-text);
   --style-ico-axis: var(--text); --style-ico-3: var(--s3); --style-ico-4: var(--s7); }
 /* the dark themes' shade over a group button that is partly on (the page's color, see the end of this file) */
 :root[data-mode="dark"] { --style-dim: rgba(21, 21, 21, 0.45); }
 :root[data-theme="black"] { --style-dim: rgba(0, 0, 0, 0.45); }
 :root[data-theme="solarized-dark"] { --style-dim: rgba(0, 43, 54, 0.45); }
+/* Paper and Solarized: the page's color over a group button that is partly on, so the button is a pale tint of its group */
+:root[data-theme="paper"] { --style-tint: rgba(250, 248, 243, 0.68); }
+:root[data-theme="solarized-light"] { --style-tint: rgba(253, 246, 227, 0.68); }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -268,12 +271,17 @@ th.spark-col { font-weight: 400; }
 :root:not([data-theme="light"]) .c-specialty .tag-n { opacity: 1; }
 
 /* (2026-11-01, themes) Dark themes: a group button partly on keeps its fill under a shade of the page's color, one
-   switched off is an outline in its color, both with full-strength text (a faded button turns muddy on a dark page) */
+   switched off is an outline in its color (Paper and Solarized too), both with full-strength text (a faded button turns
+   muddy on a dark page) */
 :root[data-mode="dark"]:not([data-theme^="contrast"]) .selection-partial { opacity: 1; box-shadow: inset 0 0 0 999px var(--style-dim); }
-:root[data-mode="dark"]:not([data-theme^="contrast"]) .selection-none { opacity: 1; background: transparent; color: var(--muted);
+:root:not([data-theme="light"]):not([data-theme^="contrast"]) .selection-none { opacity: 1; background: transparent; color: var(--muted);
   box-shadow: inset 0 0 0 1px var(--options-text); }
-:root[data-mode="dark"]:not([data-theme^="contrast"]) .bg-general.selection-none { box-shadow: inset 0 0 0 1px var(--general-text); }
-:root[data-mode="dark"]:not([data-theme^="contrast"]) .bg-specialty.selection-none { box-shadow: inset 0 0 0 1px var(--specialty-text); }
+:root:not([data-theme="light"]):not([data-theme^="contrast"]) .bg-general.selection-none { box-shadow: inset 0 0 0 1px var(--general-text); }
+:root:not([data-theme="light"]):not([data-theme^="contrast"]) .bg-specialty.selection-none { box-shadow: inset 0 0 0 1px var(--specialty-text); }
+/* (2026-11-01, themes) Paper and Solarized: as in the dark themes, a group switched off is an outline; one partly on is
+   a pale tint of its color with the page's dark text (White keeps its faded buttons) */
+:root[data-theme="paper"] .selection-partial,
+:root[data-theme="solarized-light"] .selection-partial { opacity: 1; color: var(--text-strong); box-shadow: inset 0 0 0 999px var(--style-tint); }
 
 /* (2026-11-01, themes) High contrast: no faded text or marks; a group switched off is an outline instead of a pale fill
    (a partly selected group is a full fill); the Beta label gets a rule, as its fill is the page's; the footer buttons
