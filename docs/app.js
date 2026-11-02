@@ -7,19 +7,21 @@
   // Blog), like CSrankings' venue groups; checked tiers form one "Flagship" area. DATA.journal_ranks[source][j]: the
   // school's rank (0 = unranked, -1 = not a main law review / no host school); j[2] is the U.S. News overall rank.
   const BANDS = [
+    // (2026-11-02, the owner: "do 1-3, 4-14, 15-30, 31-100, 101 and above"; the online editions keep their id 5)
     { id: '1', range: '1–3', lo: 1, hi: 3 },
-    { id: '2', range: '4–25', lo: 4, hi: 25 },
-    { id: '3', range: '26–50', lo: 26, hi: 50 },
-    { id: '4', range: '51 and above', lo: 51, hi: Infinity },   // includes schools left unranked
+    { id: '2', range: '4–14', lo: 4, hi: 14 },
+    { id: '3', range: '15–30', lo: 15, hi: 30 },
+    { id: '4', range: '31–100', lo: 31, hi: 100 },
+    { id: '6', range: '101 and above', lo: 101, hi: Infinity },   // includes schools left unranked
     { id: '5', label: 'Online editions & other general journals', other: true },
   ];
   const SOURCE_SHORT = { usnews: 'U.S. News rank', peer: 'TaxProf peer rank' };   // (audit) every label names its rank
   const HOST_TIERS = ['any', '25', '50', '100'];
   const PER_PROF_MIN = 10;          // the per-professor option ranks schools with at least this many people listed
-  const DEFAULT_BANDS = ['1', '2'];                                     // = main law reviews of the US News top 25
-  const STORAGE_KEY = 'lawRankings.v4';
+  const DEFAULT_BANDS = ['1'];          // = main law reviews of the U.S. News top 3 (2026-11-02, the owner: "set default to 1-3")
+  const STORAGE_KEY = 'lawRankings.v5';
   const DEFAULT_YEARS = 20;          // the default window's year labels (2026-10-29)
-  const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers
+  const REPO = 'https://github.com/nathanReitinger/lawRankings';                                 // v4: tiers became US News tiers; v5: the 2026-11-02 tiers
   // (2026-11-01, themes) colors are read from the theme in use (theme.css) when they are drawn: T(token, the literal the
   // page had before themes); TW for a color with no token of the same White value: White keeps the literal, the other
   // themes take the token

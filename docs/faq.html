@@ -11,10 +11,13 @@
   <!-- (2026-10-26, "use lazy loading") the data starts downloading at once; the fonts no longer hold up the scripts -->
   <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;0,700;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;0,700;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet"></noscript>
+  <!-- (2026-11-01) KaTeX for the formulas under "Ranking calculation" -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" rel="stylesheet" media="print" onload="this.media='all'">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js" defer></script>
   <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="masthead.css">
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="data:,"><script>/* the masthead: one of twenty-six (masthead.css, [data-mast]; 26 is drawn by masthead.js): the visitor's favorite if they voted for one (masthead.js), else a new one on each visit and again after twenty minutes, in an order that moves between the families (type, light, ink, classic) */(function(){var F=["","EB+Garamond:wght@500","Cormorant+Garamond:wght@600","Crimson+Pro:wght@500","Libre+Caslon+Text","Playfair+Display+SC","Cinzel:wght@500","Zilla+Slab:wght@600","EB+Garamond:ital,wght@1,500","Source+Serif+4:wght@600","Roboto+Flex:opsz,wght@40,100..1000","IBM+Plex+Mono:wght@600","Space+Grotesk:wght@600","Archivo:wdth,wght@62..125,100..900","Inter+Tight:wght@700","Saira:wdth,wght@125,600","Instrument+Sans:wght@700","Outfit:wght@800","Manrope:wght@800","Syncopate:wght@700","Archivo+Black","Red+Hat+Display:wght@900","Geist:wght@800","Recursive:slnt,wght,CRSV@-15..0,300..1000,0","Sora:wght@700","Silkscreen:wght@400;700"],O=[11,16,21,26,1,6,12,17,22,2,7,13,18,23,3,8,14,19,24,4,9,15,20,25,5,10],N=26,v,now=Date.now();try{var pin=+(localStorage.getItem('lsr.mastPin')||0);var s=JSON.parse(localStorage.getItem('lsr.mast4')||'null');if(pin>=1&&pin<=N){s={n:0,v:pin,t:now};}else if(!s||!sessionStorage.getItem('lsr.mastOn')||now-s.t>12e5){var n=s?s.n+1:Math.floor(Math.random()*N);s={n:n,v:O[n%N],t:now};localStorage.setItem('lsr.mast4',JSON.stringify(s));sessionStorage.setItem('lsr.mastOn','1');}v=s.v;}catch(e){v=O[Math.floor(Math.random()*N)];}var q=/[?&]mast=([1-9]|1[0-9]|2[0-6])\b/.exec(location.search);if(q)v=+q[1];document.documentElement.setAttribute('data-mast',v);window.LSR_MAST={fonts:F,n:N,v:v};if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
+  <link rel="icon" href="data:,"><script>/* the masthead: one of forty-six (masthead.css, [data-mast]; 26 is drawn by masthead.js): the visitor's favorite if they voted for one (masthead.js), else a new one on each visit and again after twenty minutes, in an order that moves between the families (type, light, ink, classic) */(function(){var F=["","EB+Garamond:wght@500","Cormorant+Garamond:wght@600","Crimson+Pro:wght@500","Libre+Caslon+Text","Playfair+Display+SC","Cinzel:wght@500","Zilla+Slab:wght@600","EB+Garamond:ital,wght@1,500","Source+Serif+4:wght@600","Roboto+Flex:opsz,wght@40,100..1000","IBM+Plex+Mono:wght@600","Space+Grotesk:wght@600","Archivo:wdth,wght@62..125,100..900","Inter+Tight:wght@700","Saira:wdth,wght@125,600","Instrument+Sans:wght@700","Outfit:wght@800","Manrope:wght@800","Syncopate:wght@700","Archivo+Black","Red+Hat+Display:wght@900","Geist:wght@800","Recursive:slnt,wght,CRSV@-15..0,300..1000,0","Sora:wght@700","Silkscreen:wght@400;700","Big+Shoulders+Display:wght@800","Martian+Mono:wdth,wght@100,500","Marcellus","Newsreader:opsz,wght@6..72,600","Schibsted+Grotesk:wght@900","Bodoni+Moda:opsz,wght@6..96,700","Instrument+Serif:ital@0;1","Gloock","DM+Mono:wght@500","Epilogue:wght@800","Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,700","Jura:wght@700","Anton","Literata:ital,opsz,wght@0,7..72,200..900;1,7..72,200..900","Familjen+Grotesk:wght@600","Spectral:wght@600","Chivo:wght@800","Hanken+Grotesk:wght@800","Lexend:wght@500..800","Michroma"],O=[11,27,16,28,21,29,26,1,30,6,31,12,32,17,22,33,2,34,7,35,13,18,36,23,37,3,38,8,14,39,19,40,24,41,4,9,42,15,43,20,44,25,5,45,10,46],N=46,v,now=Date.now();try{var pin=+(localStorage.getItem('lsr.mastPin')||0);var s=JSON.parse(localStorage.getItem('lsr.mast4')||'null');if(pin>=1&&pin<=N){s={n:0,v:pin,t:now};}else if(!s||!sessionStorage.getItem('lsr.mastOn')||now-s.t>12e5){var n=s?s.n+1:Math.floor(Math.random()*N);s={n:n,v:O[n%N],t:now};localStorage.setItem('lsr.mast4',JSON.stringify(s));sessionStorage.setItem('lsr.mastOn','1');}v=s.v;}catch(e){v=O[Math.floor(Math.random()*N)];}var q=/[?&]mast=([1-9]|[1-3][0-9]|4[0-6])\b/.exec(location.search);if(q)v=+q[1];document.documentElement.setAttribute('data-mast',v);window.LSR_MAST={fonts:F,n:N,v:v};if(F[v-1]){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family='+F[v-1]+'&display=swap';document.head.appendChild(l);}})();</script>
 </head>
 <body>
 <div class="container">
@@ -37,6 +40,14 @@
 
     <h2>Ranking calculation</h2>
     <p>The calculation follows CSrankings. Each article is one credit, split evenly between its co-authors (the <em>adjusted count</em>). Each <em>area</em> is either the flagship law reviews (the tiers checked under Flagship Law Reviews, combined) or one higher-level group of specialty journals (the groups checked in it, combined). A school's count is the geometric mean, across the selected areas, of its faculty's total adjusted count in that area plus one. Articles are credited to the school where the author teaches <em>now</em>; a professor's earlier articles count for their current school.</p>
+    <!-- (2026-11-01, the owner: "give the formulas in latex format in the ranking information") the calculation above as
+         formulas, typeset by KaTeX; without it each shows as its LaTeX source -->
+    <div class="tex-block"><code class="tex">C_{s,A} = \sum_{p \in F_s} \; \sum_{\substack{a \in \mathrm{Art}(p) \\ j(a) \in A,\; y(a) \in [y_0,\, y_1]}} \frac{1}{n_a}</code></div>
+    <div class="tex-block"><code class="tex">\mathrm{Count}_s = \Bigl( \prod_{A \in \mathcal{A}} \bigl( C_{s,A} + 1 \bigr) \Bigr)^{1/|\mathcal{A}|}</code></div>
+    <p>Here <code class="tex-i">C_{s,A}</code> is school <code class="tex-i">s</code>'s adjusted count in area <code class="tex-i">A</code>; <code class="tex-i">F_s</code> the people on its faculty now; <code class="tex-i">\mathrm{Art}(p)</code> the articles credited to person <code class="tex-i">p</code> (short pieces left out when "Skip short pieces" is on); <code class="tex-i">j(a)</code> and <code class="tex-i">y(a)</code> an article's journal and year; <code class="tex-i">[y_0, y_1]</code> the selected years; <code class="tex-i">n_a</code> the number of authors of article <code class="tex-i">a</code>; and <code class="tex-i">\mathcal{A}</code> the selected areas. Schools are ordered by <code class="tex-i">\mathrm{Count}_s</code>. With "Per professor" on, they are ordered by</p>
+    <div class="tex-block"><code class="tex">\mathrm{PerProf}_s = \frac{\mathrm{Count}_s - 1}{L_s}, \qquad L_s \ge 10</code></div>
+    <p>where <code class="tex-i">L_s</code> is the number of people on the school's faculty list. With "Leave out a school's own journals" on, the sum for <code class="tex-i">C_{s,A}</code> leaves out articles in the journals school <code class="tex-i">s</code> publishes.</p>
+    <details class="tex-src" id="texSource" hidden><summary>LaTeX source</summary><pre></pre></details>
 
     <h2 id="options">Options: "Per professor" and "Leave out a school's own journals"</h2>
     <p>Two settings under Options, both off by default and not part of the default ranking. <b>Per professor</b> divides each school's count (less the one added to each area) by the number of people on its faculty list; with one area, the result is adjusted articles per listed professor. The list is HeinOnline's faculty list for the school, which can include clinical, emeritus and visiting faculty; schools with fewer than ten people listed are left out. <b>Leave out a school's own journals</b> stops counting an article for the author's school when that school publishes the journal: its main law review, its online edition, or a specialty journal it hosts. The article still counts for a co-author at another school. Rank correlations of each option with <i>U.S. News</i>: <a href="#usnews">see below</a>.</p>
@@ -60,7 +71,7 @@
 
     <h2 id="ranks">Journal ranks</h2>
     <ul>
-      <li><b>Flagship law reviews</b> take their school's rank (<span data-meta="us"></span>), and come in tiers of that rank ("1–3", "4–25", "26–50", "51 and above"); schools tied at a rank share a tier, and reviews of unranked schools are in "51 and above". The school rank can be the <i>U.S. News</i> overall rank (the default) or, with the "TaxProf peer rank" option (off by default), the peer-reputation rank from the <i>U.S. News</i> survey of deans and faculty, as published on TaxProf Blog. The default view counts the main law reviews of the top 25.</li>
+      <li><b>Flagship law reviews</b> take their school's rank (<span data-meta="us"></span>), and come in tiers of that rank ("1–3", "4–14", "15–30", "31–100", "101 and above"); schools tied at a rank share a tier, and reviews of unranked schools are in "101 and above". The school rank can be the <i>U.S. News</i> overall rank (the default) or, with the "TaxProf peer rank" option (off by default), the peer-reputation rank from the <i>U.S. News</i> survey of deans and faculty, as published on TaxProf Blog. The default view counts the main law reviews of the top 3.</li>
       <li><b>Specialty journals</b> take their rank in the <a href="https://managementtools4.wlu.edu/LawJournals/Default.aspx">Washington &amp; Lee Law Journal Rankings</a> (<span data-meta="wl"></span>, combined score). They sit in groups and higher-level groups (see below); in the filters, a higher-level group opens to its groups, and a group to its journals in order of W&amp;L combined score, each with its score and the school that publishes it with that school's rank. "Count each higher-level group's top N" counts the N highest-scoring journals across the groups checked in it (journals W&amp;L does not score count only when "all" is chosen), and "from schools with a U.S. News rank of" can limit the specialty journals to those published by schools in a rank range.</li>
     </ul>
     <p>These ranks determine which journals are counted; schools are ordered by the count described above.</p>
@@ -121,6 +132,22 @@
   <footer class="page-footer" id="footer"></footer>
 </div>
 <script src="masthead.js"></script>
+<script>
+  // (2026-11-01) KaTeX typesets each formula under "Ranking calculation" (display: .tex, in a sentence: .tex-i); the
+  // display formulas' LaTeX is also in the "LaTeX source" box to copy. Without KaTeX each stays as its source.
+  document.addEventListener('DOMContentLoaded', function () {
+    var src = [];
+    Array.prototype.forEach.call(document.querySelectorAll('code.tex, code.tex-i'), function (c) {
+      var t = c.textContent, display = c.classList.contains('tex');
+      if (display) src.push(t);
+      if (!window.katex) return;
+      var out = document.createElement(display ? 'div' : 'span');
+      try { katex.render(t, out, { displayMode: display, throwOnError: false }); c.replaceWith(out); } catch (e) { /* the source stays */ }
+    });
+    var box = document.getElementById('texSource');
+    if (box && src.length) { box.querySelector('pre').textContent = src.join('\n\n'); box.hidden = false; }
+  });
+</script>
 <script>
 (function () {
   'use strict';

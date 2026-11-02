@@ -2,12 +2,11 @@
    tables are the page's own (insights.css .ins-card, .ins-legend, .ins-table); this adds what the six figures need. */
 
 /* (2026-11-01, themes) this section's own colors, which connections.js reads when it draws (theme.css has the rest):
-   the schools on the wheel, and the heat map's five stops, from a quarter of the total's share (0) through the same
+   the heat map's five stops, from a quarter of the total's share (0) through the same
    share (2) to four times it (4), with the text on its cells (light on a dark cell, dark on a light one). White's are
    the colors from before themes. On a dark page the stops turn round: "the same" sinks toward the card and the far
-   ends stand out, each cell dark enough for light text; the wheel's schools are a light blue. */
+   ends stand out, each cell dark enough for light text. */
 :root {
-  --cn-wheel-node: #104281;
   --cn-heat-0: #c23b3a; --cn-heat-1: #f0a29f; --cn-heat-2: #f0efec; --cn-heat-3: #86b6ef; --cn-heat-4: #1c5cab;
   --cn-heat-on-dark: #ffffff; --cn-heat-on-light: #0b0b0b;
 }
@@ -21,7 +20,6 @@
   --cn-heat-0: #a80000; --cn-heat-1: #f2a7a3; --cn-heat-2: #f0f0f0; --cn-heat-3: #8fbcef; --cn-heat-4: #0b4f9c; --cn-heat-on-light: #000;
 }
 :root[data-mode="dark"] {
-  --cn-wheel-node: #86b6ef;
   --cn-heat-0: #c23b3a; --cn-heat-1: #5e2a28; --cn-heat-2: #262624; --cn-heat-3: #1d3d63; --cn-heat-4: #256abf;
   --cn-heat-on-dark: #f0efec; --cn-heat-on-light: #000;
 }
@@ -30,7 +28,6 @@
   --cn-heat-0: #b3342c; --cn-heat-1: #56332f; --cn-heat-2: #0b3d4a; --cn-heat-3: #174a6e; --cn-heat-4: #1d64a3; --cn-heat-on-dark: #eee8d5;
 }
 :root[data-theme="contrast-dark"] {
-  --cn-wheel-node: #cde2fb;
   --cn-heat-0: #c41e2a; --cn-heat-1: #6e1218; --cn-heat-2: #1f1f1f; --cn-heat-3: #123d73; --cn-heat-4: #1d5fc4; --cn-heat-on-dark: #fff;
 }
 
@@ -40,6 +37,7 @@
 .cn-chart svg { display: block; font-family: var(--sans); }
 .cn-legend:empty, .cn-foot:empty { display: none; }
 .cn-legend { margin-bottom: 2px; }
+.cn-legend .cn-legend-k { color: var(--i-muted); }   /* (2026-11-01) what the colors in a key stand for */
 /* legend swatches that mirror the marks: a dot for dots, a dashed rule for the reference line */
 .cn-legend i.dot { width: 9px; height: 9px; border-radius: 50%; }
 .cn-legend i.dash { height: 0; border-top: 1.5px dashed var(--chart-axis); background: none !important; }   /* (2026-11-01, themes) the chart's own rule color */

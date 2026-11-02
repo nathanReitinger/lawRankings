@@ -33,8 +33,8 @@
   };
   const range = (a, b, step) => { const out = []; for (let x = a; x < b; x += step) out.push(x); return out; };   // [a, b)
 
-  // groups of schools (and of flagship reviews, by their school's rank). The rankings page uses 1–3, 4–25, 26–50,
-  // 51+; here the "top 14" is split out because that is how legal academia talks about the top.
+  // groups of schools (and of flagship reviews, by their school's rank). The rankings page uses 1–3, 4–14, 15–30,
+  // 31–100, 101+; here the "top 14" is split out because that is how legal academia talks about the top.
   const BANDS = [
     { label: 'Top 14', short: 'T14', lo: 1, hi: 14 },
     { label: '15–25', short: '15–25', lo: 15, hi: 25 },
@@ -131,7 +131,11 @@
   const lum = (c) => { const v = Highcharts.color(c).rgba.slice(0, 3).map((x) => { x /= 255; return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
     return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
-  const onFill = (bg) => (ratio(bg, ON_DARK) >= ratio(bg, ON_LIGHT) ? ON_DARK : ON_LIGHT);
+  // (when neither ink reaches 4.5:1 on a middle step, black or white, whichever reads better)
+  const onFill = (bg) => {
+    const c = ratio(bg, ON_DARK) >= ratio(bg, ON_LIGHT) ? ON_DARK : ON_LIGHT;
+    return ratio(bg, c) >= 4.5 ? c : ratio(bg, '#000000') >= ratio(bg, '#ffffff') ? '#000000' : '#ffffff';
+  };
 
   // one chart per box: a chart drawn again goes into its box after the old one is destroyed; without the library,
   // a note in its place (every number is also in the text, the detail panels and the tables)
@@ -647,8 +651,10 @@
     // node labels: outside the columns on a wide screen, inside them (over the flows' ends) on a phone; the label's
     // box carries 5px of padding, so 1px past the node leaves a 6px gap
     const nodeW = wide ? 12 : 9;
+    // (2026-11-01, themes) outside White a label over the flows sits on the page's color, so it reads on any flow
     const lab = (inside, side) => (inside
-      ? { align: side < 0 ? 'left' : 'right', x: side < 0 ? nodeW + 1 : -(nodeW + 1) }
+      ? Object.assign({ align: side < 0 ? 'left' : 'right', x: side < 0 ? nodeW + 1 : -(nodeW + 1) },
+        WHITE ? {} : { backgroundColor: alpha(SURF, 0.85), borderRadius: 3 })
       : { align: side < 0 ? 'right' : 'left', x: side < 0 ? -(nodeW + 1) : nodeW + 1 });
     const leftColor = (b) => (sel != null ? NODE_OFF : selJ != null || band < 0 || band === b ? TI_COLORS[b] : NODE_OFF);
     const nodes = left.map((id) => {
