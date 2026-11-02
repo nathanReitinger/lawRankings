@@ -24,7 +24,8 @@
   // page had before themes); TW for a color with no token of the same White value: White keeps the literal, the other
   // themes take the token
   const T = (n, f) => (window.LSRTheme ? window.LSRTheme.color(n, f) : f);
-  const themed = () => !!(window.LSRTheme && window.LSRTheme.get().theme !== 'light');
+  const themeName = () => (window.LSRTheme ? window.LSRTheme.get().theme : 'light');
+  const themed = () => themeName() !== 'light';
   const TW = (n, f) => (themed() ? T(n, f) : f);
   // flagship blue, specialty orange (CSrankings Set1), in each theme's own steps
   const COLORS = { get general() { return T('--general', '#377eb8'); }, get specialty() { return T('--specialty', '#ff7f00'); } };
@@ -664,10 +665,18 @@
   const TREND_COLORS = ['#377eb8', '#ff7f00', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
   // (2026-11-01, themes) the lines' colors in the theme in use: White as above; the other themes Flagship blue and
   // specialty orange in their steps for lines and text, then the categorical slots, violet before amber (amber sits
-  // next to the orange)
-  const TREND_TOKENS = [['--general-text', '#377eb8'], ['--specialty-text', '#ff7f00'], ['--s3', '#1baf7a'], ['--s7', '#6250d6'],
-    ['--s5', '#e87ba4'], ['--s4', '#eda100'], ['--s6', '#008300'], ['--s8', '#e34948']];
-  const trendColors = () => (themed() ? TREND_TOKENS.map(([n, f]) => T(n, f)) : TREND_COLORS);
+  // next to the orange), except in High contrast dark, whose violet is as pale as its Flagship blue
+  const TREND_SLOTS = ['--s3', '--s7', '--s5', '--s4', '--s6', '--s8'];
+  const TREND_SLOTS_CD = ['--s3', '--s4', '--s5', '--s7', '--s6', '--s8'];
+  function trendColors() {
+    if (!themed()) return TREND_COLORS;
+    const slots = themeName() === 'contrast-dark' ? TREND_SLOTS_CD : TREND_SLOTS;
+    return [T('--general-text', TREND_COLORS[0]), T('--specialty-text', TREND_COLORS[1])].concat(slots.map((n) => T(n, '#777')));
+  }
+  // (2026-11-01, themes) the gray line of the folded groups (White #999): the chart's muted gray, and in the high
+  // contrast themes a mid gray of their own, so it stays apart from their black or white Total line
+  const TREND_OTHER = { 'contrast-light': '#6b6b6b', 'contrast-dark': '#a6a6a6' };
+  const trendOther = () => TREND_OTHER[themeName()] || TW('--chart-muted', '#999');
   const trendCharts = new Set();
   let trendSeq = 0, hcLoad = null;
   // the chart's first year: the window's start
@@ -783,7 +792,7 @@
         const first = lines[0].name === 'Flagship' ? 1 : 0;
         const big = new Set(lines.slice(first).sort((a, b) => sum(b) - sum(a)).slice(0, MAX_LINES - 1 - first));
         const rest = lines.filter((x, j) => j >= first && !big.has(x));
-        shown = lines.filter((x, j) => j < first || big.has(x)).concat([{ name: rest.length + ' other selected groups', color: TW('--chart-muted', '#999'),
+        shown = lines.filter((x, j) => j < first || big.has(x)).concat([{ name: rest.length + ' other selected groups', color: trendOther(),
           raw: years.map((_, k) => rest.reduce((t, x) => t + x.raw[k], 0)) }]);
       }
       const lineColors = trendColors();

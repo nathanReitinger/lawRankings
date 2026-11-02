@@ -2,13 +2,75 @@
    grids, text in ink tokens (never the series color), a legend for two or more series, flagship blue / specialty
    orange as on the rankings page (validated for color-vision deficiency on white). */
 
+/* (2026-11-01, themes) the page's own colors where theme.css has no exact match: White keeps the colors it had, the
+   other themes set their own. insights.js reads the chart ones when it draws (and again when the theme changes). */
+:root {
+  --ins-muted: #898781;                     /* small labels and notes (--muted below) */
+  --ins-accent: #2a78d6;                    /* the accent blue: dots, bands, focus rings, links on Subject areas */
+  --ins-dim: #c9c8c0;                       /* the flows of the groups not picked */
+  --ins-node-off: #b3b2a9; --ins-node: #8f8e86;   /* the flows' gray nodes: a group not picked, the reviews' groups */
+  --ins-blue-strong: #1c5cab; --ins-blue-soft: #86b6ef;   /* the journal tree's two ends (most, fewest articles); the median line */
+  --ins-tree-link: #a9c7ec; --ins-tint: .35;   /* the tree's links; how far its authors' dots fade toward the page */
+  --ins-team: #86b6ef, #2a78d6, #104281;    /* 2, 3, 4 or more authors */
+  --ins-heat: #f3f8fe, #cde2fb, #9ec5f4, #5598e7, #2a78d6, #1c5cab, #104281, #0d366b;   /* the matrix, low to high share */
+  --ins-heat-gray: #f7f7f5, #e6e5df, #cfcec6, #b3b2a9, #8f8e86;   /* its "other journals" block; first: an empty cell */
+  --ins-on-light: #0b0b0b; --ins-on-dark: #ffffff;   /* numbers on a light or a dark cell */
+  --ins-bar-bg: rgba(255, 255, 255, .95); --ins-filters-bg: rgba(255, 255, 255, .94);   /* the sticky bars */
+  --ins-rule: rgba(11, 11, 11, .12); --ins-rule-faint: rgba(11, 11, 11, .06);
+}
+:root[data-theme="paper"] {
+  --ins-muted: var(--muted); --ins-accent: var(--accent-text);
+  --ins-bar-bg: rgba(250, 248, 243, .95); --ins-filters-bg: rgba(250, 248, 243, .94);
+}
+:root[data-theme="solarized-light"] {
+  --ins-muted: var(--muted); --ins-accent: var(--accent-text); --ins-on-light: #073642;
+  --ins-bar-bg: rgba(253, 246, 227, .95); --ins-filters-bg: rgba(253, 246, 227, .94);
+}
+:root[data-theme="contrast-light"] {
+  --ins-muted: var(--muted); --ins-accent: var(--s1); --ins-dim: #595959; --ins-node-off: #6b6b6b; --ins-node: #3d3d3d;
+  --ins-blue-strong: #0d366b; --ins-blue-soft: #3987e5; --ins-tree-link: #4f6f94; --ins-tint: 0;
+  --ins-team: #3987e5, #1c5cab, #0d366b;
+  --ins-heat: #f3f8fe, #cde2fb, #9ec5f4, #6aa5ec, #1f5fb0, #174f95, #104281, #0d366b;
+  --ins-on-light: #000;
+  --ins-bar-bg: #fff; --ins-filters-bg: #fff; --ins-rule: #000; --ins-rule-faint: var(--border-soft);
+}
+/* the dark themes: low shares sit near the page and high ones stand out; the co-authors' bars go from the darkest
+   blue that holds up on the page to the lightest */
+:root[data-mode="dark"] {
+  --ins-muted: var(--muted); --ins-accent: var(--s1); --ins-dim: #8a8983; --ins-node-off: #6b6a64; --ins-node: #8a8983;
+  --ins-blue-strong: #b7d3f6; --ins-blue-soft: #5598e7; --ins-tree-link: #4a7aaa; --ins-tint: .2;
+  --ins-team: #2d74cc, #6da7ec, #c4dcf8;
+  --ins-heat: #1a2230, #1a2d47, #1b3b62, #1f4d84, #2a64ad, #4182d6, #80b0ec, #c4dcf8;
+  --ins-heat-gray: #1f1f1e, #2b2b29, #3d3c39, #5a5954, #86857e;
+  --ins-bar-bg: rgba(21, 21, 21, .95); --ins-filters-bg: rgba(21, 21, 21, .94);
+  --ins-rule: rgba(255, 255, 255, .14); --ins-rule-faint: rgba(255, 255, 255, .07);
+}
+:root[data-theme="black"] { --ins-bar-bg: rgba(0, 0, 0, .95); --ins-filters-bg: rgba(0, 0, 0, .94); }
+:root[data-theme="solarized-dark"] {
+  --ins-accent: var(--link); --ins-dim: #839496; --ins-node-off: #6f858c; --ins-node: #93a1a1;
+  --ins-heat: #073642, #0b3d55, #114a6b, #185a86, #2266a6, #4a88d0, #88b6ea, #c4dcf8;
+  --ins-heat-gray: #073642, #0e4250, #1c5361, #2c6170, #4a7884;
+  --ins-on-light: #001f27;
+  --ins-bar-bg: rgba(0, 43, 54, .95); --ins-filters-bg: rgba(0, 43, 54, .94);
+  --ins-rule: rgba(238, 232, 213, .14); --ins-rule-faint: rgba(238, 232, 213, .07);
+}
+:root[data-theme="contrast-dark"] {
+  --ins-dim: #a6a6a6; --ins-node-off: #a6a6a6; --ins-node: #d0d0d0;
+  --ins-blue-strong: #cde2fb; --ins-tree-link: #7aa7d6; --ins-tint: 0;
+  --ins-team: #3987e5, #86b6ef, #cde2fb;
+  --ins-on-light: #000;
+  --ins-bar-bg: #000; --ins-filters-bg: #000; --ins-rule: #fff; --ins-rule-faint: var(--border-soft);
+}
+
+/* the page's names for the colors, used here and by the sections' own files (connections, equality, anon, titlewords)
+   (2026-11-01, themes: from the theme; under White each is the color it was) */
 .ins {
-  --surface: #fff; --plane: #f7f7f5;
-  --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e8e7e1; --axis: #c3c2b7; --hair: rgba(11, 11, 11, .10);
-  --flagship: #2a78d6; --specialty: #eb6834; --online: #1baf7a;
-  --accent: #2a78d6; --dim: #c9c8c0;
-  --seq-1: #86b6ef; --seq-2: #2a78d6; --seq-3: #104281;
+  --surface: var(--bg); --plane: var(--chart-surface);
+  --ink: var(--chart-ink); --ink-2: var(--chart-ink-2); --muted: var(--ins-muted);
+  --grid: var(--chart-grid); --axis: var(--chart-axis); --hair: var(--chart-ring);
+  --flagship: var(--s1); --specialty: var(--s2); --online: var(--s3);
+  --accent: var(--ins-accent); --dim: var(--ins-dim);
+  --seq-1: var(--seq-250); --seq-2: var(--seq-450); --seq-3: var(--seq-650);
   --serif: 'YaleNew', 'Alegreya', Georgia, 'Times New Roman', serif;
   --sans: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   background: var(--surface);
@@ -23,7 +85,7 @@
 .ins-toc a { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px 0 6px; border: 1px solid var(--hair); border-radius: 999px;
   font-family: var(--sans); font-size: 13.5px; color: var(--ink); background: var(--surface); transition: border-color .15s, background-color .15s; }
 .ins-toc a:hover { border-color: var(--ink); text-decoration: none; background: var(--plane); }
-.ins-toc span { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; }
+.ins-toc span { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--ink); color: var(--surface); font-size: 12px; font-weight: 700; }
 .ins-loading { text-align: center; }
 
 /* ---------- sections ---------- */
@@ -34,7 +96,7 @@
 .ins-lede b { font-weight: 700; }
 
 .ins-filters { position: sticky; top: var(--bar-h, 0px); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 0;
-  margin-bottom: 14px; background: rgba(255, 255, 255, .94); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  margin-bottom: 14px; background: var(--ins-filters-bg); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--hair); font-family: var(--sans); font-size: 14px; color: var(--ink-2); }
 .ins-filters label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 .ins-check input { margin: 0; }
@@ -43,7 +105,7 @@
 /* ---------- the page's one bar of years and options (insights.js: the bar), sticky at the top; each section's line
    under its heading says what that section uses ---------- */
 .ins-bar { position: sticky; top: 0; z-index: 30; max-width: 1080px; margin: 0 auto 22px; display: flex; flex-wrap: wrap; align-items: center;
-  gap: 6px 14px; padding: 8px 12px; background: rgba(255, 255, 255, .95); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  gap: 6px 14px; padding: 8px 12px; background: var(--ins-bar-bg); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--hair); border-radius: 10px; font-family: var(--sans); font-size: 14px; color: var(--ink-2); box-sizing: border-box; }
 .ins-bar[hidden] { display: none; }
 .ins-bar.stuck { border-radius: 0 0 10px 10px; box-shadow: 0 2px 8px rgba(0, 0, 0, .05); }
@@ -86,7 +148,7 @@
 .ins-chip, .ins-seg button { min-height: 32px; padding: 0 12px; border: 1px solid var(--hair); border-radius: 999px; background: var(--surface);
   font-family: var(--sans); font-size: 13px; color: var(--ink-2); cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
 .ins-chip:hover, .ins-seg button:hover { border-color: var(--ink-2); color: var(--ink); }
-.ins-chip[aria-pressed="true"], .ins-seg button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.ins-chip[aria-pressed="true"], .ins-seg button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 .ins-chip:focus-visible, .ins-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ins-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 
@@ -107,7 +169,7 @@
 .ins-detail .n { font-variant-numeric: tabular-nums; color: var(--ink); }
 
 /* tooltip (the page's own, for anything not drawn by Highcharts) */
-.ins-tip { position: fixed; z-index: 500; pointer-events: none; max-width: 280px; padding: 9px 11px; border-radius: 8px; background: rgba(255, 255, 255, .97);
+.ins-tip { position: fixed; z-index: 500; pointer-events: none; max-width: 280px; padding: 9px 11px; border-radius: 8px; background: var(--chart-tooltip);
   border: 1px solid var(--hair); box-shadow: 0 6px 24px rgba(0, 0, 0, .12); font-family: var(--sans); font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
 .ins-tip .tv { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .ins-tip .tt { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
@@ -127,7 +189,7 @@
 
 /* tables behind the charts */
 .ins-table { margin-top: 10px; font-family: var(--sans); font-size: 13px; }
-.ins-table summary { cursor: pointer; color: #337ab7; }
+.ins-table summary { cursor: pointer; color: var(--accent-text); }
 .ins-table table { width: 100%; margin-top: 8px; font-variant-numeric: tabular-nums; font-size: 12.5px; }
 .ins-table th, .ins-table td { padding: 3px 6px; border-bottom: 1px solid var(--grid); text-align: right; }
 .ins-table th:first-child, .ins-table td:first-child { text-align: left; }
@@ -199,7 +261,7 @@
 .tx-tip-h { margin-top: 5px; color: var(--muted); font-size: 12px; }
 .tx-rank { display: inline-block; min-width: 3.2em; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
 .tx-src { font-size: 12.5px; margin: 2px 0 8px; }
-.tx-src summary { cursor: pointer; color: #337ab7; }
+.tx-src summary { cursor: pointer; color: var(--accent-text); }
 .tx-src ul { margin: 6px 0 0; padding-left: 1.2em; }
 .tx-src li { margin: 2px 0; }
 .tx-sub { font-family: var(--serif); font-weight: 700; font-size: 22px; margin: 32px 0 8px; color: var(--ink); }
@@ -264,15 +326,15 @@
 .tx-catlink { padding: 0; border: 0; background: none; font: inherit; color: var(--accent); cursor: pointer; text-align: left; }
 .tx-catlink:hover { text-decoration: underline; }
 /* (2026-10-29) the journals behind an area tag from the rankings page: journal -> group -> higher-level group */
-.tx-from { margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--rule, rgba(11,11,11,.12)); border-left: 3px solid #0b0b0b; border-radius: 6px; background: var(--plane); }
+.tx-from { margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--rule, var(--ins-rule)); border-left: 3px solid var(--ink); border-radius: 6px; background: var(--plane); }
 .tx-from[hidden] { display: none; }
 .tx-from-head { margin: 0 0 6px; font-size: 14px; }
 .tx-from-list { margin: 0; padding: 0; list-style: none; font-size: 13.5px; }
-.tx-from-list li { padding: 3px 0; border-top: 1px solid rgba(11,11,11,.06); }
+.tx-from-list li { padding: 3px 0; border-top: 1px solid var(--ins-rule-faint); }
 .tx-from-list li:first-child { border-top: 0; }
 .tx-from-list .tx-arrow { color: var(--muted); padding: 0 2px; }
 .tx-from-note { margin: 6px 0 0; font-size: 12.5px; }
-.tx-journals li.tx-marked .tx-jname { font-weight: 700; color: #0b0b0b; }
+.tx-journals li.tx-marked .tx-jname { font-weight: 700; color: var(--ink); }
 .tx-words { font-family: var(--serif); font-style: italic; color: var(--ink-2); margin: 2px 0; }
 .tx-cite { font-size: 12.5px; margin-top: 2px; overflow-wrap: anywhere; }
 @media (max-width: 640px) {

@@ -11,7 +11,17 @@
   const $ = (id) => document.getElementById(id);
   const num = (n) => Number(n).toLocaleString('en-US');
   const MINUS = '−';
-  const css = (name, dflt) => getComputedStyle(document.body).getPropertyValue(name).trim() || dflt;
+  // (2026-11-01, themes) a color of the theme in use (theme.css, or titlewords.css :root), read when a chart is drawn;
+  // the fallback is its White value
+  const tc = (name, dflt) => (window.LSRTheme ? LSRTheme.color(name, dflt) : dflt);
+  // the card's own color behind a chart (white under White): the outline of a line's dots
+  const hole = (node) => {
+    for (let n = node; n && n.nodeType === 1; n = n.parentElement) {
+      const b = getComputedStyle(n).backgroundColor;
+      if (b && b !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(b)) return b;
+    }
+    return tc('--bg', '#ffffff');
+  };
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const el = (tag, attrs, text) => {
     const e = document.createElement(tag);
@@ -32,10 +42,10 @@
   const span = (w) => w[0] + '–' + w[1];
   const spanS = (w) => w[0] + '–' + String(w[1]).slice(2);
 
-  // the tiers' colors: as in sections 3-5 (insights.js TI_COLORS); the comparison side of a bar chart in the page's
-  // second ink, the tiers together in a dark gray line
-  const TI_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
-  const C_OTHER = '#8f8e87', C_ALL = '#52514e';
+  // the tiers' colors: as in sections 3-5 (insights.js TI_COLORS); the comparison side of a bar chart in a gray, the
+  // tiers together in the page's second ink (2026-11-01, themes: each read from the theme in use when a chart is drawn)
+  const TI_COLORS = [['--s1', '#2a78d6'], ['--s2', '#eb6834'], ['--s3', '#1baf7a'], ['--s4', '#eda100'], ['--s5', '#e87ba4']];
+  const C_OTHER = () => tc('--tw-other', '#8f8e87'), C_ALL = () => tc('--chart-ink-2', '#52514e');
   const SHORT = { '101 & below, unranked': '101+', 'Top 14': 'Top 14' };
   const short = (b) => SHORT[b] || b;
   const tierName = (b) => (b === 'all' ? 'All tiers' : b === 'Top 14' || /below/.test(b) ? b : 'Ranked ' + b);
@@ -49,7 +59,7 @@
 
   const font = { fontFamily: 'system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif' };
   function base(W) {
-    const ink2 = css('--ink-2', '#52514e'), muted = css('--muted', '#898781'), grid = css('--grid', '#e8e7e1'), axis = css('--axis', '#c3c2b7');
+    const ink2 = tc('--chart-ink-2', '#52514e'), muted = tc('--tw-muted', '#898781'), grid = tc('--chart-grid', '#e8e7e1'), axis = tc('--chart-axis', '#c3c2b7');
     const axisStyle = { color: muted, fontSize: '11.5px', fontVariantNumeric: 'tabular-nums' };
     return {
       chart: { backgroundColor: 'transparent', style: font, spacing: [8, 4, 6, 2], animation: false },
@@ -57,7 +67,7 @@
       credits: { enabled: false },
       exporting: { enabled: false },
       legend: { enabled: false },           // each figure's key is the page's own, above the chart
-      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: 'rgba(255,255,255,0.97)', borderColor: 'rgba(11,11,11,0.10)',
+      tooltip: { followTouchMove: false, useHTML: false, outside: false, hideDelay: 150, backgroundColor: tc('--chart-tooltip', 'rgba(255,255,255,0.97)'), borderColor: tc('--chart-ring', 'rgba(11,11,11,0.10)'),
         borderRadius: 8, borderWidth: 1, shadow: { opacity: 0.08 }, padding: 9, style: { fontSize: '12.5px', color: ink2, whiteSpace: 'normal', width: Math.min(300, W - 40) + 'px' } },
       xAxis: { lineColor: axis, tickColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
       yAxis: { lineColor: axis, gridLineColor: grid, labels: { style: axisStyle }, title: { style: { color: muted, fontSize: '12px', fontWeight: '400' } } },
@@ -67,6 +77,7 @@
   }
   // a card's chart: the one it had is taken down first
   function makeChart(c, opts, W) {
+    if (window.LSRTheme) LSRTheme.highcharts(Highcharts);      // (2026-11-01, themes) Highcharts' own text and rules
     c.chart = Highcharts.chart(c.box, Highcharts.merge(base(W), opts));
     return c.chart;
   }
@@ -144,7 +155,7 @@
     s.append(i, document.createTextNode(label));
     return s;
   }
-  const tierColor = (b) => (b === 'all' ? C_ALL : TI_COLORS[T.bands.indexOf(b)]);
+  const tierColor = (b) => { if (b === 'all') return C_ALL(); const t = TI_COLORS[T.bands.indexOf(b)]; return t ? tc(t[0], t[1]) : undefined; };
   const tierItems = (withAll) => T.bands.map((b) => [b, short(b)]).concat(withAll ? [['all', 'All tiers']] : []);
   const fail = (box) => box.replaceChildren(el('p', { class: 'text-muted tw-none' }, 'The chart could not be drawn; the table below lists the numbers.'));
 
@@ -187,8 +198,8 @@
       chart: { type: 'bar', height: H, spacingRight: 10 },
       accessibility: { description: ax.description, point: { valueDecimals: 2 } },
       xAxis: { categories: rows.map((r) => r[0]), lineWidth: 1, tickLength: 0,
-        labels: { step: 1, style: { color: css('--ink-2', '#52514e'), fontSize: narrow ? '11.5px' : '12.5px', textOverflow: 'ellipsis', width: narrow ? Math.round(W * 0.36) + 'px' : '200px' } } },
-      yAxis: { accessibility: { rangeDescription: ax.range }, title: { text: narrow ? 'z-score' : 'z-score (weighted log-odds ratio)' }, gridLineWidth: 1, plotLines: [{ value: 0, width: 1, color: css('--axis', '#c3c2b7'), zIndex: 3 }],
+        labels: { step: 1, style: { color: tc('--chart-ink-2', '#52514e'), fontSize: narrow ? '11.5px' : '12.5px', textOverflow: 'ellipsis', width: narrow ? Math.round(W * 0.36) + 'px' : '200px' } } },
+      yAxis: { accessibility: { rangeDescription: ax.range }, title: { text: narrow ? 'z-score' : 'z-score (weighted log-odds ratio)' }, gridLineWidth: 1, plotLines: [{ value: 0, width: 1, color: tc('--chart-axis', '#c3c2b7'), zIndex: 3 }],
         labels: { formatter() { return this.value < 0 ? MINUS + Math.abs(this.value) : String(this.value); } } },
       tooltip: { formatter() {
         const r = rows[this.point.index];
@@ -196,8 +207,8 @@
           esc(bName) + ': ' + num(r[3]) + ' of ' + num(R.n[1]) + ' titles (' + share(r[3], R.n[1]) + ')';
       } },
       plotOptions: { bar: { borderWidth: 0, pointPadding: 0.08, groupPadding: 0.04, borderRadius: 2,
-        dataLabels: { enabled: !narrow, formatter() { return zf(this.y); }, style: { fontSize: '11px', fontWeight: '400', color: css('--muted', '#898781'), textOutline: 'none' } } } },
-      series: [{ name: 'z-score', data: rows.map((r) => ({ y: r[1], color: r[1] >= 0 ? aColor : C_OTHER })) }],
+        dataLabels: { enabled: !narrow, formatter() { return zf(this.y); }, style: { fontSize: '11px', fontWeight: '400', color: tc('--tw-muted', '#898781'), textOutline: 'none' } } } },
+      series: [{ name: 'z-score', data: rows.map((r) => ({ y: r[1], color: r[1] >= 0 ? aColor : C_OTHER() })) }],
     }, W);
   }
   function oddsTable(tb, R, aName, bName, note) {
@@ -224,7 +235,7 @@
     const draw = () => {
       const R = V().distinct[st.dTier];
       const a = tierLab(st.dTier), b = 'Other tiers';
-      c.legend.replaceChildren(swatch(tierName(st.dTier) + ' (z above 0)', tierColor(st.dTier), 'box'), swatch('Other four tiers (z below 0)', C_OTHER, 'box'));
+      c.legend.replaceChildren(swatch(tierName(st.dTier) + ' (z above 0)', tierColor(st.dTier), 'box'), swatch('Other four tiers (z below 0)', C_OTHER(), 'box'));
       reset(c);
       try { oddsChart(c, R, a, b, tierColor(st.dTier), c.h.textContent + ', ' + tierName(st.dTier) + ', ' + byText()); } catch (e) { fail(c.box); }
       oddsTable(t.tb, R, a, b, 'z: the weighted log-odds ratio over its standard error; a title counts a word once.');
@@ -246,7 +257,7 @@
     const draw = () => {
       const R = V().change[st.cTier];
       const a = span(r), b = span(e);
-      c.legend.replaceChildren(swatch(tierName(st.cTier) + ', ' + a + ' (z above 0)', tierColor(st.cTier), 'box'), swatch(tierName(st.cTier) + ', ' + b + ' (z below 0)', C_OTHER, 'box'));
+      c.legend.replaceChildren(swatch(tierName(st.cTier) + ', ' + a + ' (z above 0)', tierColor(st.cTier), 'box'), swatch(tierName(st.cTier) + ', ' + b + ' (z below 0)', C_OTHER(), 'box'));
       reset(c);
       try { oddsChart(c, R, a, b, tierColor(st.cTier), c.h.textContent + ', ' + tierName(st.cTier) + ', ' + byText()); } catch (err) { fail(c.box); }
       oddsTable(t.tb, R, a, b, tierName(st.cTier) + '. z: the weighted log-odds ratio over its standard error; a title counts a word once.');
@@ -277,11 +288,11 @@
     c.box.style.height = H + 'px';
     const cats = T.windows.map((w) => (narrow ? spanS(w) : span(w)));
     const fmt = (v) => (isShare ? pct1(v) : v.toFixed(2));
-    const keys = T.bands.concat(['all']);
+    const keys = T.bands.concat(['all']), bg = hole(c.box);
     const series = keys.map((b, k) => {
       const rows = get(b);
       return { name: tierName(b), color: tierColor(b), dashStyle: b === 'all' ? 'ShortDash' : 'Solid', lineWidth: b === 'all' ? 1.5 : 2,
-        marker: { enabled: true, radius: narrow ? 2.5 : 3, symbol: 'circle' },
+        marker: { enabled: true, radius: narrow ? 2.5 : 3, symbol: 'circle', lineColor: bg },
         data: rows.map((r, i) => (r ? { y: isShare ? 100 * value(r) : value(r), n: r[0], w: T.windows[i] } : null)), b: b };
     });
     const vals = [];
@@ -310,7 +321,7 @@
   function tierLegend(c) {
     c.legend.replaceChildren();
     T.bands.forEach((b) => c.legend.appendChild(swatch(tierName(b), tierColor(b))));
-    c.legend.appendChild(swatch('All tiers', C_ALL, 'dash'));
+    c.legend.appendChild(swatch('All tiers', C_ALL(), 'dash'));
   }
 
   function figForm() {
@@ -368,7 +379,7 @@
     const draw = () => {
       const F = V().frames[st.oTier];
       const col = tierColor(st.oTier);
-      c.legend.replaceChildren(swatch(span(e), C_OTHER, 'box'), swatch(span(r), col, 'box'));
+      c.legend.replaceChildren(swatch(span(e), C_OTHER(), 'box'), swatch(span(r), col, 'box'));
       reset(c);
       const ok = [F.n[0] >= T.min_n, F.n[1] >= T.min_n];
       const sh = (k, j) => (ok[j] && F.n[j] ? k / F.n[j] : null);
@@ -385,11 +396,11 @@
           makeChart(c, {
             chart: { type: 'bar', height: H, spacingRight: 10 },
             accessibility: { description: ax.description, point: { valueDecimals: 2, valueSuffix: '%' } },
-            xAxis: { categories: T.frames, tickLength: 0, labels: { step: 1, style: { color: css('--ink-2', '#52514e'), fontSize: narrow ? '11.5px' : '12.5px', width: narrow ? Math.round(W * 0.38) + 'px' : '200px' } } },
+            xAxis: { categories: T.frames, tickLength: 0, labels: { step: 1, style: { color: tc('--chart-ink-2', '#52514e'), fontSize: narrow ? '11.5px' : '12.5px', width: narrow ? Math.round(W * 0.38) + 'px' : '200px' } } },
             yAxis: { min: 0, tickPixelInterval: narrow ? 72 : 110, accessibility: { rangeDescription: ax.range }, title: { text: 'share of titles' }, labels: { style: { textOverflow: 'none' }, formatter() { return this.value + '%'; } } },
             tooltip: { formatter() { const p = this.point; return '<b>' + esc(T.frames[p.index]) + '</b><br/>' + esc(this.series.name) + ': ' + num(p.k) + ' of ' + num(p.n) + ' titles (' + (p.y).toFixed(2) + '%)'; } },
             plotOptions: { bar: { borderWidth: 0, pointPadding: 0.04, groupPadding: 0.12, borderRadius: 2 } },
-            series: [mk(0, span(e), C_OTHER), mk(1, span(r), col)],
+            series: [mk(0, span(e), C_OTHER()), mk(1, span(r), col)],
           }, W);
         }
       } catch (err) { fail(c.box); }
@@ -494,4 +505,7 @@
   }
   document.addEventListener('lsr-insights-data', () => setTimeout(start, 0));
   if (window.LSR_INS) setTimeout(start, 0);
+  // (2026-11-01, themes) another theme picked: the charts drawn so far are drawn again in its colors, with their keys;
+  // a section not drawn yet takes the theme in force when it draws
+  document.addEventListener('lsr-theme', () => { if (drawn && T && T.review && T.school) redrawAll(); });
 })();

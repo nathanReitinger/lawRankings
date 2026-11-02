@@ -19,6 +19,15 @@
   <link rel="stylesheet" href="insights.css">
   <!-- (2026-10-28) this page's own pieces, on insights.css's tokens: the picker's "Also" row, and the groups under the tree -->
   <style>
+    /* (2026-11-01, themes) the tree's own colors, read by taxonomy.js when it draws: a higher-level group, a group, a
+       journal, the links between them, and the other journals' labels beside the ones marked from an area tag */
+    :root { --tx-top: var(--seq-650); --tx-field: #2770cb; --tx-jour: #5f9be3; --tx-link: #b9cfe9; --tx-dim: #9a9893; }
+    :root[data-theme="paper"], :root[data-theme="solarized-light"] { --tx-jour: var(--seq-400); --tx-link: #7290b4; --tx-dim: var(--muted); }
+    :root[data-theme="contrast-light"] { --tx-top: var(--seq-700); --tx-field: var(--general); --tx-jour: var(--seq-550); --tx-link: var(--border-soft); --tx-dim: var(--chart-muted); }
+    /* on a dark page the blues run the other way: the higher-level group lightest, the journals deepest */
+    :root[data-mode="dark"] { --tx-top: var(--seq-200); --tx-field: var(--seq-350); --tx-jour: var(--seq-450); --tx-link: #4a6a8e; --tx-dim: var(--chart-muted); }
+    :root[data-theme="solarized-dark"] { --tx-field: var(--general-text); --tx-jour: #268bd2; --tx-link: #4a7a94; }
+    :root[data-theme="contrast-dark"] { --tx-top: var(--seq-100); --tx-field: var(--general); --tx-jour: var(--seq-300); --tx-link: var(--border-soft); }
     .tx-pick .tx-pick-break { flex-basis: 100%; height: 0; }
     .tx-pick .tx-pick-also { align-self: center; margin: 0 2px; font: 600 11.5px var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
     .tx-pick .tx-pick-all { font-weight: 600; }

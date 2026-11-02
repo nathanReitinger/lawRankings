@@ -1,6 +1,77 @@
 /* Law School Rankings: the mastheads (moved here from style.css on 2026-11-01, when the themes came in; loaded
    just before style.css). The 26 wordmarks, the version line, the "About" buttons, the logo gallery. */
 
+/* (2026-11-01, themes) the mastheads' own colors, per theme (the shared ones are in theme.css). White: each value is
+   the color the masthead had before themes. Paper and Solarized keep White's inks (each reads on their page). Dark
+   themes: each wordmark keeps its design and its hue, in a light ink of that hue (Oxford blue a pale steel blue,
+   cardinal a soft rose, bronze a pale brass); a reversed panel stays reversed (ink panel, letters in the page color).
+   High contrast: every ink is the text color, the tints solid. --mh-ink-N is wordmark N's ink (--mh-ink: 1, 2, 6, 10). */
+:root {
+  --mh-ink: #000; --mh-ink-3: #14213d; --mh-ink-4: #8c1515; --mh-ink-5: #1f2a37; --mh-ink-7: #5b4520; --mh-ink-8: #26282b;
+  --mh-ink-9: #6d1a2b; --mh-ink-11: #0d1b2a; --mh-ink-12: #121417; --mh-ink-13: #0f1720; --mh-ink-14: #0f1a2b; --mh-ink-15: #0b1d33;
+  --mh-ink-16: #142130; --mh-ink-17: #102a43; --mh-ink-18: #102542; --mh-ink-19: #10264a; --mh-ink-20: #12233a; --mh-ink-21: #121212;
+  --mh-ink-22: #1b2b44; --mh-ink-23: #0b2545; --mh-ink-24: #0f2a44; --mh-ink-25: #101828; --mh-ink-26: #16161b;
+  --mh-blue: #1f5fbf;                                                     /* 15's lifted letters and stems, 25's parted half */
+  --mh13-top: #1c2836; --mh13-split: #04070b; --mh13-bot: #121b26; --mh13-letter: #f2f5f8; --mh13-edge: transparent;   /* 13's tiles */
+  --mh16-plate: #15212f; --mh16-edge: #4a5d74; --mh16-letter: #c9d3de; --mh16-s1: #e2e8ef; --mh16-s2: #b4c0cd; --mh16-s3: #8797aa;   /* 16's plate, steel */
+  --mh17-lens: #1557a0; --mh17-grid: rgb(21 87 160 / 0.14); --mh17-paper: #f2f6fb;   /* 17's lens: blue on blueprint paper */
+  --mh18-side: #8fa7c4; --mh18-end: #c9d6e5;                              /* 18's extrusion */
+  --mh19-a: #10264a; --mh19-b: #1d5f8f; --mh19-l: 48%; --mh19-c: 0.14; --mh19-drift: v19-drift;   /* 19's colours */
+  --mh20-fill: #9fb6d3; --mh20-run: #1f64d6;                              /* 20's fill and running dashes */
+  --mh23-accent: #c8102e; --mh23-shadow: #b9c6d6;                         /* 23's crimson and steel shadow */
+  --mh25-lo: #3b5a80;                                                     /* 25's lower half */
+  --mh-close: #666; --mh-btn-hover: #888; --mh-on-fav: #fff;              /* the gallery */
+}
+:root[data-theme="paper"] { --mh-on-fav: #1d1b17; }
+:root[data-theme="solarized-light"] { --mh-on-fav: #002b36; }
+:root[data-mode="dark"] {
+  --mh-ink: var(--text-strong); --mh-ink-3: #c1d1f1; --mh-ink-4: #eca5a6; --mh-ink-5: #b1bfd1; --mh-ink-7: #ddc39c; --mh-ink-8: #e2e5e8;
+  --mh-ink-9: #eaaaaf; --mh-ink-11: #c3d3e5; --mh-ink-12: #e2e5e8; --mh-ink-13: #c9d2dd; --mh-ink-14: #c5d2e6; --mh-ink-15: #bfd3ed;
+  --mh-ink-16: #c4d3e4; --mh-ink-17: #bad4f0; --mh-ink-18: #bcd3f3; --mh-ink-19: #bad2f9; --mh-ink-20: #c0d3ed; --mh-ink-21: var(--text-strong);
+  --mh-ink-22: #c0d2ee; --mh-ink-23: #b8d3f7; --mh-ink-24: #b9d4f1; --mh-ink-25: #c7d1e5; --mh-ink-26: #e4e4ea;
+  --mh-blue: #8ab4f8;
+  --mh13-top: #2a3747; --mh13-split: #0a0e13; --mh13-bot: #1f2a37;      /* (lifted off the page) */
+  --mh16-plate: #192636; --mh16-edge: #566a83;
+  --mh17-lens: #a9cdf6; --mh17-grid: rgb(138 180 248 / 0.16); --mh17-paper: #10243b;   /* a dark blueprint */
+  --mh18-side: #4d6687; --mh18-end: #2c3b50;
+  --mh19-a: #bad2f9; --mh19-b: #9ed2f7; --mh19-l: 84%; --mh19-c: 0.075; --mh19-drift: v19-drift-dk;
+  --mh20-fill: #2b4467; --mh20-run: #8ab4f8;
+  --mh23-accent: #e5677a; --mh23-shadow: #3a4b61;
+  --mh25-lo: #8fa6c4;
+  --mh-on-fav: #1a1a1a;
+}
+:root[data-theme="contrast-light"] {
+  --mh-ink: #000; --mh-ink-3: #000; --mh-ink-4: #000; --mh-ink-5: #000; --mh-ink-7: #000; --mh-ink-8: #000; --mh-ink-9: #000;
+  --mh-ink-11: #000; --mh-ink-12: #000; --mh-ink-13: #000; --mh-ink-14: #000; --mh-ink-15: #000; --mh-ink-16: #000; --mh-ink-17: #000;
+  --mh-ink-18: #000; --mh-ink-19: #000; --mh-ink-20: #000; --mh-ink-21: #000; --mh-ink-22: #000; --mh-ink-23: #000; --mh-ink-24: #000;
+  --mh-ink-25: #000; --mh-ink-26: #000;
+  --mh-blue: #0b4f9c;
+  --mh16-plate: #000; --mh16-edge: #000; --mh16-letter: #fff; --mh16-s1: #fff; --mh16-s2: #e6ebf0; --mh16-s3: #c9d3de;
+  --mh17-lens: #0b4f9c; --mh17-grid: rgb(11 79 156 / 0.3); --mh17-paper: #fff;
+  --mh18-side: #8c8c8c; --mh18-end: #c4c4c4;
+  --mh19-a: #000; --mh19-b: #000; --mh19-l: 30%; --mh19-c: 0.12; --mh19-drift: none;
+  --mh20-fill: #000; --mh20-run: #0000c8;
+  --mh23-shadow: transparent;
+  --mh25-lo: #1f3a5c;
+}
+:root[data-theme="contrast-dark"] {
+  --mh-ink: #fff; --mh-ink-3: #fff; --mh-ink-4: #fff; --mh-ink-5: #fff; --mh-ink-7: #fff; --mh-ink-8: #fff; --mh-ink-9: #fff;
+  --mh-ink-11: #fff; --mh-ink-12: #fff; --mh-ink-13: #fff; --mh-ink-14: #fff; --mh-ink-15: #fff; --mh-ink-16: #fff; --mh-ink-17: #fff;
+  --mh-ink-18: #fff; --mh-ink-19: #fff; --mh-ink-20: #fff; --mh-ink-21: #fff; --mh-ink-22: #fff; --mh-ink-23: #fff; --mh-ink-24: #fff;
+  --mh-ink-25: #fff; --mh-ink-26: #fff;
+  --mh-blue: #8fc8ff;
+  --mh13-top: #1f1f1f; --mh13-split: #000; --mh13-bot: #141414; --mh13-letter: #fff; --mh13-edge: #fff;
+  --mh16-plate: #000; --mh16-edge: #fff; --mh16-letter: #fff; --mh16-s1: #fff; --mh16-s2: #e6ebf0; --mh16-s3: #c9d3de;
+  --mh17-lens: #8fc8ff; --mh17-grid: rgb(143 200 255 / 0.3); --mh17-paper: #000;
+  --mh18-side: #7a7a7a; --mh18-end: #3d3d3d;
+  --mh19-a: #fff; --mh19-b: #fff; --mh19-l: 94%; --mh19-c: 0.04; --mh19-drift: none;
+  --mh20-fill: #fff; --mh20-run: #ffe600;
+  --mh23-accent: #ff7a8a; --mh23-shadow: transparent;
+  --mh25-lo: #c8dcf5;
+  --mh-on-fav: #000;
+}
+:root[data-theme]:not([data-theme="light"]) { --mh-close: var(--dialog-muted); --mh-btn-hover: var(--dialog-border-hover); }
+
 /* ---------- masthead: professional wordmarks, a different one on each visit (2026-10-25; 25 of them since 2026-10-26) ----------
    The owner: "come up with 10 different versions of the header logo. Cycle through them. None should be cyberpunk.
    All should look very professional. A user gets a different one on each visit." A one-line script in each page's
@@ -9,7 +80,7 @@
    framed wordmark, the About button below; sizes scale with the wordmark, --k fits wider faces to the same width. */
 .lsr-mast-wrap { container-type: inline-size; display: flex; justify-content: center; padding: 22px 0 16px; overflow-x: hidden; overflow-x: clip; }
 .lsr-mast {
-  --ink: #000; --paper: #fff; --fi: max(11px, calc(0.486em / var(--k))); --k: 1; --ls: 0.170em; --face: 'Alegreya', 'Libre Caslon Text', Georgia, serif; --weight: 450;
+  --ink: var(--mh-ink); --paper: var(--bg); --fi: max(11px, calc(0.486em / var(--k))); --k: 1; --ls: 0.170em; --face: 'Alegreya', 'Libre Caslon Text', Georgia, serif; --weight: 450;
   font-size: clamp(15px, calc(var(--k) * 5.4vw), calc(var(--k) * 3rem));   /* (review) without container units */
   font-size: clamp(15px, calc(var(--k) * 100cqi / 16.4), calc(var(--k) * 3rem));
   display: inline-grid; grid-template-columns: minmax(0, max-content); max-width: 100%; margin: 0; color: var(--ink);
@@ -23,8 +94,8 @@
 .lsr-issue a:hover { text-decoration: underline; }
 /* (2026-10-26) the build hash: a little extra information, small, light and in a code face, not a headline */
 .lsr-stamp { align-self: center; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace; font-weight: 400;
-  font-size: max(9.5px, 0.62em); letter-spacing: 0.04em; word-spacing: 0; text-transform: none; color: #9b978f; cursor: help; }
-.build-hash { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.92em; color: #9b978f; }
+  font-size: max(9.5px, 0.62em); letter-spacing: 0.04em; word-spacing: 0; text-transform: none; color: var(--stamp); cursor: help; }
+.build-hash { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.92em; color: var(--stamp); }
 .lsr-mark {
   margin: calc(0.4315em - 0.112 * var(--fi)) 0 0;
   padding: 0.256em 0.855em 0.261em 0.833em;
@@ -37,30 +108,30 @@
 .lsr-mark > a:hover, .lsr-mark > a:focus { text-decoration: none; }
 /* (2026-10-29) keyboard focus: one solid rectangle round the link's own box (Chrome's 'auto' ring took in 17's lens and
    notched round 23's words), and no site-wide link underline through the wordmark */
-.lsr-mark > a:focus-visible { outline: max(2px, 0.04em) solid #1f64d6; outline-offset: 0.1em; }
+.lsr-mark > a:focus-visible { outline: max(2px, 0.04em) solid var(--focus); outline-offset: 0.1em; }
 /* 2. double rule, Garamond */
 :is(html[data-mast="2"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="2"]) .lsr-mast { --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.16em; }
 :is(html[data-mast="2"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="2"]) .lsr-mark { border: max(3px, 0.11em) double var(--ink); }
 /* 3. Oxford blue: rules above and below, no sides */
-:is(html[data-mast="3"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="3"]) .lsr-mast { --ink: #14213d; --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --k: 0.99; --ls: 0.15em; }
+:is(html[data-mast="3"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="3"]) .lsr-mast { --ink: var(--mh-ink-3); --face: 'Cormorant Garamond', Garamond, Georgia, serif; --weight: 600; --k: 0.99; --ls: 0.15em; }
 :is(html[data-mast="3"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="3"]) .lsr-mark { border-width: max(2px, 0.08em) 0; box-shadow: inset 0 0.07em 0 var(--paper), inset 0 0.1em 0 var(--ink), inset 0 -0.07em 0 var(--paper), inset 0 -0.1em 0 var(--ink); }
 /* 4. cardinal, a fine frame */
-:is(html[data-mast="4"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="4"]) .lsr-mast { --ink: #8c1515; --face: 'Crimson Pro', Georgia, serif; --weight: 500; --k: 1.07; --ls: 0.15em; }
+:is(html[data-mast="4"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="4"]) .lsr-mast { --ink: var(--mh-ink-4); --face: 'Crimson Pro', Georgia, serif; --weight: 500; --k: 1.07; --ls: 0.15em; }
 :is(html[data-mast="4"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="4"]) .lsr-mark { border-width: max(1px, 0.04em); }
 /* 5. ink panel, letters reversed out */
-:is(html[data-mast="5"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="5"]) .lsr-mast { --ink: #1f2a37; --face: 'Libre Caslon Text', Georgia, serif; --weight: 400; --k: 0.9; --ls: 0.16em; }
-:is(html[data-mast="5"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="5"]) .lsr-mark { background: var(--ink); color: #fff; }
+:is(html[data-mast="5"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="5"]) .lsr-mast { --ink: var(--mh-ink-5); --face: 'Libre Caslon Text', Georgia, serif; --weight: 400; --k: 0.9; --ls: 0.16em; }
+:is(html[data-mast="5"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="5"]) .lsr-mark { background: var(--ink); color: var(--paper); }
 /* 6. small caps with an inner hairline */
 :is(html[data-mast="6"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="6"]) .lsr-mast { --face: 'Playfair Display SC', Georgia, serif; --weight: 400; --k: 1.03; --ls: 0.12em; }
 :is(html[data-mast="6"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="6"]) .lsr-mark { outline: 1px solid var(--ink); outline-offset: calc(-1 * max(5px, 0.2em)); }
 /* 7. engraved capitals, bronze ink, frame within a frame */
-:is(html[data-mast="7"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="7"]) .lsr-mast { --ink: #5b4520; --face: 'Cinzel', 'Trajan Pro', Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.14em; }
+:is(html[data-mast="7"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="7"]) .lsr-mast { --ink: var(--mh-ink-7); --face: 'Cinzel', 'Trajan Pro', Georgia, serif; --weight: 500; --k: 0.95; --ls: 0.14em; }
 :is(html[data-mast="7"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="7"]) .lsr-mark { border-width: max(1px, 0.04em); box-shadow: inset 0 0 0 max(3px, 0.12em) var(--paper), inset 0 0 0 max(4px, 0.16em) var(--ink); }
 /* 8. slab serif, heavy frame */
-:is(html[data-mast="8"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="8"]) .lsr-mast { --ink: #26282b; --face: 'Zilla Slab', Rockwell, Georgia, serif; --weight: 600; --k: 1.04; --ls: 0.11em; }
+:is(html[data-mast="8"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="8"]) .lsr-mast { --ink: var(--mh-ink-8); --face: 'Zilla Slab', Rockwell, Georgia, serif; --weight: 600; --k: 1.04; --ls: 0.11em; }
 :is(html[data-mast="8"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="8"]) .lsr-mark { border-width: max(2.5px, 0.1em); }
 /* 9. Garamond italic, title case, burgundy */
-:is(html[data-mast="9"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="9"]) .lsr-mast { --ink: #6d1a2b; --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 1.35; --ls: 0.02em; }
+:is(html[data-mast="9"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="9"]) .lsr-mast { --ink: var(--mh-ink-9); --face: 'EB Garamond', Garamond, Georgia, serif; --weight: 500; --k: 1.35; --ls: 0.02em; }
 :is(html[data-mast="9"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="9"]) .lsr-mark { font-style: italic; text-transform: none; }
 /* 10. modern serif, small capitals between a hairline and a heavy rule */
 :is(html[data-mast="10"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="10"]) .lsr-mast { --face: 'Source Serif 4', Georgia, serif; --weight: 600; --k: 0.98; --ls: 0.14em; }
@@ -110,7 +181,7 @@
 /* 11. type: a weight field (P37 "Variable font transition on hover", P36 "Breathe"): light capitals between hairlines;
    each letter's weight follows its closeness to the pointer, up to black, inside a cell as wide as the letter at rest
    (so nothing reflows); one wave of weight runs through on load */
-:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mast { --ink: #0d1b2a; --face: 'Roboto Flex', 'Helvetica Neue', Arial, sans-serif; --weight: 300; --ls: 0.1em; --k: 0.98; }
+:is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mast { --ink: var(--mh-ink-11); --face: 'Roboto Flex', 'Helvetica Neue', Arial, sans-serif; --weight: 300; --ls: 0.1em; --k: 0.98; }
 :is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark { border: 0; border-top: max(1px, 0.025em) solid var(--ink); border-bottom: max(1px, 0.025em) solid var(--ink); padding: 0.27em 0.12em 0.29em; }
 :is(html[data-mast="11"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="11"]) .lsr-mark .ch { font-weight: calc(300 + 420 * var(--d)); font-variation-settings: 'opsz' 40;
   animation: v11-wave 1.4s cubic-bezier(.45,0,.3,1) backwards; animation-delay: calc(0.3s + var(--i) * 55ms); }
@@ -120,7 +191,7 @@
 /* 12. type: a typewriter (P21, P22): the letters come one keystroke at a time behind a caret, which blinks and goes;
    then a block cursor (P22's thick caret) sits on the character under the pointer, jumping cell to cell, and reverses
    it (mix-blend-mode: difference; the mark is isolated, so it only meets its own paper) */
-:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mast { --ink: #121417; --face: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace; --weight: 600; --ls: 0.02em; --k: 1.22; }
+:is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mast { --ink: var(--mh-ink-12); --face: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace; --weight: 600; --ls: 0.02em; --k: 1.22; }
 :is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark { border: 0; border-bottom: max(2px, 0.05em) solid var(--ink); padding: 0.14em 0.14em 0.2em; isolation: isolate; }
 :is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark > a { position: relative; }
 :is(html[data-mast="12"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="12"]) .lsr-mark .ch { animation: v12-key 1ms steps(1) backwards; animation-delay: calc(0.25s + var(--i) * 62ms); }
@@ -137,17 +208,17 @@
    as it turns away), then the lower one opens down from it (scaleY 0 to 1). On load each tile flips from blank to its
    letter, left to right; a tile the pointer crosses flips once more, to the same letter (never a digit or another
    letter: 2026-10-29, the roller showed stray numerals) */
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mast { --ink: #0f1720; --face: 'Space Grotesk', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0em; --k: 0.9; }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mast { --ink: var(--mh-ink-13); --face: 'Space Grotesk', Helvetica, Arial, sans-serif; --weight: 600; --ls: 0em; --k: 0.9; }
 :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { border: 0; padding: 0.05em 0; --h13: max(0.5px, 0.012em); }
 @container (max-width: 560px) { :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark { --h13: 0px; } }
 :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch { display: inline-block; position: relative; min-width: 0.76em; margin: 0 0.028em; padding: 0.15em 0.07em 0.13em; line-height: 1; text-align: center; vertical-align: top;
-  color: #f2f5f8; background: linear-gradient(180deg, #1c2836 0 calc(50% - var(--h13)), #04070b 0 calc(50% + var(--h13)), #121b26 0 100%); border-radius: 0.07em; }
+  color: var(--mh13-letter); background: linear-gradient(180deg, var(--mh13-top) 0 calc(50% - var(--h13)), var(--mh13-split) 0 calc(50% + var(--h13)), var(--mh13-bot) 0 100%); border-radius: 0.07em; }
 :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-c=" "] { min-width: 0.2em; padding-left: 0; padding-right: 0; background: none; }
 :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::before, :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::after { content: attr(data-c); position: absolute; inset: 0; padding: inherit; border-radius: inherit;
-  white-space: pre; color: #f2f5f8; transform-origin: 50% 50%; pointer-events: none; animation-delay: calc(0.15s + var(--i) * 45ms); animation-fill-mode: backwards; }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::before { clip-path: inset(0 0 50% 0); background: linear-gradient(180deg, #1c2836 0 calc(50% - var(--h13)), #04070b 0);
+  white-space: pre; color: var(--mh13-letter); box-shadow: inset 0 0 0 1px var(--mh13-edge); transform-origin: 50% 50%; pointer-events: none; animation-delay: calc(0.15s + var(--i) * 45ms); animation-fill-mode: backwards; }
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::before { clip-path: inset(0 0 50% 0); background: linear-gradient(180deg, var(--mh13-top) 0 calc(50% - var(--h13)), var(--mh13-split) 0);
   animation-name: v13-in-top; animation-duration: 0.56s; animation-timing-function: cubic-bezier(.55,0,.9,.45); }
-:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::after { clip-path: inset(50% 0 0 0); background: linear-gradient(180deg, #04070b 0 calc(50% + var(--h13)), #121b26 0);
+:is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch::after { clip-path: inset(50% 0 0 0); background: linear-gradient(180deg, var(--mh13-split) 0 calc(50% + var(--h13)), var(--mh13-bot) 0);
   animation-name: v13-in-bot; animation-duration: 0.56s; animation-timing-function: linear; }
 :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-c=" "]::before, :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-c=" "]::after { content: none; }
 :is(html[data-mast="13"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="13"]) .lsr-mark .ch[data-r="a"]::before { animation: v13-top-a 0.46s cubic-bezier(.55,0,.9,.45); }
@@ -163,7 +234,7 @@
 /* 14. type: a width swap (P39 "Work/Life", font-variation by animation): the word under the pointer goes wide and heavy
    (Archivo's wdth 125, wght 850) while the other two condense and lighten; on load the emphasis runs once along the
    name, word by word */
-:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mast { --ink: #0f1a2b; --face: 'Archivo', 'Helvetica Neue', Arial, sans-serif; --weight: 600; --ls: 0.03em; --k: 1.02; }
+:is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mast { --ink: var(--mh-ink-14); --face: 'Archivo', 'Helvetica Neue', Arial, sans-serif; --weight: 600; --ls: 0.03em; --k: 1.02; }
 :is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark { border: 0; border-top: max(3px, 0.07em) solid var(--ink); border-bottom: max(1px, 0.025em) solid var(--ink); padding: 0.21em 0.1em 0.23em; }
 :is(html[data-mast="14"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="14"]) .lsr-mark :is(.w1, .w2, .w3) { font-stretch: 100%; font-weight: 600; transition: font-stretch 0.6s cubic-bezier(.2,.8,.2,1), font-weight 0.6s cubic-bezier(.2,.8,.2,1);
   animation: v14-swap 1.1s cubic-bezier(.17,.04,.04,.99) backwards; }
@@ -179,12 +250,12 @@
 
 /* 15. type: a wave lift (P9 "Wavy text", the lift driven by the pointer): the name on a ruled baseline; letters near
    the pointer rise, each on a fine stem down to the rule, like the bars of a chart; one wave runs through on load */
-:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mast { --ink: #0b1d33; --face: 'Inter Tight', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.045em; --k: 1.18; }
+:is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mast { --ink: var(--mh-ink-15); --face: 'Inter Tight', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.045em; --k: 1.18; }
 :is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark { border: 0; border-bottom: max(1px, 0.025em) solid var(--ink); padding: 0.32em 0.1em 0.12em; }
 :is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch { display: inline-block; position: relative; transform: translateY(calc(var(--d) * -0.28em));
-  color: color-mix(in oklab, var(--ink), #1f5fbf calc(var(--d) * 75%)); animation: v15-wave 1.1s cubic-bezier(.45,0,.3,1) backwards; animation-delay: calc(0.2s + var(--i) * 42ms); }
+  color: color-mix(in oklab, var(--ink), var(--mh-blue) calc(var(--d) * 75%)); animation: v15-wave 1.1s cubic-bezier(.45,0,.3,1) backwards; animation-delay: calc(0.2s + var(--i) * 42ms); }
 :is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch::after { content: ""; position: absolute; left: calc(50% - var(--ls) / 2); top: 0.86em; width: max(1px, 0.022em); margin-left: min(-0.5px, -0.011em);
-  height: calc(0.27em + var(--d) * 0.28em); background: #1f5fbf; opacity: clamp(0, calc((var(--d) - 0.04) * 5), 1); pointer-events: none; }
+  height: calc(0.27em + var(--d) * 0.28em); background: var(--mh-blue); opacity: clamp(0, calc((var(--d) - 0.04) * 5), 1); pointer-events: none; }
 :is(html[data-mast="15"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="15"]) .lsr-mark .ch[data-c=" "]::after { content: none; }
 @keyframes v15-wave { 50% { transform: translateY(-0.2em); } }
 
@@ -192,28 +263,28 @@
    plate, and a crisp double glint (two hard bands, clipped to the letters) that crosses once on load and then stands
    where the pointer is */
 @property --sx16 { syntax: '<length-percentage>'; inherits: false; initial-value: -2em; }
-:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mast { --ink: #142130; --face: 'Saira', 'Helvetica Neue', Arial, sans-serif; --weight: 600; --ls: 0.08em; --k: 0.84; }
-:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark { font-stretch: 125%; border: 0; border-radius: 2px; background: #15212f; padding: 0.26em 0.6em 0.28em;
-  box-shadow: inset 0 0 0 1px #4a5d74; }
+:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mast { --ink: var(--mh-ink-16); --face: 'Saira', 'Helvetica Neue', Arial, sans-serif; --weight: 600; --ls: 0.08em; --k: 0.84; }
+:is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark { font-stretch: 125%; border: 0; border-radius: 2px; background: var(--mh16-plate); padding: 0.26em 0.6em 0.28em;
+  box-shadow: inset 0 0 0 1px var(--mh16-edge); }
 /* (2026-10-29) brushed steel as one continuous gradient (no chrome horizon), and the glint two fine slanted lines in a
    pale tint, slanted across a letter or two, not a white slab over one */
 :is(html[data-mast="16"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="16"]) .lsr-mark > a { --sx16: calc(-2em + var(--pa) * (var(--mx) * 0.643 + 2.38em));   /* (the pointer's x on the 40deg gradient line) */
-   color: #c9d3de; -webkit-text-fill-color: transparent;
+   color: var(--mh16-letter); -webkit-text-fill-color: transparent;
   background: linear-gradient(40deg, transparent calc(var(--sx16) - 0.035em), rgb(255 255 255 / 0.75) calc(var(--sx16) - 0.035em), rgb(255 255 255 / 0.75) calc(var(--sx16) + 0.035em), transparent calc(var(--sx16) + 0.035em),
       transparent calc(var(--sx16) + 0.15em), rgb(255 255 255 / 0.5) calc(var(--sx16) + 0.15em), rgb(255 255 255 / 0.5) calc(var(--sx16) + 0.19em), transparent calc(var(--sx16) + 0.19em)),
-    linear-gradient(180deg, #e2e8ef 0%, #b4c0cd 50%, #8797aa 100%);
+    linear-gradient(180deg, var(--mh16-s1) 0%, var(--mh16-s2) 50%, var(--mh16-s3) 100%);
   -webkit-background-clip: text; background-clip: text; animation: v16-sheen 1.6s cubic-bezier(.5,0,.25,1) 0.35s backwards; }
 @keyframes v16-sheen { from { --sx16: -2em; } to { --sx16: calc(100% + 2em); } }
 
 /* 17. light: a lens (P35 "Rainbow spotlight", FF2 "Flashlight"): the name in ink; a hard-edged circle at the pointer
    (clip-path: circle) shows it again, magnified and in blue on blueprint paper, inside a fine ring. It crosses the name
    once on load (masthead.js), as P35's spotlight swings on its own */
-:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mast { --ink: #102a43; --face: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; --weight: 700; --ls: 0.07em; --k: 1.0; }
+:is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mast { --ink: var(--mh-ink-17); --face: 'Instrument Sans', 'Helvetica Neue', Arial, sans-serif; --weight: 700; --ls: 0.07em; --k: 1.0; }
 :is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark { border: max(1px, 0.03em) solid var(--ink); padding: 0.28em 0.6em 0.3em; }
 :is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a { position: relative; isolation: isolate; --ly: clamp(0.3em, var(--my), 0.7em); --lr: calc(max(0, var(--pa) - 0.15) / 0.85 * 0.7em); }
 :is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a::after { content: attr(data-text); position: absolute; top: -0.6em; bottom: -0.6em; left: -1em; right: -1em; padding: 0.6em 1em; box-sizing: border-box; z-index: 1;
-  white-space: pre; text-align: left; color: #1557a0; pointer-events: none; opacity: min(1, calc(var(--pa) * 4));   /* (fades with its ring: no ringless blue dot as it closes) */
-  background: linear-gradient(rgb(21 87 160 / 0.14) 1px, transparent 1px) 0 0 / 0.2em 0.2em, linear-gradient(90deg, rgb(21 87 160 / 0.14) 1px, transparent 1px) 0 0 / 0.2em 0.2em, #f2f6fb;
+  white-space: pre; text-align: left; color: var(--mh17-lens); pointer-events: none; opacity: min(1, calc(var(--pa) * 4));   /* (fades with its ring: no ringless blue dot as it closes) */
+  background: linear-gradient(var(--mh17-grid) 1px, transparent 1px) 0 0 / 0.2em 0.2em, linear-gradient(90deg, var(--mh17-grid) 1px, transparent 1px) 0 0 / 0.2em 0.2em, var(--mh17-paper);
   clip-path: circle(var(--lr) at calc(var(--mx) + 1em) calc(var(--ly) + 0.6em)); transform: scale(1.3); transform-origin: calc(var(--mx) + 1em) calc(var(--ly) + 0.6em); }
 :is(html[data-mast="17"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="17"]) .lsr-mark > a::before { content: ""; position: absolute; z-index: 2; left: var(--mx); top: var(--ly); width: calc(2.6 * var(--lr)); height: calc(2.6 * var(--lr)); translate: -50% -50%;
   box-sizing: border-box; border: max(1.5px, 0.035em) solid var(--ink); border-radius: 50%; opacity: min(1, calc(var(--pa) * 4)); pointer-events: none; }
@@ -221,13 +292,13 @@
 /* 18. light: an extrusion (P12 "HEY", P2 "Dancing shadow"): four hard text-shadows in navy tints build up in steps on
    load; then they fall away from the pointer as from a light held over the name, longer the further a letter is */
 @property --dep { syntax: '<number>'; inherits: true; initial-value: 1; }
-:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mast { --ink: #102542; --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.08em; --k: 1.1; }
+:is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mast { --ink: var(--mh-ink-18); --face: 'Outfit', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.08em; --k: 1.1; }
 :is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark { border: 0; padding: 0.14em 0.2em 0.3em; }
 :is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark > a { animation: v18-build 0.6s steps(6, end) 0.25s backwards; }
 :is(html[data-mast="18"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="18"]) .lsr-mark .ch { --ox: calc(0.75 + var(--pa) * (var(--dx) * 1.5 - 0.75)); --oy: calc(0.75 + var(--pa) * (var(--dy) * 3 + 0.45 - 0.75)); --e: calc(var(--dep) * 0.016em);
-  text-shadow: calc(var(--ox) * var(--e)) calc(var(--oy) * var(--e)) 0 #8fa7c4, calc(var(--ox) * 2 * var(--e)) calc(var(--oy) * 2 * var(--e)) 0 #8fa7c4,
-    calc(var(--ox) * 3 * var(--e)) calc(var(--oy) * 3 * var(--e)) 0 #8fa7c4, calc(var(--ox) * 4 * var(--e)) calc(var(--oy) * 4 * var(--e)) 0 #8fa7c4,
-    calc(var(--ox) * 5 * var(--e)) calc(var(--oy) * 5 * var(--e)) 0 #8fa7c4, calc(var(--ox) * 6 * var(--e)) calc(var(--oy) * 6 * var(--e)) 0 #c9d6e5; }
+  text-shadow: calc(var(--ox) * var(--e)) calc(var(--oy) * var(--e)) 0 var(--mh18-side), calc(var(--ox) * 2 * var(--e)) calc(var(--oy) * 2 * var(--e)) 0 var(--mh18-side),
+    calc(var(--ox) * 3 * var(--e)) calc(var(--oy) * 3 * var(--e)) 0 var(--mh18-side), calc(var(--ox) * 4 * var(--e)) calc(var(--oy) * 4 * var(--e)) 0 var(--mh18-side),
+    calc(var(--ox) * 5 * var(--e)) calc(var(--oy) * 5 * var(--e)) 0 var(--mh18-side), calc(var(--ox) * 6 * var(--e)) calc(var(--oy) * 6 * var(--e)) 0 var(--mh18-end); }
 @keyframes v18-build { from { --dep: 0; } to { --dep: 1; } }
 
 /* 19. light: Houdini colour (FF13 "Animated CSS Gradient Text"): registered colour properties, so the colours
@@ -235,26 +306,27 @@
    bright centre and turns its hue, teal at the left of the name to violet at the right (every stop dark enough to read) */
 @property --c19a { syntax: '<color>'; inherits: true; initial-value: #10264a; }
 @property --c19b { syntax: '<color>'; inherits: true; initial-value: #1d5f8f; }
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mast { --ink: #10264a; --face: 'Manrope', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.07em; --k: 1.04; }
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mast { --ink: var(--mh-ink-19); --face: 'Manrope', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.07em; --k: 1.04; }
 :is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark { border: 0; border-top: max(2px, 0.05em) solid; border-bottom: max(2px, 0.05em) solid; border-image: linear-gradient(90deg, var(--c19a), var(--c19b), var(--c19a)) 1;
-  padding: 0.22em 0.14em 0.24em; animation: v19-drift 7s ease-in-out 2 alternate both; }   /* (out and back once, then still: no endless recalcs) */
-:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark > a { --c19b: oklch(48% 0.14 calc(252.5 + var(--pa) * (var(--u) - 0.5) * 115));   /* (back to the resting blue as the pointer leaves) */
+  padding: 0.22em 0.14em 0.24em; --c19a: var(--mh19-a); --c19b: var(--mh19-b); animation: var(--mh19-drift) 7s ease-in-out 2 alternate both; }   /* (out and back once, then still: no endless recalcs) */
+:is(html[data-mast="19"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="19"]) .lsr-mark > a { --c19b: oklch(var(--mh19-l) var(--mh19-c) calc(252.5 + var(--pa) * (var(--u) - 0.5) * 115));   /* (back to the resting blue as the pointer leaves) */
    transition: --c19b 0.5s ease; color: var(--c19a); -webkit-text-fill-color: transparent;
   background: linear-gradient(90deg, var(--c19a) 0%, var(--c19b) calc(var(--pa) * clamp(0px, var(--mx), 100%) + (1 - var(--pa)) * 50%), var(--c19a) 100%);
   -webkit-background-clip: text; background-clip: text; }
 @keyframes v19-drift { 0% { --c19a: #10264a; } 50% { --c19a: #24205a; } 100% { --c19a: #0d3a48; } }
+@keyframes v19-drift-dk { 0% { --c19a: #bad2f9; } 50% { --c19a: #ccccf8; } 100% { --c19a: #a7daef; } }   /* (2026-11-01, themes) the same drift in the dark themes' light inks */
 
 /* 20. light: drafted outlines (FF33 "CSS Text Handwriting Animation", FF50 "Animated Text"; masthead.js strokeMark): the
    name as SVG text over the link, drawn as a drafting outline on pale blueprint fill: on load stroke-dashoffset draws
    every contour at once and the fill comes in; the pointer sends blue dashes running round every contour as it moves.
    On a narrow screen, where hairline outlines would close up, the letters are solid ink */
-:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mast { --ink: #12233a; --face: 'Syncopate', 'Helvetica Neue', Arial, sans-serif; --weight: 700; --ls: 0.08em; --k: 0.74; }
+:is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mast { --ink: var(--mh-ink-20); --face: 'Syncopate', 'Helvetica Neue', Arial, sans-serif; --weight: 700; --ls: 0.08em; --k: 0.74; }
 :is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark { position: relative; border: 0; border-top: max(1px, 0.025em) solid var(--ink); border-bottom: max(1px, 0.025em) solid var(--ink); padding: 0.34em 0.2em 0.36em; }
 :is(html[data-mast="20"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="20"]) .lsr-mark.sv-on > a { color: transparent; }
 .sv-layer { position: absolute; overflow: visible; pointer-events: none; }
-.sv-ink { fill: #9fb6d3; stroke: var(--ink); stroke-width: var(--sw); stroke-linejoin: round; stroke-dasharray: var(--sl) var(--sl); stroke-dashoffset: 0;
+.sv-ink { fill: var(--mh20-fill); stroke: var(--ink); stroke-width: var(--sw); stroke-linejoin: round; stroke-dasharray: var(--sl) var(--sl); stroke-dashoffset: 0;
   animation: v20-draw 1.7s cubic-bezier(.5,0,.25,1) 0.15s backwards, v20-fill 0.7s ease 1.45s backwards; }
-.sv-run { fill: none; stroke: #1f64d6; stroke-width: calc(var(--sw) * 2.2); stroke-linecap: round; stroke-dasharray: var(--sd); stroke-dashoffset: calc(var(--mx) * -1.5); opacity: var(--pa); }
+.sv-run { fill: none; stroke: var(--mh20-run); stroke-width: calc(var(--sw) * 2.2); stroke-linecap: round; stroke-dasharray: var(--sd); stroke-dashoffset: calc(var(--mx) * -1.5); opacity: var(--pa); }
 @container (max-width: 560px) { .sv-ink { fill: var(--ink); } .sv-run { display: none; } }
 @keyframes v20-draw { from { stroke-dashoffset: var(--sl); } }
 @keyframes v20-fill { from { fill-opacity: 0; } }
@@ -264,7 +336,7 @@
    near the pointer each letter's ink level drops to the pointer's height, leaving its outline above, so the name
    reads like a row of gauges */
 @property --g21 { syntax: '<length-percentage>'; inherits: false; initial-value: 0%; }
-:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mast { --ink: #121212; --face: 'Archivo Black', 'Arial Black', Helvetica, sans-serif; --weight: 400; --ls: 0.05em; --k: 0.98; }
+:is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mast { --ink: var(--mh-ink-21); --face: 'Archivo Black', 'Arial Black', Helvetica, sans-serif; --weight: 400; --ls: 0.05em; --k: 0.98; }
 :is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark { border: 0; border-bottom: max(3px, 0.09em) solid var(--ink); padding: 0.1em 0.08em 0.14em; }
 :is(html[data-mast="21"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="21"]) .lsr-mark .ch { display: inline-block; color: var(--ink); -webkit-text-fill-color: transparent; -webkit-text-stroke: max(1.5px, 0.04em) var(--ink);
   --lv: calc(var(--d) * clamp(0.1em, var(--my), 0.4em) + var(--g21));   /* (at most the top 40% empties, to a tint, never to bare paper) */
@@ -276,7 +348,7 @@
    hairline outline, like the engraving on a certificate, in a double frame; they turn into place on load, and the
    pointer turns them (and slides them) as it moves */
 @property --h22 { syntax: '<angle>'; inherits: false; initial-value: -45deg; }
-:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mast { --ink: #1b2b44; --face: 'Red Hat Display', 'Helvetica Neue', Arial, sans-serif; --weight: 900; --ls: 0.06em; --k: 0.98; }
+:is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mast { --ink: var(--mh-ink-22); --face: 'Red Hat Display', 'Helvetica Neue', Arial, sans-serif; --weight: 900; --ls: 0.06em; --k: 0.98; }
 :is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark { border: max(1px, 0.025em) solid var(--ink); outline: max(1px, 0.025em) solid var(--ink); outline-offset: max(-4px, -0.11em); padding: 0.3em 0.6em 0.3em; }
 :is(html[data-mast="22"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="22"]) .lsr-mark > a { --h22: calc(-45deg + var(--pa) * (var(--u) - 0.5) * 120deg); --hp: max(3px, 0.075em); color: var(--ink); -webkit-text-fill-color: transparent; -webkit-text-stroke: max(0.8px, 0.018em) var(--ink);
   background: repeating-linear-gradient(var(--h22), var(--ink) 0 calc(var(--hp) * 0.5), transparent calc(var(--hp) * 0.5) var(--hp)) calc(var(--pa) * var(--mx) * -0.25) 0;
@@ -286,12 +358,12 @@
 /* 23. ink: an ink-plate wipe (P33 "Text shadow animation"): per word, a crimson copy wipes down over a pale one, then
    the ink copy wipes across it, word after word, leaving the ink on a fine steel shadow; the word the pointer comes
    onto prints again */
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mast { --ink: #0b2545; --face: 'Geist', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.04em; --k: 1.06; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark { border: 0; border-left: max(4px, 0.13em) solid #c8102e; padding: 0.1em 0.14em 0.16em 0.42em; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3) { display: inline-block; position: relative; color: #b9c6d6; transform: translate(0.05em, 0.05em); --t: 0.1s; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mast { --ink: var(--mh-ink-23); --face: 'Geist', Helvetica, Arial, sans-serif; --weight: 800; --ls: 0.04em; --k: 1.06; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark { border: 0; border-left: max(4px, 0.13em) solid var(--mh23-accent); padding: 0.1em 0.14em 0.16em 0.42em; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3) { display: inline-block; position: relative; color: var(--mh23-shadow); transform: translate(0.05em, 0.05em); --t: 0.1s; }
 :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark .w2 { --t: 0.22s; } :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark .w3 { --t: 0.34s; }
 :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::before, :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::after { content: attr(data-text); position: absolute; left: -0.05em; top: -0.05em; white-space: pre; overflow: hidden; pointer-events: none; }
-:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::before { color: #c8102e; max-height: 0; animation: v23-down 1.3s cubic-bezier(.61,1,.88,1) var(--t) backwards; }
+:is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::before { color: var(--mh23-accent); max-height: 0; animation: v23-down 1.3s cubic-bezier(.61,1,.88,1) var(--t) backwards; }
 :is(html[data-mast="23"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="23"]) .lsr-mark :is(.w1, .w2, .w3)::after { color: var(--ink); max-width: 100%; animation: v23-across 1.3s cubic-bezier(.61,1,.88,1) var(--t) backwards; }
 /* the word the pointer comes onto: the ink copy stays (never the pale copy alone); a crimson copy wipes down over it
    and draws back up, a short accent */
@@ -308,7 +380,7 @@
    "wght" 100 "ital" 0 on hover): heavy slanted capitals (Recursive's wght and slnt axes); each letter near the pointer
    stands up and thins, by its closeness, inside a cell as wide as the letter at rest (so nothing reflows); on load the
    letters lean and fill in from upright and light, one after another */
-:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mast { --ink: #0f2a44; --face: 'Recursive', Helvetica, Arial, sans-serif; --weight: 850; --ls: 0.05em; --k: 1.06; }
+:is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mast { --ink: var(--mh-ink-24); --face: 'Recursive', Helvetica, Arial, sans-serif; --weight: 850; --ls: 0.05em; --k: 1.06; }
 :is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark { border: 0; border-top: max(1px, 0.025em) solid var(--ink); border-bottom: max(4px, 0.1em) solid var(--ink); padding: 0.2em 0.14em 0.22em; }
 :is(html[data-mast="24"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="24"]) .lsr-mark .ch { font-weight: calc(850 - 520 * var(--d)); font-variation-settings: 'slnt' calc(-15 + 15 * var(--d)), 'CRSV' 0;
   animation: v24-lean 1.2s cubic-bezier(.3,0,.2,1) backwards; animation-delay: calc(0.2s + var(--i) * 45ms); }
@@ -321,14 +393,14 @@
    of the name stays whole, and nothing is drawn through the letters (2026-10-29: the whole line used to split, with a
    crimson ruled scale through it).
    The words are hidden behind their copies only once masthead.js has made them (a[data-split]) */
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mast { --ink: #101828; --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.06em; --k: 1.02; }
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mast { --ink: var(--mh-ink-25); --face: 'Sora', Helvetica, Arial, sans-serif; --weight: 700; --ls: 0.06em; --k: 1.02; }
 :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark { position: relative; border: 0; padding: 0.3em 0.14em 0.32em; --cut: 0.52em; }
 :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3) { display: inline-block; position: relative; color: transparent; --p25: 0; --t: 0.2s; }
 :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] .w2 { --t: 0.32s; } :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] .w3 { --t: 0.44s; }
 :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)[data-hot] { --p25: var(--pa); }
 :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::before, :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::after { content: attr(data-text); position: absolute; left: 0; top: 0; white-space: pre; pointer-events: none; transition: transform 0.25s cubic-bezier(.2,.8,.2,1); }
 :is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::before { color: var(--ink); clip-path: inset(-0.5em -0.5em calc(100% - var(--cut)) -0.5em); transform: translateY(calc(var(--p25) * -0.04em)); animation: v25-top 1.1s cubic-bezier(.16,1,.3,1) var(--t) backwards; }
-:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::after { color: color-mix(in oklab, #3b5a80, #1f5fbf calc(var(--p25) * 100%)); clip-path: inset(var(--cut) -0.5em -0.5em -0.5em); transform: translateY(calc(var(--p25) * 0.04em)); animation: v25-bottom 1.1s cubic-bezier(.16,1,.3,1) var(--t) backwards; }
+:is(html[data-mast="25"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="25"]) .lsr-mark > a[data-split] :is(.w1, .w2, .w3)::after { color: color-mix(in oklab, var(--mh25-lo), var(--mh-blue) calc(var(--p25) * 100%)); clip-path: inset(var(--cut) -0.5em -0.5em -0.5em); transform: translateY(calc(var(--p25) * 0.04em)); animation: v25-bottom 1.1s cubic-bezier(.16,1,.3,1) var(--t) backwards; }
 @keyframes v25-top { from { transform: translateY(-0.2em); } }
 @keyframes v25-bottom { from { transform: translateY(0.2em); } }
 /* (end of 11-25) */
@@ -356,38 +428,42 @@
 .lsr-right { display: inline-flex; align-items: baseline; gap: 0.9em; }
 .mast-pick { align-self: center; padding: 0; border: 0; background: none; cursor: pointer;
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-weight: 400; font-size: max(9.5px, 0.62em); letter-spacing: 0.04em;
-  text-transform: none; color: #77736c; text-decoration: underline; text-decoration-color: rgba(119, 115, 108, 0.45); text-underline-offset: 2px; }
-.mast-pick:hover, .mast-pick:focus-visible { color: #4a4740; text-decoration-color: currentColor; }
+  text-transform: none; color: var(--pick); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--pick) 45%, transparent); text-underline-offset: 2px; }
+.mast-pick:hover, .mast-pick:focus-visible { color: var(--pick-hover); text-decoration-color: currentColor; }
+/* (2026-11-01, themes) "theme" is easy to hit with a finger: an invisible area round it, no change to the line */
+.theme-pick { position: relative; }
+.theme-pick::after { content: ""; position: absolute; inset: -14px -10px -10px -6px; }
 html.mast-open { overflow: hidden; }
 .mast-gallery { position: fixed; inset: 0; z-index: 1100; display: none; align-items: flex-start; justify-content: center; padding: 4vh 16px;
-  background: rgba(20, 22, 28, 0.42); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); overflow-y: auto; }
+  background: var(--dialog-backdrop); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); overflow-y: auto; }
 .mast-gallery.on { display: flex; }
-.mast-panel { width: min(1080px, 100%); background: #fff; border-radius: 10px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); padding: 18px 20px 16px;
-  font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color: #222; }
+.mast-panel { width: min(1080px, 100%); background: var(--dialog-bg); border-radius: 10px; box-shadow: 0 20px 60px var(--dialog-shadow); padding: 18px 20px 16px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color: var(--dialog-text); }
 .mast-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .mast-top h2 { margin: 0 0 4px; font-size: 19px; }
-.mast-top p { margin: 0; font-size: 13.5px; color: #555; }
-.mast-x { border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: #666; padding: 0 4px; }
+.mast-top p { margin: 0; font-size: 13.5px; color: var(--dialog-muted); }
+.mast-x { border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: var(--mh-close); padding: 0 4px; }
 .mast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; margin-top: 14px; }
-.mast-card { display: flex; flex-direction: column; border: 1px solid #e3e1dc; border-radius: 8px; overflow: hidden; background: #fff; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
-.mast-card:hover { border-color: #b9b5ad; }
-.mast-card.is-now { border-color: #1c5cab; box-shadow: 0 0 0 2px rgba(28, 92, 171, 0.25); }
-.mast-card.is-fav { border-color: #b08d57; box-shadow: 0 0 0 2px rgba(176, 141, 87, 0.3); }
-.mast-preview { padding: 14px 12px 10px; pointer-events: none; }
-.mast-bar { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 7px 10px; border-top: 1px solid #efede8; background: #fafaf8; font-size: 12.5px; }
-.mast-no { color: #777; margin-right: auto; }
-.mast-bar button { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 3px 10px; font: inherit; cursor: pointer; color: #333; white-space: nowrap; }
-.mast-bar button:hover { border-color: #888; }
-.mast-vote[aria-pressed="true"] { background: #b08d57; border-color: #b08d57; color: #fff; }
+.mast-card { display: flex; flex-direction: column; border: 1px solid var(--dialog-border); border-radius: 8px; overflow: hidden; background: var(--bg); cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.mast-card:hover { border-color: var(--dialog-border-hover); }
+.mast-card.is-now { border-color: var(--now); box-shadow: 0 0 0 2px color-mix(in srgb, var(--now) 25%, transparent); }
+.mast-card.is-fav { border-color: var(--fav); box-shadow: 0 0 0 2px color-mix(in srgb, var(--fav) 30%, transparent); }
+.lsr-mast-wrap.mast-preview { padding: 14px 12px 10px; pointer-events: none; }   /* (2026-11-01: two classes, so style.css's phone padding for
+   the page's masthead, now loaded after this file, does not take the card's padding away) */
+.mast-bar { display: flex; align-items: center; gap: 8px; margin-top: auto; padding: 7px 10px; border-top: 1px solid var(--dialog-bar-border); background: var(--dialog-bar); font-size: 12.5px; }
+.mast-no { color: var(--dialog-faint); margin-right: auto; }
+.mast-bar button { border: 1px solid var(--dialog-btn-border); background: var(--dialog-btn); border-radius: 999px; padding: 3px 10px; font: inherit; cursor: pointer; color: var(--dialog-btn-text); white-space: nowrap; }
+.mast-bar button:hover { border-color: var(--mh-btn-hover); }
+.mast-vote[aria-pressed="true"] { background: var(--fav); border-color: var(--fav); color: var(--mh-on-fav); }
 .mast-bottom { margin-top: 14px; text-align: right; }
-.mast-shuffle { border: 1px solid #d6d3cc; background: #fff; border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+.mast-shuffle { border: 1px solid var(--dialog-btn-border); background: var(--dialog-btn); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; }
 @media (max-width: 520px) { .mast-grid { grid-template-columns: 1fr; } .mast-panel { padding: 14px 12px; } .mast-bar { gap: 6px; } .mast-bar button { padding: 3px 8px; } }
 
 /* 26. interactive: "Law School Rankings" in a pixel face, drawn as small dots that the pointer's movement scatters and
    that settle back (2026-10-28, the owner: "do one logo with a pixelated mover that changes motion based on mouse
    movement (small dots)"; masthead.js: pixelMark). The link keeps its place and its name; the dots replace its ink once
    they are ready, and the text shows in the pixel face if they never are. */
-:is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mast { --ink: #16161b; --face: 'Silkscreen', 'Courier New', monospace; --weight: 700; --ls: 0.04em; --k: 0.92; }
+:is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mast { --ink: var(--mh-ink-26); --face: 'Silkscreen', 'Courier New', monospace; --weight: 700; --ls: 0.04em; --k: 0.92; }
 :is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mark { position: relative; border: 0; padding: 0.2em 0.25em 0.26em; text-transform: none; }
 :is(html[data-mast="26"] .lsr-mast-wrap:not(.mast-preview), .mast-preview[data-mast="26"]) .lsr-mark.px-on > a { color: transparent; }
 .px-canvas { position: absolute; pointer-events: none; }
