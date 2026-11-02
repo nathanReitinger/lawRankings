@@ -240,7 +240,11 @@
   // <head> script reads before anything is drawn; a second press clears it), and "A new masthead each visit" goes back
   // to a new one each visit. The votes stay
   // in each visitor's browser: a static site has nowhere to count them.
-  const FAMILY = (n) => (n <= 10 ? 'Classic' : n <= 15 ? 'Type' : n <= 20 ? 'Light' : n <= 25 ? 'Ink' : 'Interactive');
+  const FAMILY_MORE = {   // 27-46 (2026-11-02)
+    27: 'Motion', 28: 'Type', 29: 'Classic', 30: 'Ink', 31: 'Light', 32: 'Type', 33: 'Classic', 34: 'Motion',
+    35: 'Ink', 36: 'Light', 37: 'Type', 38: 'Type', 39: 'Ink', 40: 'Classic', 41: 'Motion', 42: 'Classic',
+    43: 'Type', 44: 'Light', 45: 'Type', 46: 'Motion' };
+  const FAMILY = (n) => (n <= 10 ? 'Classic' : n <= 15 ? 'Type' : n <= 20 ? 'Light' : n <= 25 ? 'Ink' : n === 26 ? 'Interactive' : FAMILY_MORE[n] || 'Interactive');
   const PIN = 'lsr.mastPin';
   const pinned = () => { try { return +(localStorage.getItem(PIN) || 0); } catch (e) { return 0; } };
   let gallery = null, fontsAll = false, opener = null;
@@ -753,6 +757,10 @@
     11: { r: 2.1, fixw: true }, 12: { cell: true }, 13: { r: 0.75, hot: 'roll' }, 14: { words: true, ww: true }, 15: { r: 2.4 },
     16: {}, 17: { sweep: true }, 18: { r: 9 }, 19: {}, 20: {},
     21: { r: 1.8 }, 22: {}, 23: { words: true }, 24: { r: 1.9, fixw: true }, 25: { words: true },
+    // 27-46 (2026-11-02; 33, 34 and 35 do not follow the pointer)
+    27: {}, 28: { r: 1.5 }, 29: { r: 2.2 }, 30: { r: 9 }, 31: {}, 32: {}, 36: {}, 37: {}, 38: { r: 1.6 },
+    39: { r: 0.75, hot: 'roll' }, 40: { words: true, fixw: true }, 41: { r: 1.6 }, 42: {}, 43: { words: true },
+    44: {}, 45: { r: 2.2, fixw: true }, 46: { words: true },
   };
   const MARK_VARS = ['--pa', '--mx', '--my', '--ux', '--uy', '--u', '--gx', '--cx', '--cw'], CH_VARS = ['--d', '--dx', '--dy', '--w'];
   const reacting = new Map();
@@ -984,5 +992,7 @@
 
   window.LSR = { stampMasthead: stampMasthead, siteFooter: siteFooter, email: MAINTAINER_EMAIL, repo: REPO, crunch: crunch,
     openLogos: openGallery,
+    // (2026-11-01) show masthead n on this page; and a pointer setting for a title not yet in REACT (to try one out)
+    setMast: applyMast, mastReact: (n, cfg) => { REACT[n] = cfg; reactSync(); },
     unpack: unpack, people: people };
 })();
