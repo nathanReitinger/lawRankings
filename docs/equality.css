@@ -26,7 +26,7 @@
   background: none; font: inherit; color: var(--ink-2); cursor: pointer; text-align: left; line-height: 1.25; }
 .eq-key:hover { border-color: var(--hair); color: var(--ink); }
 .eq-key[aria-pressed="true"] { border-color: var(--ink-2); color: var(--ink); background: var(--plane); }
-.eq-key:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.eq-key:focus-visible { outline: 2px solid var(--i-accent); outline-offset: 1px; }
 .eq-legend i { flex: none; width: 18px; height: 3px; border-radius: 2px; }
 .eq-legend .eq-lab, .eq-legend .eq-long { display: inline; }
 .eq-ref { padding: 0 9px; min-height: 30px; }
@@ -42,7 +42,7 @@
 .eq-card .ins-table th, .eq-card .ins-table td { overflow-wrap: break-word; }
 .eq-card .ins-table thead th { vertical-align: bottom; font-weight: 600; color: var(--ink-2); }
 .eq-card .ins-table tbody th { font-weight: 400; text-align: left; }
-.eq-card .ins-table td small { display: block; color: var(--muted); font-size: 11px; }
+.eq-card .ins-table td small { display: block; color: var(--i-muted); font-size: 11px; }
 .eq-note { font-size: 12.5px; color: var(--ink-2); margin: 8px 0 0; max-width: 760px; line-height: 1.4; }
 
 @media (max-width: 759px) {

@@ -72,9 +72,9 @@
   const list = (name, dflt) => { const v = css(name).split(',').map((x) => x.trim()).filter(Boolean); return v.length === dflt.length ? v : dflt; };
   function readColors() {
     WHITE = !window.LSRTheme || LSRTheme.get().theme === 'light';
-    INK = css('--ink') || '#0b0b0b'; INK2 = css('--ink-2') || '#52514e'; MUTED = css('--muted') || '#898781';
-    GRID = css('--grid') || '#e8e7e1'; AXIS = css('--axis') || '#c3c2b7'; ACCENT = css('--accent') || '#2a78d6';
-    DIM = css('--dim') || '#c9c8c0'; SURF = css('--surface') || '#ffffff'; HAIR = css('--hair') || 'rgba(11,11,11,0.10)';
+    INK = css('--ink') || '#0b0b0b'; INK2 = css('--ink-2') || '#52514e'; MUTED = css('--i-muted') || '#898781';
+    GRID = css('--grid') || '#e8e7e1'; AXIS = css('--axis') || '#c3c2b7'; ACCENT = css('--i-accent') || '#2a78d6';
+    DIM = css('--dim') || '#c9c8c0'; SURF = css('--i-surface') || '#ffffff'; HAIR = css('--hair') || 'rgba(11,11,11,0.10)';
     TIP_BG = css('--chart-tooltip') || 'rgba(255,255,255,0.97)';
     NODE_OFF = css('--ins-node-off') || '#b3b2a9'; NODE = css('--ins-node') || '#8f8e86';
     BLUE_STRONG = css('--ins-blue-strong') || '#1c5cab'; BLUE_SOFT = css('--ins-blue-soft') || '#86b6ef';
@@ -1106,7 +1106,7 @@
     const span = end - y0;
     const yrRows = INS.years.map((y, i) => [y, i]).filter(([y]) => y >= y0 && y <= end);
     const kinds = ['flagship', 'specialty'];
-    const color = { flagship: css('--flagship'), specialty: css('--specialty') };
+    const color = { flagship: css('--flagship'), specialty: css('--i-specialty') };
     const v = INS[variant()];
     const series = kinds.map((k) => ({ k: k, pts: yrRows.map(([y, i]) => ({ y: y, v: measureOf(v[k][i], st.measure), n: v[k][i][0] })).filter((d) => d.v != null && d.n >= 20) }));
     const vmax = max(series, (s) => max(s.pts, (d) => d.v)) || 1;
@@ -1267,7 +1267,7 @@
     });
     const pick = st.school;
     const pickPts = pick == null ? [] : periods.map((p, i) => { const v = p.bySchool.get(pick); return v ? { x: i, y: v[1] / v[0], custom: { s: pick, n: v[0], co: v[1], k: i } } : null; });
-    const SPEC = css('--specialty'), DARK = BLUE_STRONG;
+    const SPEC = css('--i-specialty'), DARK = BLUE_STRONG;
     // the legend (identity never by color alone) and the table behind the chart
     const lg = $('spreadLegend');
     lg.replaceChildren();
