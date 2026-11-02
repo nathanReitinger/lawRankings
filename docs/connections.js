@@ -130,7 +130,7 @@
       from, to, eFrom, eTo, lFrom, lTo, sRank, sBand, ownJ, col, NJ, src, minor, noHome: !!own,
       rankCol: src === 'peer' ? 3 : 2, srcShort: src === 'peer' ? 'TaxProf peer' : 'U.S. News', srcName: src === 'peer' ? 'TaxProf peer rank' : 'U.S. News overall rank',
       art: minor ? 'research articles' : 'articles', Art: minor ? 'Research articles' : 'Articles',
-      papers: 0, cross: 0, pairs: new Map(), drivers: new Map(), crossOf: new Int32Array(NS), crossList: [],   // 1. co-authors across schools
+      papers: 0, cross: 0, pairs: new Map(), drivers: new Map(),   // 1. co-authors across schools
       flagTot: new Int32Array(NS), flagHome: new Int32Array(NS),                                      // 2. the school's own review
       tier: BANDS.map(() => new Float64Array(NA)), tierAll: new Float64Array(NA),                     // 3. areas by group of schools
       teamTot: new Float64Array(NA), teamMulti: new Float64Array(NA), hasAuthors: !!P.authors,         // 4. co-authored, by area
@@ -173,8 +173,6 @@
       }
       if (schools.length >= 2) {
         R.cross++;
-        R.crossList.push(schools.slice());        // each such article's schools, once (for the wheel's per-school count)
-        schools.forEach((s) => { R.crossOf[s]++; });
         for (let i = 0; i < schools.length; i++) {
           for (let k = i + 1; k < schools.length; k++) {
             const a1 = Math.min(schools[i], schools[k]), b1 = Math.max(schools[i], schools[k]), key = a1 * NS + b1;
@@ -275,6 +273,10 @@
   };
 
   // ---------------------------------------------------------------- 1. co-authors at two schools
+  // (2026-11-01, the owner: "color code this so it's easier to read, or use a different chart") the pairs as bars, most
+  // articles first, each pair named by its two schools; the color is the group of the pair's lower-ranked school, in the
+  // page's colors for the groups (question 1)
+  const GROUP_WHITE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];   // White's --s1 to --s5
   function figPairs() {
     const S = DATA.schools, people = DATA.people, NS = R.NS;
     const all = [...R.pairs.entries()].map(([key, n]) => ({ a: Math.floor(key / NS), b: key % NS, n, key }));
@@ -283,10 +285,6 @@
     const cut = all.length > 20 ? all[19].n : 0;
     const top = all.filter((o) => o.n >= cut);
     if (!top.length) return null;
-    // each school's articles with a co-author at a school it is joined to on the wheel, each article once (an article
-    // with authors at three wheel schools sits in two of its ribbons)
-    const onWheel = new Set(top.map((o) => o.key)), wheelN = new Int32Array(NS);
-    R.crossList.forEach((ss) => ss.forEach((s) => { if (ss.some((o) => o !== s && onWheel.has(Math.min(s, o) * NS + Math.max(s, o)))) wheelN[s]++; }));
     top.forEach((o) => {
       const dm = R.drivers.get(o.key);
       let best = null, ties = 0;
@@ -294,6 +292,9 @@
       o.by = best ? best[0].split(',').map((x) => people[+x][0]) : null;
       o.byN = best ? best[1] : 0;
       o.tied = ties > 1;          // another pair of authors has as many (the one shown is the first found)
+      // the higher-ranked school first (unranked last); k: the group of the other one
+      [o.hi, o.lo] = (R.sRank[o.a] || 999) <= (R.sRank[o.b] || 999) ? [o.a, o.b] : [o.b, o.a];
+      o.k = Math.max(R.sBand[o.a], R.sBand[o.b]);
     });
     const share = R.cross / (R.papers || 1);
     const first = top[0];
@@ -301,66 +302,47 @@
     const c = card('cnPairs',
       'Co-authored articles across law schools, by pair of schools',
       R.Art + ' by current faculty at U.S. law schools, ' + yrs(R.from, R.to) + ', with authors at two or more of those schools (' +
-      num(R.cross) + ' of ' + num(R.papers) + ', ' + pct1(share) + '). The wheel joins the ' + top.length + ' pairs of schools with the most such articles; ' +
-      'the wider the ribbon, the more articles. Each author counts at the school where they teach now. Tap a ribbon for the count and the two authors with the most of those articles.');
-    // the pairs of schools on the wheel (10 or more articles) with the largest share by one pair of authors, when that
+      num(R.cross) + ' of ' + num(R.papers) + ', ' + pct1(share) + '). Each bar is one of the ' + top.length + ' pairs of schools with the most such articles, ' +
+      'the higher-ranked school named first; the color is the group of the lower-ranked school, by its ' + R.srcName + '. ' +
+      'Each author counts at the school where they teach now. Tap a bar for the count and the two authors with the most of those articles.');
+    // the pairs of schools in the chart (10 or more articles) with the largest share by one pair of authors, when that
     // share is 75% or more; pairs tied at that share are all named, most articles first
     const solos = top.filter((o) => o.n >= 10 && o.byN / o.n >= 0.75).sort((x, y) => y.byN / y.n - x.byN / x.n);
     const solo = solos.filter((o) => solos[0] && o.byN * solos[0].n === solos[0].byN * o.n);
     const lead = top.filter((o) => o.n === first.n);
-    c.foot.textContent = (lead.length === 1 ? 'Pair with the most articles: ' + S[first.a][0] + ' and ' + S[first.b][0] + ', ' + num(first.n) + ' article' + (first.n === 1 ? '' : 's') + '.'
+    c.foot.textContent = (lead.length === 1 ? 'Pair with the most articles: ' + S[first.hi][0] + ' and ' + S[first.lo][0] + ', ' + num(first.n) + ' article' + (first.n === 1 ? '' : 's') + '.'
       : 'Most articles for one pair of schools: ' + num(first.n) + ' (' + lead.length + ' pairs).') +
-      (solo.length ? ' Largest share by one pair of authors (pairs on the wheel with 10 or more articles): ' +
-        solo.map((o) => name(o.a) + '–' + name(o.b) + ' (' + o.by.join(' and ') + ', ' + num(o.byN) + ' of ' + num(o.n) + ')').join('; ') + '.' : '');
-    table(c.tb, ['Schools', 'Articles together', 'Most by'], top.map((o) => [S[o.a][0] + ' & ' + S[o.b][0], num(o.n), o.by ? o.by.join(' & ') + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '']));
-    if (!has('dependencywheel')) { noChart(c); return { c }; }
+      (solo.length ? ' Largest share by one pair of authors (pairs in the chart with 10 or more articles): ' +
+        solo.map((o) => name(o.hi) + '–' + name(o.lo) + ' (' + o.by.join(' and ') + ', ' + num(o.byN) + ' of ' + num(o.n) + ')').join('; ') + '.' : '');
+    table(c.tb, ['Schools', 'Articles together', 'Lower-ranked school’s group', 'Most by'],
+      top.map((o) => [S[o.hi][0] + ' & ' + S[o.lo][0], num(o.n), BANDS[o.k].label, o.by ? o.by.join(' & ') + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '']));
+    if (!has('bar')) { noChart(c); return { c }; }
+    // the key: only the groups in the chart, in their order
+    const ks = [...new Set(top.map((o) => o.k))].sort((x, y) => x - y);
+    legendKey(c, ks.map((k) => [BANDS[k].label, V('--s' + (k + 1), GROUP_WHITE[k]), 'box']));
+    c.legend.prepend(el('span', { class: 'cn-legend-k' }, 'Lower-ranked school:'));
     figs.push({ box: c.box, draw: () => {
       const W = c.box.clientWidth, narrow = W < 560;
-      const nodes = [...new Set(top.flatMap((o) => [o.a, o.b]))].sort((x, y) => (R.sRank[x] || 999) - (R.sRank[y] || 999) || S[x][0].localeCompare(S[y][0]));
-      // (2026-11-01, themes) the schools in the theme's own blue for them: dark on a light page, light on a dark one
-      const node = T('--cn-wheel-node', '#104281'), { blue, ink2 } = pal();
-      // the schools' names run out from the ring (a name along a small arc would be cut short); the wheel leaves
-      // room for the longest
+      const { ink2 } = pal();
       const lab = (s) => instLabel(S[s][0], narrow ? 14 : 18);
-      const fs = narrow ? 11 : 12.5, room = Math.max(...nodes.map((s) => lab(s).length)) * fs * 0.56 + 14;
-      let H = Math.round(Math.min(640, Math.max(320, narrow ? W : W * 0.62)));
-      const diam = Math.max(140, Math.min(W, H - 16) - 2 * room);
-      H = Math.max(H, Math.ceil(diam + 2 * room + 16));
+      const fs = narrow ? '11.5px' : '12.5px', row = narrow ? 28 : 26;
       makeChart(c.box, {
-        chart: { height: H, events: { render() {
-          const ch = this, s = ch.series[0];
-          if (ch.cnLabels) ch.cnLabels.destroy();
-          const ctr = s && s.getCenter ? s.getCenter() : null;      // [x, y, diameter] in the plot area
-          if (!ctr) return;
-          const g = ch.cnLabels = ch.renderer.g('cn-wheel-labels').attr({ zIndex: 7 }).add();
-          const cx = ch.plotLeft + ctr[0], cy = ch.plotTop + ctr[1], r = ctr[2] / 2 + 6;
-          s.nodes.forEach((n) => {
-            if (n.angle == null) return;
-            const left = Math.cos(n.angle) < 0, deg = n.angle * 180 / Math.PI + (left ? 180 : 0);
-            const t = ch.renderer.text(esc(n.name), cx + Math.cos(n.angle) * r, cy + Math.sin(n.angle) * r)
-              .attr({ rotation: deg, align: left ? 'right' : 'left' }).css({ color: ink2, fontSize: fs + 'px', fontWeight: '500' }).add(g);
-            t.element.setAttribute('dominant-baseline', 'central');
-          });
-        } } },
-        accessibility: { description: 'A dependency wheel of the ' + top.length + ' pairs of U.S. law schools whose current faculty wrote the most ' + R.art + ' together, ' + yrs(R.from, R.to) + '. The table below the chart lists the pairs.' },
+        chart: { type: 'bar', height: top.length * row + 16, spacing: [4, 4, 4, 2] },
+        accessibility: { description: 'A bar chart of the ' + top.length + ' pairs of U.S. law schools whose current faculty wrote the most ' + R.art + ' together, ' + yrs(R.from, R.to) +
+          ', each bar colored by the group of the lower-ranked school. The table below the chart lists the pairs.' },
+        xAxis: { categories: top.map((o) => lab(o.hi) + ' & ' + lab(o.lo)), lineWidth: 0, tickLength: 0,
+          labels: { style: { color: ink2, fontSize: fs, whiteSpace: 'nowrap', textOverflow: 'none' } } },
+        // room past the longest bar for its count
+        yAxis: { visible: false, min: 0, max: first.n * (narrow ? 1.14 : 1.08), startOnTick: false, endOnTick: false },
         tooltip: { formatter() {
-          const pt = this.point || this;
-          if (pt.isNode) {
-            const s = pt.custom && pt.custom.s;
-            return '<b>' + esc(S[s][0]) + '</b><br>' + num(R.crossOf[s]) + ' article' + (R.crossOf[s] === 1 ? '' : 's') + ' with a co-author at another U.S. law school<br>' + num(wheelN[s]) + ' with the schools it is joined to on the wheel';
-          }
-          const o = pt.custom || {};
-          return '<b>' + esc(S[o.a][0]) + ' & ' + esc(S[o.b][0]) + '</b><br>' + num(o.n) + ' article' + (o.n === 1 ? '' : 's') + ' together, ' + yrs(R.from, R.to) +
+          const pt = this.point || this, o = pt.custom || {};
+          return '<b>' + esc(S[o.hi][0]) + ' & ' + esc(S[o.lo][0]) + '</b><br>' + num(o.n) + ' article' + (o.n === 1 ? '' : 's') + ' together, ' + yrs(R.from, R.to) +
             (o.by ? '<br>Most by ' + esc(o.by.join(' & ')) + ' (' + o.byN + (o.tied ? ', tied' : '') + ')' : '');
         } },
-        series: [{
-          type: 'dependencywheel', name: 'Articles together', keys: ['from', 'to', 'weight'],
-          nodes: nodes.map((s) => ({ id: 's' + s, name: lab(s), color: node, custom: { s } })),
-          data: top.map((o) => ({ from: 's' + o.a, to: 's' + o.b, weight: o.n, color: blue, custom: o })),
-          size: diam, center: ['50%', '50%'], nodeWidth: narrow ? 7 : 9, nodePadding: 3, borderWidth: 0, linkOpacity: 0.32, curveFactor: 0.55,
-          states: { hover: { linkOpacity: 0.85 }, inactive: { linkOpacity: 0.08, opacity: 0.3 } },
-          dataLabels: { enabled: false },
-        }],
+        plotOptions: { bar: { grouping: false, pointPadding: 0, groupPadding: 0, pointWidth: narrow ? 14 : 15, borderWidth: 0, borderRadius: { radius: 4, where: 'end' },
+          dataLabels: { enabled: true, inside: false, crop: false, overflow: 'allow', x: 2, formatter() { return num(this.y); },
+            style: { color: ink2, fontSize: fs, fontWeight: '500', textOutline: 'none' } } } },
+        series: [{ name: 'Articles together', data: top.map((o) => ({ y: o.n, color: T('--s' + (o.k + 1), GROUP_WHITE[o.k]), custom: o })) }],
       }, W);
     } });
     return { c };
