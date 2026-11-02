@@ -11,6 +11,9 @@
   <!-- (2026-10-26, "use lazy loading") the data starts downloading at once; the fonts no longer hold up the scripts -->
   <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;0,700;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
   <noscript><link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,450;0,700;1,400&family=Noto+Serif:wght@700&display=swap" rel="stylesheet"></noscript>
+  <!-- (2026-11-01) KaTeX for the formulas under "Ranking calculation" -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.css" rel="stylesheet" media="print" onload="this.media='all'">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.11/katex.min.js" defer></script>
   <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="masthead.css">
   <link rel="stylesheet" href="style.css">
@@ -37,6 +40,14 @@
 
     <h2>Ranking calculation</h2>
     <p>The calculation follows CSrankings. Each article is one credit, split evenly between its co-authors (the <em>adjusted count</em>). Each <em>area</em> is either the flagship law reviews (the tiers checked under Flagship Law Reviews, combined) or one higher-level group of specialty journals (the groups checked in it, combined). A school's count is the geometric mean, across the selected areas, of its faculty's total adjusted count in that area plus one. Articles are credited to the school where the author teaches <em>now</em>; a professor's earlier articles count for their current school.</p>
+    <!-- (2026-11-01, the owner: "give the formulas in latex format in the ranking information") the calculation above as
+         formulas, typeset by KaTeX; without it each shows as its LaTeX source -->
+    <div class="tex-block"><code class="tex">C_{s,A} = \sum_{p \in F_s} \; \sum_{\substack{a \in \mathrm{Art}(p) \\ j(a) \in A,\; y(a) \in [y_0,\, y_1]}} \frac{1}{n_a}</code></div>
+    <div class="tex-block"><code class="tex">\mathrm{Count}_s = \Bigl( \prod_{A \in \mathcal{A}} \bigl( C_{s,A} + 1 \bigr) \Bigr)^{1/|\mathcal{A}|}</code></div>
+    <p>Here <code class="tex-i">C_{s,A}</code> is school <code class="tex-i">s</code>'s adjusted count in area <code class="tex-i">A</code>; <code class="tex-i">F_s</code> the people on its faculty now; <code class="tex-i">\mathrm{Art}(p)</code> the articles credited to person <code class="tex-i">p</code> (short pieces left out when "Skip short pieces" is on); <code class="tex-i">j(a)</code> and <code class="tex-i">y(a)</code> an article's journal and year; <code class="tex-i">[y_0, y_1]</code> the selected years; <code class="tex-i">n_a</code> the number of authors of article <code class="tex-i">a</code>; and <code class="tex-i">\mathcal{A}</code> the selected areas. Schools are ordered by <code class="tex-i">\mathrm{Count}_s</code>. With "Per professor" on, they are ordered by</p>
+    <div class="tex-block"><code class="tex">\mathrm{PerProf}_s = \frac{\mathrm{Count}_s - 1}{L_s}, \qquad L_s \ge 10</code></div>
+    <p>where <code class="tex-i">L_s</code> is the number of people on the school's faculty list. With "Leave out a school's own journals" on, the sum for <code class="tex-i">C_{s,A}</code> leaves out articles in the journals school <code class="tex-i">s</code> publishes.</p>
+    <details class="tex-src" id="texSource" hidden><summary>LaTeX source</summary><pre></pre></details>
 
     <h2 id="options">Options: "Per professor" and "Leave out a school's own journals"</h2>
     <p>Two settings under Options, both off by default and not part of the default ranking. <b>Per professor</b> divides each school's count (less the one added to each area) by the number of people on its faculty list; with one area, the result is adjusted articles per listed professor. The list is HeinOnline's faculty list for the school, which can include clinical, emeritus and visiting faculty; schools with fewer than ten people listed are left out. <b>Leave out a school's own journals</b> stops counting an article for the author's school when that school publishes the journal: its main law review, its online edition, or a specialty journal it hosts. The article still counts for a co-author at another school. Rank correlations of each option with <i>U.S. News</i>: <a href="#usnews">see below</a>.</p>
@@ -121,6 +132,22 @@
   <footer class="page-footer" id="footer"></footer>
 </div>
 <script src="masthead.js"></script>
+<script>
+  // (2026-11-01) KaTeX typesets each formula under "Ranking calculation" (display: .tex, in a sentence: .tex-i); the
+  // display formulas' LaTeX is also in the "LaTeX source" box to copy. Without KaTeX each stays as its source.
+  document.addEventListener('DOMContentLoaded', function () {
+    var src = [];
+    Array.prototype.forEach.call(document.querySelectorAll('code.tex, code.tex-i'), function (c) {
+      var t = c.textContent, display = c.classList.contains('tex');
+      if (display) src.push(t);
+      if (!window.katex) return;
+      var out = document.createElement(display ? 'div' : 'span');
+      try { katex.render(t, out, { displayMode: display, throwOnError: false }); c.replaceWith(out); } catch (e) { /* the source stays */ }
+    });
+    var box = document.getElementById('texSource');
+    if (box && src.length) { box.querySelector('pre').textContent = src.join('\n\n'); box.hidden = false; }
+  });
+</script>
 <script>
 (function () {
   'use strict';

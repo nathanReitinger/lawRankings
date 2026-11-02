@@ -216,6 +216,14 @@ a.area-link:hover { text-decoration-color: currentColor; }
 .prose ul { padding-left: 1.3em; }
 .prose table { font-size: 13px; width: 100%; }
 .prose th, .prose td { padding: 3px 8px; border-bottom: 1px solid var(--border-soft); }
+/* (2026-11-01) the formulas under "Ranking calculation" (KaTeX), scrolling sideways on a narrow screen; before KaTeX
+   (or without it) the LaTeX source */
+.tex-block { margin: 10px 0 12px; overflow-x: auto; overflow-y: hidden; text-align: center; }
+.tex-block .katex-display { margin: 0; }
+code.tex, code.tex-i { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 13px; color: var(--text); }
+code.tex { display: inline-block; white-space: pre-wrap; text-align: left; }
+.tex-src summary { cursor: pointer; color: var(--link); }
+.tex-src pre { margin: 6px 0 0; padding: 8px 10px; font-size: 12.5px; white-space: pre-wrap; background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 4px; color: var(--text); }
 .prose tbody tr:nth-of-type(odd) td { background: var(--surface-2); }
 .up { color: var(--up); } .down { color: var(--down); }
 
